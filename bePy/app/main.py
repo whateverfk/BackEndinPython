@@ -1,8 +1,21 @@
 from fastapi import FastAPI
-from app.db.init_db import init_db
+from app.routers import api_router
+from app.db.session import engine
+from app.db.base import Base
+from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI(title="Time Sync API")
 
-@app.on_event("startup")
-def on_startup():
-    init_db()
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # hoặc ["http://localhost:5500"] nếu bạn muốn giới hạn
+    allow_credentials=True,
+    allow_methods=["*"],  # QUAN TRỌNG: Cho phép OPTIONS
+    allow_headers=["*"],
+)
+
+# tạo bảng
+Base.metadata.create_all(bind=engine)
+
+app.include_router(api_router)
