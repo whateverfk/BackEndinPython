@@ -17,7 +17,7 @@ class Device(Base):
     brand = Column(String(50))
     is_checked = Column(Boolean, default=False)
 
-    # 🔐 OWNER – GÁN TỪ TOKEN
+    #  OWNER – GÁN TỪ TOKEN
     owner_superadmin_id = Column(
         UUID(as_uuid=True),
         index=True,

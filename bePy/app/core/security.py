@@ -9,6 +9,10 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SECRET_KEY = "Im_a_storm_that_is_approaching"
 ALGORITHM = "HS256"
 EXPIRE_MINUTES = 60 
+CLAIM_NAME = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"
+CLAIM_NAME_ID = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+CLAIM_ROLE = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+
 
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
@@ -16,33 +20,32 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, hash: str) -> bool:
     return pwd_context.verify(password, hash)
 
-def create_jwt(user_id: str, username: str, role: str) -> str:
+def create_jwt(user) -> str:
     payload = {
-        "sub": user_id,
-        "username": username,
-        "role": role,
+        CLAIM_NAME: user.username,
+        CLAIM_NAME_ID: str(user.id),
+        CLAIM_ROLE: user.role,
+
+        #  LOGIC QUAN TRỌNG
+        "superAdminId": str(
+            user.id if user.role == "SuperAdmin"
+            else user.owner_superadmin_id
+        ),
+
         "exp": datetime.utcnow() + timedelta(minutes=EXPIRE_MINUTES)
     }
+    print(" DEBUG - JWT Payload:", payload)
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
-# app/core/security.py
 
 def decode_jwt(token: str) -> dict:
     try:
-        payload = jwt.decode(
+        return jwt.decode(
             token,
             SECRET_KEY,
             algorithms=[ALGORITHM]
         )
-        return payload
     except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token hết hạn"
-        )
+        raise HTTPException(401, "Token expired")
     except jwt.InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token không hợp lệ"
-        )
-
+        raise HTTPException(401, "Invalid token")
