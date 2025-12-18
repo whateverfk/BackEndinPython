@@ -21,7 +21,7 @@ async def sync_background_worker():
             db: Session = SessionLocal()
 
             try:
-                # ✅ Lấy tất cả setting đang bật
+                #  Lấy tất cả setting đang bật
                 settings = (
                     db.query(SyncSetting)
                     .filter(SyncSetting.is_enabled == True)
@@ -34,7 +34,7 @@ async def sync_background_worker():
                     owner_id = setting.owner_superadmin_id
                     await engine.sync_by_superadmin(db, owner_id)
 
-                #  Delay theo setting đầu tiên (hoặc mặc định)
+                
                 delay_minutes = settings[0].interval_minutes if settings else 10
                 await asyncio.sleep(delay_minutes * 60)
 
