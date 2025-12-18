@@ -1,0 +1,361 @@
+/* =========================
+   GLOBAL
+========================= */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    background: #f4f4f4;
+    color: #333;
+}
+
+.hidden {
+    display: none;
+}
+
+/* =========================
+   NAVBAR
+========================= */
+.navbar {
+    background: #2c3e50;
+    padding: 15px 25px;
+    display: flex;
+    gap: 25px;
+}
+
+    .navbar a {
+        color: #fff;
+        text-decoration: none;
+        font-weight: bold;
+        cursor: pointer;
+        padding-bottom: 6px;
+    }
+
+        .navbar a.active {
+            border-bottom: 3px solid #1abc9c;
+        }
+
+/* =========================
+   LAYOUT
+========================= */
+.container {
+    padding: 25px;
+    display: flex;
+    justify-content: center;
+}
+
+/* =========================
+   CARD
+========================= */
+.card {
+    background: #fff;
+    padding: 22px;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+/* =========================
+   ADD / LIST PAGE
+========================= */
+.card {
+    width: 420px;
+}
+
+.list-box {
+    width: 560px;
+}
+
+/* =========================
+   INPUT
+========================= */
+input, select {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+}
+
+/* =========================
+   BUTTON
+========================= */
+button {
+    padding: 10px;
+    background: #1abc9c;
+    border: none;
+    color: white;
+    font-size: 15px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+    button:hover {
+        background: #16a085;
+    }
+
+.btn-primary {
+    background: #2563eb;
+}
+
+    .btn-primary:hover {
+        background: #1d4ed8;
+    }
+
+.btn-big {
+    width: 100%;
+    font-size: 16px;
+    padding: 12px;
+}
+
+.btn-edit {
+    padding: 6px 16px;
+    font-size: 14px;
+    border-radius: 6px;
+}
+
+/* =========================
+   DEVICE LIST ITEM
+========================= */
+li {
+    background: white;
+    padding: 15px 18px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    list-style: none;
+}
+
+    li.mark-delete {
+        background: #ffecec;
+        border-left: 6px solid #e74c3c;
+    }
+
+.device-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.device-title {
+    font-weight: bold;
+    font-size: 15px;
+}
+
+.device-actions {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+    /* =========================
+   CHECKBOX (DEVICE)
+========================= */
+    .device-actions label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 14px;
+        cursor: pointer;
+    }
+
+/* =========================
+   SYNC PAGE
+========================= */
+.sync-page {
+    width: 100%;
+    max-width: 1000px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.sync-top {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.sync-card {
+    min-height: 200px;
+}
+
+.form-row {
+    margin-bottom: 15px;
+}
+
+    .form-row input[type="number"] {
+        padding: 8px;
+    }
+
+/* =========================
+   TOGGLE SWITCH
+========================= */
+.toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    margin-bottom: 15px;
+}
+
+.toggle {
+    position: relative;
+    width: 46px;
+    height: 24px;
+}
+
+    .toggle input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+.slider {
+    position: absolute;
+    inset: 0;
+    background: #ccc;
+    border-radius: 999px;
+    transition: 0.3s;
+    cursor: pointer;
+}
+
+    .slider::before {
+        content: "";
+        position: absolute;
+        height: 18px;
+        width: 18px;
+        left: 3px;
+        bottom: 3px;
+        background: white;
+        border-radius: 50%;
+        transition: 0.3s;
+    }
+
+.toggle input:checked + .slider {
+    background: #22c55e;
+}
+
+    .toggle input:checked + .slider::before {
+        transform: translateX(22px);
+    }
+
+/* =========================
+   SYNC STATUS
+========================= */
+.sync-status {
+    margin-top: 12px;
+    font-weight: bold;
+    color: #2563eb;
+}
+
+
+/* =========================
+   LOG VIEW (SCROLL FIXED)
+========================= */
+.log-card {
+    height: 60vh;              /* chi?u cao c? ??nh */
+    display: flex;
+    flex-direction: column;
+}
+
+.log-card h3 {
+    margin: 0 0 10px 0;
+    font-size: 15px;
+}
+
+/* vùng cu?n */
+.log-scroll {
+    flex: 1;
+    overflow-y: auto;
+    background: #fafafa;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+}
+
+/* danh sách log */
+.log-list {
+    list-style: none;
+    margin: 0;
+    padding: 6px;
+}
+
+/* t?ng dòng log */
+.log-list li {
+    padding: 6px 8px;
+    border-bottom: 1px dashed #e5e7eb;
+    font-size: 12px;           /* ?? ch? nh? h?n */
+    line-height: 1.35;
+    font-family: Consolas, monospace; /* ?? ki?u log */
+}
+
+/* th?i gian */
+.log-list li strong {
+    font-size: 11px;
+    color: #6b7280;
+}
+
+/* hover nh? */
+.log-list li:hover {
+    background: #f1f5f9;
+}
+
+/* =========================
+   USER MANAGER
+========================= */
+
+.user-card {
+    width: 420px;
+}
+
+#userInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    font-size: 14px;
+}
+
+.user-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed #e5e7eb;
+}
+
+    .user-row .label {
+        color: #6b7280;
+        font-size: 13px;
+    }
+
+    .user-row .value {
+        font-weight: 600;
+        text-align: right;
+    }
+
+/* role badge */
+.role-superadmin {
+    color: #dc2626;
+}
+
+.role-admin {
+    color: #2563eb;
+}
+
+.role-user {
+    color: #16a34a;
+}
+
+/* monospace id */
+.mono {
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    color: #374151;
+    max-width: 230px;
+    overflow-wrap: anywhere;
+}
+
+/* logout button spacing */
+.user-card button {
+    margin-top: 20px;
+}

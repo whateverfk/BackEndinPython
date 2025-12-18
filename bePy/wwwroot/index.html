@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Add Device</title>
+    <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+
+    <div class="navbar">
+        <a class="active">Add Device</a>
+        <a href="./list.html">Device List</a>
+        <a href="./sync.html">Sync</a>
+        <a href="./usermanager.html">User</a>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <h2>Add Device</h2>
+
+            <input placeholder="IP NVR" id="ipNvr" />
+            <input placeholder="IP Web" id="ipWeb" />
+            <input placeholder="Username" id="userName" />
+            <input placeholder="Password" id="password" />
+
+            <select id="brand">
+                <option value="HIKVision">HIKVision</option>
+                <option value="Dahua">Dahua</option>
+            </select>
+
+            <button onclick="addDevice()">Add</button>
+        </div>
+    </div>
+
+
+    <script src="./js/auth.js"></script>
+    <script>
+        requireAuth();
+    </script>
+    <script src="./js/device.js"></script>
+
+
+</body>
+</html>

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Device List</title>
+    <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+
+    <div class="navbar">
+        <a href="./index.html">Add Device</a>
+        <a class="active">Device List</a>
+        <a href="./sync.html">Sync</a>
+        <a href="./usermanager.html">User</a>
+    </div>
+
+    <div class="container">
+        <div class="card list-box">
+            <h2>Device List</h2>
+
+            <ul id="list"></ul>
+
+            <button onclick="confirmChanges()">Confirm Changes</button>
+        </div>
+    </div>
+
+
+    <script src="./js/auth.js"></script>
+    <script>
+        requireAuth();
+    </script>
+    <script src="./js/list.js"></script>
+
+</body>
+</html>
