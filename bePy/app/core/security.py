@@ -1,5 +1,5 @@
 from passlib.context import CryptContext
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException, status
 
 import jwt
@@ -32,7 +32,7 @@ def create_jwt(user) -> str:
             else user.owner_superadmin_id
         ),
 
-        "exp": datetime.utcnow() + timedelta(minutes=EXPIRE_MINUTES)
+        "exp": datetime.now().astimezone() + timedelta(minutes=EXPIRE_MINUTES)
     }
     print(" DEBUG - JWT Payload:", payload)
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)

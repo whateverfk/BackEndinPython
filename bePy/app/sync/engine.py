@@ -46,6 +46,7 @@ class SyncEngine:
                 device_id=device.id,
                 ip=device.ip_nvr,
                 is_success=False,
+                sync_time=self.time.now(),
                 message=f"IP:{device.ip_web} - Ping failed",
                 owner_superadmin_id=superadmin_id
             ))
@@ -60,17 +61,18 @@ class SyncEngine:
                 device_id=device.id,
                 ip=device.ip_web,
                 is_success=result.success,
+                sync_time=self.time.now(),
                 message=result.message,
                 owner_superadmin_id=superadmin_id
             )
 
             db.add(log)
-            print("Khong biet day la message "+result.message)
         except Exception as ex:
             db.add(SyncLog(
                 device_id=device.id,
                 ip=device.ip_web,
                 is_success=False,
+                sync_time=self.time.now(),
                 message=str(ex),
                 owner_superadmin_id=superadmin_id
             ))

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.api.deps import get_db, get_current_user, CurrentUser
 from app.Models.sync_log import SyncLog
@@ -31,7 +31,7 @@ def get_logs(
     return logs
 
 def cleanup_old_logs(db: Session):
-    cutoff = datetime.utcnow() - timedelta(days=7)
+    cutoff = datetime.now().astimezone() - timedelta(days=7)
 
     db.query(SyncLog).filter(
         SyncLog.sync_time < cutoff

@@ -3,9 +3,25 @@ from app.routers import api_router
 from app.db.session import engine
 from app.db.base import Base
 from fastapi.middleware.cors import CORSMiddleware
+from app.sync.auto_sync import sync_background_worker 
+import asyncio
+from contextlib import asynccontextmanager
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    
+    task = asyncio.create_task(sync_background_worker())
+    print(" SYNC WORKER STARTED")
 
-app = FastAPI()
+    yield
+
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        print(" SYNC WORKER CANCELLED")
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -14,6 +30,7 @@ app.add_middleware(
     allow_methods=["*"],  # Cho phép OPTIONS
     allow_headers=["*"],
 )
+
 
 # tạo bảng
 Base.metadata.create_all(bind=engine)
