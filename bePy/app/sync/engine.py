@@ -49,6 +49,7 @@ class SyncEngine:
                 message=f"IP:{device.ip_web} - Ping failed",
                 owner_superadmin_id=superadmin_id
             ))
+            print(f"IP:{device.ip_web} - Ping failed")
             return
 
         try:
@@ -64,7 +65,7 @@ class SyncEngine:
             )
 
             db.add(log)
-
+            print("Khong biet day la message "+result.message)
         except Exception as ex:
             db.add(SyncLog(
                 device_id=device.id,
