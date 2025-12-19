@@ -1,4 +1,4 @@
-from fastapi import Depends, Header, HTTPException
+
 from sqlalchemy.orm import Session
 from typing import Optional
 from app.Models.user import User
@@ -7,7 +7,7 @@ from app.db.session import SessionLocal
 from uuid import UUID
 from fastapi import Header, Depends, HTTPException, status
 from app.db.session import get_db
-from typing import Optional
+
 
 
 def get_db():

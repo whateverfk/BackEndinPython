@@ -36,5 +36,4 @@ def cleanup_old_logs(db: Session):
     db.query(SyncLog).filter(
         SyncLog.sync_time < cutoff
     ).delete(synchronize_session=False)
-
     db.commit()

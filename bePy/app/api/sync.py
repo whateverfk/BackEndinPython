@@ -65,4 +65,5 @@ def update_setting(
         setting.interval_minutes = dto.interval_minutes
 
     db.commit()
+    
     return {"message": "Saved"}

@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 async def lifespan(app: FastAPI):
     
     task = asyncio.create_task(sync_background_worker())
-    print(" SYNC WORKER STARTED")
+    print("AUTO SYNC STARTED")
 
     yield
 
@@ -19,7 +19,7 @@ async def lifespan(app: FastAPI):
     try:
         await task
     except asyncio.CancelledError:
-        print(" SYNC WORKER CANCELLED")
+        print(" AUTO SYNC CANCELLED")
 
 app = FastAPI(lifespan=lifespan)
 
