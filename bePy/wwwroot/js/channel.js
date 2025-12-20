@@ -55,7 +55,7 @@
             li.id = `device-${d.id}`;
 
             li.innerHTML = `
-                <div><strong>IP WEB:</strong> ${d.ip_web}</div>
+                <div><strong>IP WEB:</strong> ${d.ip}</div>
                 <div class="mono">${d.username}</div>
             `;
 

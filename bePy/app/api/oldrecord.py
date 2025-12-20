@@ -32,8 +32,8 @@ async def get_device_channels(
     result: List[DeviceChannelView] = []
 
     for device in devices:
-        channels_info = await record_service.get_channels_record_info(device)
 
+        channels_info = await record_service.get_channels_record_info(device)
         result.append(
             DeviceChannelView(
                 id=device.id,
