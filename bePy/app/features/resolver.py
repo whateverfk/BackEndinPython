@@ -1,6 +1,6 @@
 from app.features.sync.dahua import DahuaSync
 from app.features.sync.hikvision import HikvisionSync
-from app.features.RecordInfo.hikrecord import HikvisionRecordService
+from app.features.RecordInfo.hikrecord import HikRecordService
 
 class StrategyResolver:
 
@@ -14,6 +14,6 @@ class StrategyResolver:
     
     def record_resolve(self, brand: str):
         if brand == "HIKVision":
-            return HikvisionRecordService()
+            return HikRecordService()
 
         raise Exception("Unsupported brand")

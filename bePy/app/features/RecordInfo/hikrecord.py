@@ -12,7 +12,7 @@ from app.features.RecordInfo.deps import build_hik_auth
 from app.core.time_provider import TimeProvider
 
 
-class HikvisionRecordService(RecordService):
+class HikRecordService(RecordService):
 
     async def _get_channels(self, device, headers):
         base_url = f"http://{device.ip_web}"
@@ -26,19 +26,27 @@ class HikvisionRecordService(RecordService):
         async with httpx.AsyncClient() as client:
             for endpoint, tag_name in endpoints:
                 url = f"{base_url}{endpoint}"
-                resp = await client.get(url, headers=headers, timeout=10)
-                resp.raise_for_status()
+                print(f"Requesting URL: {repr(url)}")
+                try:
+                    resp = await client.get(url, headers=headers, timeout=10)
+                    resp.raise_for_status()
 
-                root = ET.fromstring(resp.text)
-                ns = {"hik": "http://www.hikvision.com/ver20/XMLSchema"}
+                    print(f"Response Status Code: {resp.status_code}")
 
-                for ch in root.findall(f".//hik:{tag_name}", ns):
-                    cam_id = int(ch.find("hik:id", ns).text)
-                    cam_name = ch.find("hik:name", ns).text
-                    # track id = id*10+1
-                    cam_id = cam_id * 10 + 1
-                    channels.append({"id": cam_id, "name": cam_name})
+                    root = ET.fromstring(resp.text)
+                    ns = {"hik": "http://www.hikvision.com/ver20/XMLSchema"}
 
+                    for ch in root.findall(f".//hik:{tag_name}", ns):
+                        cam_id = int(ch.find("hik:id", ns).text)
+                        cam_name = ch.find("hik:name", ns).text
+                        cam_id = cam_id * 100 + 1
+                        channels.append({"id": cam_id, "name": cam_name})
+                except Exception as ex:
+                    print(f"Error fetching channels from {url}: {ex}")
+                    return []
+                    
+
+        print(f"Found {len(channels)} channels.")
         return channels
 
     async def oldest_record_date(self, device, channel_id: int) -> str | None:
@@ -62,6 +70,7 @@ class HikvisionRecordService(RecordService):
                     f"{base_url}"
                     f"/ISAPI/ContentMgmt/record/tracks/{channel_id}/dailyDistribution"
                 )
+                print(f"Requesting URL: {repr(url)}")
 
                 resp = await client.post(
                     url,
@@ -69,8 +78,10 @@ class HikvisionRecordService(RecordService):
                     headers=build_hik_auth(device)
                 )
 
+                print(f"Response Status Code: {resp.status_code}")
+
                 if resp.status_code != 200:
-                    # lỗi API → coi như không có record
+                    print("Error: API returned non-200 status.")
                     break
 
                 root = ET.fromstring(resp.text)
@@ -84,15 +95,17 @@ class HikvisionRecordService(RecordService):
                         day_num = int(d.find("{*}dayOfMonth").text)
                         record_days.append(day_num)
 
-            # Không còn record ở tháng này → dừng
+                # No records in this month
                 if not record_days:
+                    print(f"No records found for {year}-{month}. Moving to previous month.")
                     break
 
-            # Có record → lấy ngày nhỏ nhất
+                # Found records, get the smallest (oldest) day
                 oldest_day = min(record_days)
                 oldest_date = f"{year}-{month:02d}-{oldest_day:02d}"
+                print(f"Oldest record date: {oldest_date}")
 
-            # Lùi về tháng trước
+                # Move to the previous month
                 month -= 1
                 if month == 0:
                     month = 12
@@ -100,20 +113,18 @@ class HikvisionRecordService(RecordService):
 
         return oldest_date
 
-    async def get_time_ranges_segment( self,device,channel_id: int,date_str: str
-    ) -> list[RecordTimeRange]:
- 
+    async def get_time_ranges_segment(self, device, channel_id: int, date_str: str) -> list[RecordTimeRange]:
         day = datetime.strptime(date_str, "%Y-%m-%d")
         day_start = datetime(day.year, day.month, day.day, 0, 0, 0)
         day_end = datetime(day.year, day.month, day.day, 23, 59, 59)
 
-    # mở rộng search ±1 ngày cho nó chắc
+        # Expand the search by ±1 day to be sure
         search_start = day_start - timedelta(days=1)
         search_end = day_end + timedelta(days=1)
 
-    # ========================
-    # ISAPI SEARCH
-    # ========================
+        # ========================
+        # ISAPI SEARCH
+        # ========================
         search_id = str(uuid.uuid4()).upper()
         base_url = f"http://{device.ip_web}"
 
@@ -137,19 +148,24 @@ class HikvisionRecordService(RecordService):
 </CMSearchDescription>
 """
 
+        #print(f"Tìm từ ngày {search_start} tới {search_end}.")
+        
         async with httpx.AsyncClient(timeout=20) as client:
             resp = await client.post(
                 f"{base_url}/ISAPI/ContentMgmt/search",
                 content=payload,
                 headers=build_hik_auth(device)
             )
+          #  print(f"Requesting URL: {repr(f'{base_url}/ISAPI/ContentMgmt/search')}")
+           # print(f"Response Status Code: {resp.status_code}")
 
         if resp.status_code != 200:
+            #print("Error: API returned non-200 status.")
             return []
 
-    # =========================
-    # PARSE XML
-    # ========================
+        # =========================
+        # PARSE XML
+        # ========================
         root = ET.fromstring(resp.text)
         items = root.findall(".//{*}searchMatchItem")
 
@@ -167,9 +183,10 @@ class HikvisionRecordService(RecordService):
 
             start = datetime.fromisoformat(s.text.replace("Z", ""))
             end = datetime.fromisoformat(e.text.replace("Z", ""))
-        # ====================
-        # CLIP VÀ CHỈ GIỮ TRONG NGÀY
-        # ====================
+            
+            # ====================
+            # CLIP VÀ CHỈ GIỮ TRONG NGÀY
+            # ====================
             if end <= day_start or start >= day_end:
                 continue
 
@@ -183,12 +200,11 @@ class HikvisionRecordService(RecordService):
                     )
                 )
 
+       # print(f"Tìm thấy {len(result)} record segment.")
+       # print(f"Time ranges: {', '.join([f'{r.start_time.strftime('%Y-%m-%d %H:%M:%S')} → {r.end_time.strftime('%Y-%m-%d %H:%M:%S')}' for r in result])}")
         return result
- 
-    async def merge_time_ranges(
-        ranges: List[RecordTimeRange],
-        gap_seconds: int = 5
-    ) -> List[RecordTimeRange]:
+
+    async def merge_time_ranges(self, ranges: List[RecordTimeRange], gap_seconds: int = 5) -> List[RecordTimeRange]:
         if not ranges:
             return []
 
@@ -206,13 +222,13 @@ class HikvisionRecordService(RecordService):
                 last.end_time = max(last.end_time, r.end_time)
             else:
                 merged.append(r)
+        
+        #print(f"Merged {len(merged)} time ranges. ")
+        #print(f"Time ranges after merge: {', '.join([f'{r.start_time.strftime('%Y-%m-%d %H:%M:%S')} → {r.end_time.strftime('%Y-%m-%d %H:%M:%S')} ' for r in merged])}")
+    
         return merged
 
-    async def get_channels_record_info(
-        self,
-        device
-    ) -> List[ChannelRecordInfo]:
-
+    async def get_channels_record_info(self, device) -> List[ChannelRecordInfo]:
         headers = build_hik_auth(device)
 
         channels = await self._get_channels(device, headers)
@@ -222,7 +238,7 @@ class HikvisionRecordService(RecordService):
         for ch in channels:
             oldest_date = await self.oldest_record_date(
                 device,
-                ch["id"]
+                channel_id=ch["id"]
             )
 
             if oldest_date:
@@ -244,4 +260,5 @@ class HikvisionRecordService(RecordService):
                 )
             )
 
+        print(f"Returning {len(result)} channel record info.")
         return result

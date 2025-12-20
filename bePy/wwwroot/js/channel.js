@@ -1,144 +1,170 @@
-/* =========================
-   MOCK DATA
-========================= */
+    /* =========================
+    AUTH REQUIRED
+    ========================= */
 
-const mockDevices = [
-    {
-        id: 1,
-        ip: "128.1.7.1:701",
-        username: "admin",
-        channels: [
-            {
-                id: 101,
-                name: "Camera 1",
-                time_ranges: [
-                    { start: "2021-06-05 01:12:10", end: "2021-06-05 05:45:00" },
-                    { start: "2021-06-05 07:10:00", end: "2021-06-05 11:00:30" }
-                ]
-            },
-            {
-                id: 201,
-                name: "Camera 2",
-                time_ranges: [
-                    { start: "2022-02-11 00:00:00", end: "2022-02-11 23:59:59" }
-                ]
-            },
-            {
-                id: 301,
-                name: "Camera 3",
-                time_ranges: []
-            }
-        ]
-    },
-    {
-        id: 2,
-        ip: "192.168.1.50",
-        username: "root",
-        channels: [
-            {
-                id: 101,
-                name: "Front Gate",
-                time_ranges: []
-            },
-            {
-                id: 102,
-                name: "Back Yard",
-                time_ranges: [
-                    { start: "2023-01-10 09:00:00", end: "2023-01-10 10:30:00" },
-                    { start: "2023-01-10 14:00:00", end: "2023-01-10 18:20:00" }
-                ]
-            }
-        ]
-    }
-];
+    requireAuth();
 
-/* =========================
-   ELEMENTS
-========================= */
+    /* =========================
+    GLOBAL STATE
+    ========================= */
 
-const deviceListEl = document.getElementById("deviceList");
-const channelListEl = document.getElementById("channelList");
-const channelTitleEl = document.getElementById("channelTitle");
+    let devicesCache = [];
+    let activeDeviceId = null;
 
-/* =========================
-   INIT
-========================= */
+    /* =========================
+    ELEMENTS
+    ========================= */
 
-renderDevices();
+    const deviceListEl = document.getElementById("deviceList");
+    const channelListEl = document.getElementById("channelList");
+    const channelTitleEl = document.getElementById("channelTitle");
 
-/* =========================
-   DEVICE LIST
-========================= */
+    /* =========================
+    INIT
+    ========================= */
 
-function renderDevices() {
-    deviceListEl.innerHTML = "";
+    loadChannels();
 
-    mockDevices.forEach((device, index) => {
-        const li = document.createElement("li");
-        li.className = "device-item" + (index === 0 ? " active" : "");
+    /* =========================
+    API
+    ========================= */
 
-        li.innerHTML = `
-            <div class="device-title">${device.ip}</div>
-            <div class="mono">${device.username}</div>
-        `;
-
-        li.onclick = () => selectDevice(device, li);
-        deviceListEl.appendChild(li);
-
-        if (index === 0) {
-            renderChannels(device);
+    async function loadChannels() {
+        devicesCache = await apiFetch("http://127.0.0.1:8000/api/channels");
+        if (!devicesCache || devicesCache.length === 0) {
+            renderEmptyState();
+            return;
         }
-    });
-}
 
-/* =========================
-   SELECT DEVICE
-========================= */
+        renderDevices();
 
-function selectDevice(device, el) {
-    document
-        .querySelectorAll(".device-item")
-        .forEach(x => x.classList.remove("active"));
-
-    el.classList.add("active");
-    renderChannels(device);
-}
-
-/* =========================
-   CHANNEL LIST
-========================= */
-
-function renderChannels(device) {
-    channelTitleEl.innerText = `Channels - ${device.ip}`;
-    channelListEl.innerHTML = "";
-
-    device.channels.forEach(ch => {
-        const tr = document.createElement("tr");
-
-        tr.innerHTML = `
-            <td>${ch.id}</td>
-            <td>${ch.name}</td>
-            <td>${renderTimeRanges(ch.time_ranges)}</td>
-        `;
-
-        channelListEl.appendChild(tr);
-    });
-}
-
-/* =========================
-   TIME RANGE RENDER
-========================= */
-
-function renderTimeRanges(ranges) {
-    if (!ranges || ranges.length === 0) {
-        return "<span style='color:#9ca3af'>—</span>";
+        // auto select first device
+        selectDevice(devicesCache[0].id);
     }
 
-    return `
-        <div class="time-range">
-            ${ranges.map(r => `
-                <div>${r.start} → ${r.end}</div>
-            `).join("")}
-        </div>
-    `;
-}
+    /* =========================
+    DEVICE LIST
+    ========================= */
+
+    function renderDevices() {
+        deviceListEl.innerHTML = "";
+
+        devicesCache.forEach(d => {
+            const li = document.createElement("li");
+            li.className = "device-item";
+            li.id = `device-${d.id}`;
+
+            li.innerHTML = `
+                <div><strong>IP WEB:</strong> ${d.ip_web}</div>
+                <div class="mono">${d.username}</div>
+            `;
+
+            li.onclick = () => selectDevice(d.id);
+
+            deviceListEl.appendChild(li);
+        });
+    }
+
+    /* =========================
+    SELECT DEVICE
+    ========================= */
+
+    function selectDevice(deviceId) {
+        activeDeviceId = deviceId;
+
+        document
+            .querySelectorAll(".device-item")
+            .forEach(x => x.classList.remove("active"));
+
+        const activeEl = document.getElementById(`device-${deviceId}`);
+        if (activeEl) activeEl.classList.add("active");
+
+        const device = devicesCache.find(d => d.id === deviceId);
+        if (!device) return;
+
+        renderChannels(device);
+    }
+
+    /* =========================
+    CHANNEL LIST
+    ========================= */
+
+    function renderChannels(device) {
+        channelTitleEl.innerText = `Channels - ${device.ip}`;
+        channelListEl.innerHTML = "";
+
+        if (!device.channels || device.channels.length === 0) {
+            renderNoChannels();
+            return;
+        }
+
+        device.channels.forEach(ch => {
+            const tr = document.createElement("tr");
+
+            tr.innerHTML = `
+                <td>${escapeHtml(ch.name)}</td>
+                <td>${renderTimeRanges(ch.time_ranges)}</td>
+            `;
+
+            channelListEl.appendChild(tr);
+        });
+    }
+
+    /* =========================
+    TIME RANGE RENDER
+    ========================= */
+
+    function renderTimeRanges(ranges) {
+        if (!ranges || ranges.length === 0) {
+            return "<span style='color:#9ca3af'>—</span>";
+        }
+
+        return `
+            <div class="time-range">
+                ${ranges.map(r => `
+                    <div>
+                        ${formatDateTime(r.start)} → ${formatDateTime(r.end)}
+                    </div>
+                `).join("")}
+            </div>
+        `;
+    }
+
+    /* =========================
+    EMPTY STATES
+    ========================= */
+
+    function renderEmptyState() {
+        deviceListEl.innerHTML = `
+            <li style="padding:10px;color:#9ca3af">
+                No devices found
+            </li>
+        `;
+        channelListEl.innerHTML = "";
+        channelTitleEl.innerText = "Channels";
+    }
+
+    function renderNoChannels() {
+        channelListEl.innerHTML = `
+            <tr>
+                <td colspan="3" style="text-align:center;color:#9ca3af">
+                    No channel data
+                </td>
+            </tr>
+        `;
+    }
+
+    /* =========================
+    UTILITIES
+    ========================= */
+
+    function formatDateTime(v) {
+        if (!v) return "";
+        return v.replace("T", " ").replace("Z", "");
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.innerText = text;
+        return div.innerHTML;
+    }

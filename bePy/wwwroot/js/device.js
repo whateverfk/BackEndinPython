@@ -24,7 +24,7 @@ async function addDevice() {
         is_checked: false
     };
 
-    // ✅ Sửa lỗi validate
+    // Sửa lỗi validate
     if (!device.ip_nvr) {
         alert("IP NVR is required");
         return;
