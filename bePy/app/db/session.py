@@ -1,13 +1,13 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-DATABASE_URL = "sqlite:///./timesync.db"
+DATABASE_URL = "postgresql://postgres:.@localhost:5432/ForBackEnd"
 # nếu prod:
 # postgresql://user:pass@host/db
 
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False}
+    #connect_args={"check_same_thread": False}
 )
 
 SessionLocal = sessionmaker(

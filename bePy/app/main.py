@@ -23,6 +23,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+#app = FastAPI()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # hoặc ["http://localhost:5500"] 
@@ -32,7 +34,6 @@ app.add_middleware(
 )
 
 
-# tạo bảng
-Base.metadata.create_all(bind=engine)
+
 
 app.include_router(api_router)
