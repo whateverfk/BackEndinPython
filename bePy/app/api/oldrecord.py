@@ -8,6 +8,7 @@ from app.schemas.channel_view import DeviceChannelView, ChannelView, TimeRangeVi
 from app.features.RecordInfo import hikrecord
 
 router = APIRouter(prefix="/api/channels", tags=["Record"])
+
 record_service = hikrecord.HikRecordService()
 
 
@@ -32,8 +33,9 @@ async def get_device_channels(
     result: List[DeviceChannelView] = []
 
     for device in devices:
-
+        
         channels_info = await record_service.get_channels_record_info(device)
+
         result.append(
             DeviceChannelView(
                 id=device.id,
