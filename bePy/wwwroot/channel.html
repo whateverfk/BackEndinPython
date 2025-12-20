@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <title>Channel Archive</title>
+
+    <link rel="stylesheet" href="./css/style.css" />
+
+</head>
+<body>
+
+<!-- NAVBAR -->
+<div class="navbar">
+    <a href="./index.html">Add Device</a>
+    <a href="./list.html">Device List</a>
+    <a href="./sync.html">Sync</a>
+    <a class="active">Channel</a>
+    <a href="./usermanager.html">User</a>
+</div>
+
+<!-- MAIN -->
+<div class="container" style="justify-content:flex-start; gap:25px;">
+
+    <!-- LEFT: DEVICE LIST -->
+    <div class="card list-box">
+        <h3>Devices</h3>
+        <ul id="deviceList"></ul>
+    </div>
+
+    <!-- RIGHT: CHANNEL INFO -->
+    <div class="card" style="flex:1; min-width:650px;">
+        <h3 id="channelTitle">Channels</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:80px;">ID</th>
+                    <th style="width:200px;">Name</th>
+                    <th>Time Ranges</th>
+                </tr>
+            </thead>
+            <tbody id="channelList"></tbody>
+        </table>
+    </div>
+
+</div>
+
+<script src="./js/auth.js"></script>
+<script src="./js/channel.js"></script>
+<script>
+    requireAuth();
+</script>
+
+</body>
+</html>

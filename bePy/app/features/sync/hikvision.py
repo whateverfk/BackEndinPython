@@ -2,7 +2,7 @@ import base64
 import httpx
 from datetime import datetime
 
-from app.sync.base import SyncStrategy
+from app.features.sync.base import SyncStrategy
 from app.schemas.sync import SyncResult
 
 

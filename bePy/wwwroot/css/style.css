@@ -93,13 +93,8 @@ button {
         background: #16a085;
     }
 
-.btn-primary {
-    background: #2563eb;
-}
 
-    .btn-primary:hover {
-        background: #1d4ed8;
-    }
+
 
 .btn-big {
     width: 100%;
@@ -264,7 +259,7 @@ li {
     font-size: 15px;
 }
 
-/* vùng cu?n */
+/* vï¿½ng cu?n */
 .log-scroll {
     flex: 1;
     overflow-y: auto;
@@ -273,14 +268,14 @@ li {
     border-radius: 6px;
 }
 
-/* danh sách log */
+/* danh sï¿½ch log */
 .log-list {
     list-style: none;
     margin: 0;
     padding: 6px;
 }
 
-/* t?ng dòng log */
+/* t?ng dï¿½ng log */
 .log-list li {
     padding: 6px 8px;
     border-bottom: 1px dashed #e5e7eb;
@@ -358,4 +353,71 @@ li {
 /* logout button spacing */
 .user-card button {
     margin-top: 20px;
+}
+
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+thead {
+    background: #f3f4f6;
+}
+
+th, td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e5e7eb;
+    vertical-align: top;
+}
+
+tbody tr:hover {
+    background: #f9fafb;
+}
+
+td:first-child {
+    font-family: Consolas, monospace;
+    font-size: 13px;
+    color: #374151;
+}
+/* DEVICE LIST */
+.device-item {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-left: 4px solid transparent;
+}
+
+.device-item:hover {
+    background: #f1f5f9;
+}
+
+.device-item.active {
+    border-left: 4px solid #22c55e;
+    background: #eff6ff;
+}
+
+.device-item .device-title {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.device-item .mono {
+    font-size: 12px;
+    color: #6b7280;
+}
+.time-range {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.time-range div {
+    background: #eef2ff;
+    color: #1e3a8a;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: Consolas, monospace;
+    width: fit-content;
 }

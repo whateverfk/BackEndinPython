@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from app.Models.device import Device
 from app.Models.sync_log import SyncLog
-from app.sync.resolver import SyncStrategyResolver
+from app.features.resolver import StrategyResolver
 from app.core.time_provider import TimeProvider
 import asyncio
 from ping3 import ping
@@ -26,7 +26,7 @@ class SyncEngine:
 
     def __init__(self):
         self.time = TimeProvider()
-        self.resolver = SyncStrategyResolver()
+        self.resolver = StrategyResolver()
 
     async def sync_by_superadmin(self, db: Session, superadmin_id):
         devices = db.query(Device).filter(
@@ -54,7 +54,7 @@ class SyncEngine:
             return
 
         try:
-            strategy = self.resolver.resolve(device.brand)
+            strategy = self.resolver.sync_resolve(device.brand)
             result = await strategy.sync(device, self.time.now())
 
             log = SyncLog(

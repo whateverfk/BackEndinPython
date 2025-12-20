@@ -52,3 +52,4 @@ def get_current_user(
         raise HTTPException(401, "User not found")
 
     return CurrentUser(payload)
+

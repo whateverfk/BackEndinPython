@@ -3,7 +3,7 @@ from app.routers import api_router
 from app.db.session import engine
 from app.db.base import Base
 from fastapi.middleware.cors import CORSMiddleware
-from app.sync.auto_sync import sync_background_worker 
+from app.features.sync.auto_sync import sync_background_worker 
 import asyncio
 from contextlib import asynccontextmanager
 

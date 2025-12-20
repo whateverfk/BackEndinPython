@@ -3,7 +3,7 @@ import traceback
 from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.Models.sync_setting import SyncSetting
-from app.sync.engine import SyncEngine
+from app.features.sync.engine import SyncEngine
 
 _is_running = False
 

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, get_current_user, CurrentUser
-from app.sync.engine import SyncEngine
+from app.features.sync.engine import SyncEngine
 from app.Models.sync_setting import SyncSetting
 from app.schemas.sync_setting import SyncSettingOut
 from app.schemas.sync_setting import SyncSettingUpdate
