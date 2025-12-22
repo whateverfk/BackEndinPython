@@ -385,3 +385,6 @@ class HikRecordService(RecordService):
         current += timedelta(days=1)
 
         return result
+
+    async def get_channels_record_info():
+        pass

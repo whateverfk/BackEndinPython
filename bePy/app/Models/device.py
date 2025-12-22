@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.db.base import Base
 import uuid
+from app.Models.channel import Channel
 
 class Device(Base):
     __tablename__ = "devices"
