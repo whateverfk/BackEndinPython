@@ -19,7 +19,7 @@ if config.config_file_name is not None:
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
 from app.db.base import Base
-from app.Models import device, sync_log, sync_setting, user
+from app.Models import device, sync_log, sync_setting, user,channel,channel_record_day,channel_record_time_range
 
 target_metadata = Base.metadata
 
