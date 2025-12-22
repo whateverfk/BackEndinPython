@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
+from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.db.base import Base
 import uuid
@@ -21,5 +22,11 @@ class Device(Base):
     owner_superadmin_id = Column(
         UUID(as_uuid=True),
         index=True,
+        
         nullable=True
+    )
+    channels = relationship(
+        "Channel",
+        cascade="all, delete-orphan",
+        backref="device"
     )
