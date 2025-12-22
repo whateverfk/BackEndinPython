@@ -228,7 +228,7 @@ class HikRecordService(RecordService):
     
         return merged
 
-    async def get_channels_record_info(self, device) -> List[ChannelRecordInfo]:
+    async def get_channels_record_info_on_specific_date(self, device, date: str) -> List[ChannelRecordInfo]:
         headers = build_hik_auth(device)
 
         channels = await self._get_channels(device, headers)
@@ -236,14 +236,10 @@ class HikRecordService(RecordService):
         result: List[ChannelRecordInfo] = []
 
         for ch in channels:
-            oldest_date = await self.oldest_record_date(
-                device,
-                channel_id=ch["id"]
-            )
 
-            if oldest_date:
+            if date:
                 time_ranges = await self.get_time_ranges_segment(
-                    date_str=oldest_date,
+                    date_str=date,
                     device=device,
                     channel_id=ch["id"]
                 )
@@ -255,10 +251,137 @@ class HikRecordService(RecordService):
                 ChannelRecordInfo(
                     channel_id=ch["id"],
                     channel_name=ch["name"],
-                    oldest_date=oldest_date,
+                    date=date,
                     time_ranges=time_ranges
                 )
             )
 
         print(f"Returning {len(result)} channel record info.")
+        return result
+
+    async def record_status_of_channel(self, device, channel_id: int, start_date: str, end_date: str) -> list[dict]:
+
+        """
+        Kiểm tra xem trong khoảng thời gian từ `start_date` đến `end_date` có bản ghi nào hay không.
+        
+        """
+        time_provider = TimeProvider()
+        base_url = f"http://{device.ip_web}"
+        
+        # Convert start_date và end_date thành datetime để dễ thao tác
+        start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
+        end_datetime = datetime.strptime(end_date, "%Y-%m-%d")
+
+        record_status_list = []
+        
+        async with httpx.AsyncClient(timeout=15) as client:
+            # Duyệt qua từng ngày từ start_date đến end_date
+            current_date = start_datetime
+            while current_date <= end_datetime:
+                payload = f"""<?xml version="1.0" encoding="utf-8"?>
+                <trackDailyParam>
+                    <year>{current_date.year}</year>
+                    <monthOfYear>{current_date.month}</monthOfYear>
+                </trackDailyParam>
+                """
+                
+                url = f"{base_url}/ISAPI/ContentMgmt/record/tracks/{channel_id}/dailyDistribution"
+                print(f"Requesting URL: {repr(url)}")
+
+                resp = await client.post(
+                    url,
+                    content=payload,
+                    headers=build_hik_auth(device)
+                )
+                
+                print(f"Response Status Code: {resp.status_code}")
+                
+                if resp.status_code != 200:
+                    print("Error: API returned non-200 status.")
+                    # Thêm thông tin lỗi vào danh sách trả về
+                    record_status_list.append({"date": current_date.strftime("%Y-%m-%d"), "had_record": False})
+                    current_date += timedelta(days=1)
+                    continue
+                
+                root = ET.fromstring(resp.text)
+                days = root.findall(".//{*}day")
+
+                had_record = False
+                
+                for d in days:
+                    record = d.find("{*}record")
+                    if record is not None and record.text.lower() == "true":
+                        had_record = True
+                        break
+                
+                # Lưu trạng thái của ngày hiện tại vào danh sách
+                record_status_list.append({
+                    "date": current_date.strftime("%Y-%m-%d"),
+                    "had_record": had_record
+                })
+                
+                current_date += timedelta(days=1)
+
+        return record_status_list
+
+    async def get_channel_record_info_on_date(
+        self,
+        device,
+        channel_id: int,
+        date: str
+    ) -> ChannelRecordInfo:
+        """
+        Lấy record info của 1 channel trong 1 ngày cụ thể
+        """
+    # Lấy time ranges raw
+        ranges = await self.get_time_ranges_segment(
+            device=device,
+            channel_id=channel_id,
+            date_str=date
+        )
+    # Merge các segment gần nhau
+        merged_ranges = await self.merge_time_ranges(ranges)
+
+        return ChannelRecordInfo(
+            channel_id=channel_id,
+            channel_name=None,  # nếu cần có thể lookup từ _get_channels
+            date=date,
+            time_ranges=merged_ranges
+        )
+    
+
+    async def get_channel_record_info_in_range(
+        self,
+        device,
+        channel_id: int,
+        start_date: str,
+        end_date: str
+    ) -> list[ChannelRecordInfo]:
+
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+
+        result: list[ChannelRecordInfo] = []
+
+        current = start_dt
+        while current <= end_dt:
+            date_str = current.strftime("%Y-%m-%d")
+        ranges = await self.get_time_ranges_segment(
+                device=device,
+                channel_id=channel_id,
+                date_str=date_str
+            )
+        merged_ranges = await self.merge_time_ranges(ranges)
+
+        result.append(
+            ChannelRecordInfo(
+                channel_id=channel_id,
+                channel_name=None,
+                date=date_str,
+                time_ranges=merged_ranges
+            )
+        )
+
+        current += timedelta(days=1)
+
         return result

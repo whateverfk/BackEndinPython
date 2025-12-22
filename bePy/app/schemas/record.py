@@ -10,5 +10,5 @@ class RecordTimeRange(BaseModel):
 class ChannelRecordInfo(BaseModel):
     channel_id: int
     channel_name: str
-    oldest_date: str | None
+    date: str | None
     time_ranges: list[RecordTimeRange]
