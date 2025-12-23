@@ -1,3 +1,6 @@
+let currentDeviceId = null;
+let currentChannel = null;
+
 document.addEventListener("DOMContentLoaded", () => {
     loadDeviceList();
 });
@@ -62,6 +65,7 @@ async function loadDeviceList() {
  * Nút  – tạm thời chưa có tác dụng
  */
 function deviceAction(deviceId) {
+    currentDeviceId = deviceId;
     loadChannels(deviceId);
 }
 
@@ -143,8 +147,12 @@ async function getNewestData(deviceId) {
 
 // This function is called when a channel is selected
 async function selectChannel(channel) {
-    // Update the channel title in the UI
-    document.getElementById("channelTitle").innerText = `Record Time – ${channel.name}`;
+    currentChannel = channel;
+    document.getElementById("channelTitle").innerText =
+        `Record Time – ${channel.name}`;
+
+    // Hiện nút Update
+    document.getElementById("updateChannelBtn").style.display = "inline-block";
 
     console.log("Selected channel:", channel);
 
@@ -229,5 +237,42 @@ async function selectChannel(channel) {
     } catch (err) {
         console.error(err);
         alert("Failed to load record days or time ranges");
+    }
+}
+
+async function updateCurrentChannelRecord() {
+    if (!currentDeviceId || !currentChannel) {
+        alert("No channel selected");
+        return;
+    }
+
+    if (!confirm(`Update record info for channel "${currentChannel.name}" ?`))
+        return;
+
+    try {
+        const res = await fetch(
+            `http://127.0.0.1:8000/api/devices/${currentDeviceId}/channels/${currentChannel.id}/update_record_info`,
+            {
+                method: "POST",
+                headers: {
+                    "Authorization": "Bearer " + localStorage.getItem("token"),
+                    "Content-Type": "application/json"
+                }
+            }
+        );
+
+        if (!res.ok) {
+            const err = await res.text();
+            throw new Error(err);
+        }
+
+        alert("Channel record info updated ✅");
+
+        // Reload lại record days của channel hiện tại
+        await selectChannel(currentChannel);
+
+    } catch (err) {
+        console.error(err);
+        alert("Update failed ❌");
     }
 }

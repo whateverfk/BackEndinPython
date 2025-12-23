@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -268,48 +269,96 @@ async def update_channel_record_info(
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
+    # Fetch the channel and device
     channel = db.query(Channel).filter(
         Channel.id == channel_id,
         Channel.device_id == id
     ).first()
+
     device = db.query(Device).filter(
         Device.id == id,
         Device.owner_superadmin_id == user.superadmin_id
     ).first()
+
+    # If channel or device is not found, raise an error
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
     
+    # Authentication headers for Hikvision API
     headers = build_hik_auth(device)
 
-    
+    # Get the current date and start date
     time = TimeProvider()
-    now = time.now().date().strftime("%Y-%m-%d")
+    start_date = channel.latest_record_date
+    now = time.now().date()
 
-    if channel.latest_record_date == now:
-        start_date = now
-    else:
-        start_date = channel.latest_record_date
-
+    # Initialize HikRecordService
     hik_service = HikRecordService()
+
+    # Get the record days from the Hikvision API
     record_days = await hik_service.record_status_of_channel(
         device,
         channel.channel_no,
-        start_date,
-        now,
+        start_date.strftime("%Y-%m-%d"),  # Convert to string if necessary
+        now.strftime("%Y-%m-%d"),
         headers
     )
+
+    print(f"  Found {len(record_days)} record days to process.")
+
+    # Process each record day
     for record_day in record_days:
         record_date = record_day["date"]
         has_record = record_day["has_record"]
+        print(f"Processing record day {record_date}, has_record={has_record}")
 
-        # Check if the record already exists
+        # Check if the record already exists in the database
         existing_record = db.query(ChannelRecordDay).filter(
             ChannelRecordDay.channel_id == channel.id,
             ChannelRecordDay.record_date == record_date
         ).first()
 
-        if not existing_record:
-            # If no record exists, create a new record
+        if existing_record:
+            # If record exists, update it
+            print(f"  Updating record for {record_date}")
+            existing_record.has_record = has_record
+            db.add(existing_record)
+            db.flush()
+
+            # If there are records, fetch and update the time ranges
+            if has_record:
+                segments = await hik_service.get_time_ranges_segment(
+                    device,
+                    channel.channel_no,
+                    record_date,
+                    headers
+                )
+                segments = await hik_service.merge_time_ranges(segments, gap_seconds=3)
+                print(f"    Found {len(segments)} time range segments after merge.")
+                db.query(ChannelRecordTimeRange).filter(
+                    ChannelRecordTimeRange.record_day_id == existing_record.id
+                ).delete(synchronize_session=False)
+
+                # Update the time ranges for the existing record
+                for seg in segments:
+                    # Check if the time range already exists for this record day
+                    existing_range = db.query(ChannelRecordTimeRange).filter(
+                        ChannelRecordTimeRange.record_day_id == existing_record.id,
+                        ChannelRecordTimeRange.start_time == seg.start_time,
+                        ChannelRecordTimeRange.end_time == seg.end_time
+                    ).first()
+
+                    if not existing_range:
+                        # If no existing range, create a new time range
+                        db.add(ChannelRecordTimeRange(
+                            record_day_id=existing_record.id,
+                            start_time=seg.start_time,
+                            end_time=seg.end_time
+                        ))
+
+        else:
+            # If record doesn't exist, create a new record
+            print(f"  Creating new record for {record_date}")
             new_record = ChannelRecordDay(
                 channel_id=channel.id,
                 record_date=record_date,
@@ -318,8 +367,8 @@ async def update_channel_record_info(
             db.add(new_record)
             db.flush()  # Get the new record ID
 
+            # If there are records, fetch and create time ranges
             if has_record:
-                # If there are records, we fetch and create time ranges
                 segments = await hik_service.get_time_ranges_segment(
                     device,
                     channel.channel_no,
@@ -327,22 +376,34 @@ async def update_channel_record_info(
                     headers
                 )
                 segments = await hik_service.merge_time_ranges(segments, gap_seconds=3)
+                print(f"    Found {len(segments)} time range segments after merge.")
 
+                # Add the time ranges for the new record
                 for seg in segments:
                     db.add(ChannelRecordTimeRange(
                         record_day_id=new_record.id,
                         start_time=seg.start_time,
                         end_time=seg.end_time
                     ))
-    
+
+    # Update the channel's latest_record_date to today
     channel.latest_record_date = now
+
+    # Fetch and update the oldest record date for the channel
     oldest_date = await hik_service.oldest_record_date(
         device, channel.channel_no, headers)
+
+    # If the oldest date has changed, delete records older than the new oldest date
     if channel.oldest_record_date != oldest_date:
         db.query(ChannelRecordDay).filter(
             ChannelRecordDay.channel_id == channel.id,
             ChannelRecordDay.record_date < oldest_date
         ).delete(synchronize_session=False)
         channel.oldest_record_date = oldest_date
+
+    # Commit the changes to the database
     db.commit()
+
     return {"message": "Channel record info updated successfully"}
+
+

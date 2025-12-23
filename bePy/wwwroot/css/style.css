@@ -472,3 +472,9 @@ td:first-child {
     padding-right: 10px; /* Optional: to prevent scrollbar overlap */
 }
 
+.channel-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+}

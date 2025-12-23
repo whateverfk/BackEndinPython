@@ -29,7 +29,16 @@
 
     <!-- RIGHT: CHANNEL INFO -->
      <div class="card list-box" style="min-width: 200px;">
-        <h3>Channels</h3>
+        <div class="channel-header">
+    <h3 id="channelTitle">Record Time</h3>
+    <button id="updateChannelBtn"
+            class="device-btn newest"
+            style="display:none;"
+            onclick="updateCurrentChannelRecord()">
+        Update
+    </button>
+</div>
+
         <ul id="channelList"></ul>
     </div>
     <div class="card" style="flex:1; min-width:650px;">
