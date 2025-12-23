@@ -43,8 +43,8 @@ async function loadDeviceList() {
                     </button>
 
                     <button class="device-btn newest"
-                            onclick="Get All Newest Data('${d.id}')">
-                        Get newest data
+                            onclick="getNewestData('${d.id}')">
+                        Get all Data
                     </button>
                 </div>
             `;
@@ -109,7 +109,7 @@ async function loadChannels(deviceId) {
  * Nút mới – Get Newest Data
 ***/
 async function getNewestData(deviceId) {
-    if (!confirm("Get all newest record data for this device? If gonna take a while, please wait.")) return;
+    if (!confirm("Get all newest record data for this device? It gonna take a while, ( few minutes atleast) U sure ?.")) return;
 
     try {
         const res = await fetch(
@@ -140,8 +140,7 @@ async function getNewestData(deviceId) {
 }
 
 
-// Select a channel and display its record days and time ranges
-// This function is called when a channel is selected
+
 // This function is called when a channel is selected
 async function selectChannel(channel) {
     // Update the channel title in the UI
@@ -184,20 +183,35 @@ async function selectChannel(channel) {
             const recordDayElement = document.createElement("div");
             recordDayElement.className = "record-day";
 
-            // Create the record date (without the "Has Record" line)
+            
             const recordDateElement = document.createElement("h4");
             recordDateElement.innerText = `Date: ${recordDay.record_date}`;
             recordDayElement.appendChild(recordDateElement);
 
-            // If there are time ranges, display them
+            
             if (recordDay.time_ranges && recordDay.time_ranges.length > 0) {
                 const timeRangesList = document.createElement("ul");
                 timeRangesList.classList.add("time-ranges-list");
 
-                // Loop through each time range and display it
+                
                 recordDay.time_ranges.forEach(timeRange => {
                     const timeRangeItem = document.createElement("li");
-                    timeRangeItem.innerText = `From: ${timeRange.start_time} To: ${timeRange.end_time}`;
+                    //timeRangeItem.innerText = `From: ${timeRange.start_time} To: ${timeRange.end_time}`;
+                    const startTime = new Date(timeRange.start_time);
+                    const endTime = new Date(timeRange.end_time);
+
+                    // Lấy giờ, phút và giây
+                    const startHour = startTime.getHours().toString().padStart(2, '0');
+                    const startMinute = startTime.getMinutes().toString().padStart(2, '0');
+                    const startSecond = startTime.getSeconds().toString().padStart(2, '0');
+
+                    const endHour = endTime.getHours().toString().padStart(2, '0');
+                    const endMinute = endTime.getMinutes().toString().padStart(2, '0');
+                    const endSecond = endTime.getSeconds().toString().padStart(2, '0');
+
+                    // Cập nhật nội dung
+                    timeRangeItem.innerText = `From: ${startHour}:${startMinute}:${startSecond} To: ${endHour}:${endMinute}:${endSecond}`;
+
                     timeRangesList.appendChild(timeRangeItem);
                 });
 

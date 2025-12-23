@@ -260,3 +260,89 @@ async def update_channels_record_info(
             status_code=500,
             detail=str(e)
         )
+
+@router.post("/{id}/channels/{channel_id}/update_record_info")
+async def update_channel_record_info(
+    id: int,
+    channel_id: int,
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user)
+):
+    channel = db.query(Channel).filter(
+        Channel.id == channel_id,
+        Channel.device_id == id
+    ).first()
+    device = db.query(Device).filter(
+        Device.id == id,
+        Device.owner_superadmin_id == user.superadmin_id
+    ).first()
+    if not channel:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    
+    headers = build_hik_auth(device)
+
+    
+    time = TimeProvider()
+    now = time.now().date().strftime("%Y-%m-%d")
+
+    if channel.latest_record_date == now:
+        start_date = now
+    else:
+        start_date = channel.latest_record_date
+
+    hik_service = HikRecordService()
+    record_days = await hik_service.record_status_of_channel(
+        device,
+        channel.channel_no,
+        start_date,
+        now,
+        headers
+    )
+    for record_day in record_days:
+        record_date = record_day["date"]
+        has_record = record_day["has_record"]
+
+        # Check if the record already exists
+        existing_record = db.query(ChannelRecordDay).filter(
+            ChannelRecordDay.channel_id == channel.id,
+            ChannelRecordDay.record_date == record_date
+        ).first()
+
+        if not existing_record:
+            # If no record exists, create a new record
+            new_record = ChannelRecordDay(
+                channel_id=channel.id,
+                record_date=record_date,
+                has_record=has_record
+            )
+            db.add(new_record)
+            db.flush()  # Get the new record ID
+
+            if has_record:
+                # If there are records, we fetch and create time ranges
+                segments = await hik_service.get_time_ranges_segment(
+                    device,
+                    channel.channel_no,
+                    record_date,
+                    headers
+                )
+                segments = await hik_service.merge_time_ranges(segments, gap_seconds=3)
+
+                for seg in segments:
+                    db.add(ChannelRecordTimeRange(
+                        record_day_id=new_record.id,
+                        start_time=seg.start_time,
+                        end_time=seg.end_time
+                    ))
+    
+    channel.latest_record_date = now
+    oldest_date = await hik_service.oldest_record_date(
+        device, channel.channel_no, headers)
+    if channel.oldest_record_date != oldest_date:
+        db.query(ChannelRecordDay).filter(
+            ChannelRecordDay.channel_id == channel.id,
+            ChannelRecordDay.record_date < oldest_date
+        ).delete(synchronize_session=False)
+        channel.oldest_record_date = oldest_date
+    db.commit()
+    return {"message": "Channel record info updated successfully"}
