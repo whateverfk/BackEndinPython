@@ -49,7 +49,7 @@ class HikRecordService(RecordService):
         print(f"Found {len(channels)} channels.")
         return channels
 
-    async def oldest_record_date(self, device, channel_id: int) -> str | None:
+    async def oldest_record_date(self, device, channel_id: int, headers) -> str | None:
 
         time_provider = TimeProvider()
         now = time_provider.now()
@@ -75,7 +75,7 @@ class HikRecordService(RecordService):
                 resp = await client.post(
                     url,
                     content=payload,
-                    headers=build_hik_auth(device)
+                    headers=headers
                 )
 
                 print(f"Response Status Code: {resp.status_code}")
@@ -110,7 +110,7 @@ class HikRecordService(RecordService):
                 if month == 0:
                     month = 12
                     year -= 1
-
+        print("ok Returning oldest record date:", oldest_date)
         return oldest_date
 
     async def get_time_ranges_segment(self, device, channel_id: int, date_str: str, headers) -> list[RecordTimeRange]:
@@ -299,7 +299,7 @@ class HikRecordService(RecordService):
                 if resp.status_code != 200:
                     print("Error: API returned non-200 status.")
                     # Thêm thông tin lỗi vào danh sách trả về
-                    record_status_list.append({"date": current_date.strftime("%Y-%m-%d"), "had_record": False})
+                    record_status_list.append({"date": current_date.strftime("%Y-%m-%d"), "has_record": False})
                     current_date += timedelta(days=1)
                     continue
                 
@@ -320,11 +320,11 @@ class HikRecordService(RecordService):
                 # Lưu trạng thái của ngày hiện tại vào danh sách
                 record_status_list.append({
                     "date": current_date.strftime("%Y-%m-%d"),
-                    "had_record": had_record
+                    "has_record": had_record
                 })
                 
                 current_date += timedelta(days=1)
-
+        print(f"Returning record status list with {len(record_status_list)} entries.")
         return record_status_list
 
     async def get_channel_record_info_on_date(

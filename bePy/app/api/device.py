@@ -134,7 +134,7 @@ def get_device(
 
     return device
 
-@router.get("/{id}/channels", response_model=DeviceOut)
+@router.get("/{id}/channels")
 def get_device_channels(
     id: int,
     db: Session = Depends(get_db)
@@ -161,7 +161,6 @@ def get_channel_record_days_full(
 
     return days
 
-
 @router.post("/{id}/get_channels_record_info")
 async def update_channels_record_info(
     id: int,
@@ -171,68 +170,93 @@ async def update_channels_record_info(
     device = db.query(Device).filter(
         Device.id == id,
         Device.owner_superadmin_id == user.superadmin_id
-    ).first()    
+    ).first()
 
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
-    
-    headers = build_hik_auth(device.username, device.password)
 
+    # 
+    headers = build_hik_auth(device)
+
+    hik_service = HikRecordService()
+    time = TimeProvider()
+    now = time.now().date()
 
     try:
-      with db.begin():  
-        #Xóa channels info cũ 
+        
+        # 1. XÓA CŨ
         db.query(Channel).filter(
             Channel.device_id == device.id
         ).delete(synchronize_session=False)
 
-        hik_service = HikRecordService()
+        # 2. GET CHANNELS
         channels_data = await hik_service._get_channels(device, headers)
-
         if not channels_data:
-            raise HTTPException(status_code=404, detail="No channels found or unable to connect")
-        
-        time = TimeProvider()
-        now = time.now().strftime("%Y-%m-%d")
-        channels = []
+            raise Exception("No channels returned from device")
+
         for ch in channels_data:
-            oldest_date = hik_service.oldest_record_date(device,ch["channel_no"], headers)
+            print(f"[SYNC] Channel {ch}")
+
+            oldest_date = await hik_service.oldest_record_date(
+                device, ch["id"], headers
+            )
+
             channel = Channel(
                 device_id=device.id,
-                channel_no=ch["channel_no"],
+                channel_no=ch["id"],
                 name=ch["name"],
                 oldest_record_date=oldest_date,
-                latest_record_date= now
+                latest_record_date=now.strftime("%Y-%m-%d")
             )
-            channels.append(channel)
             db.add(channel)
-            db.flush()
-            record_days = hik_service.record_status_of_channel(device, ch["channel_no"],oldest_date, now, headers)
-
+            db.flush()  # lấy channel.id
+            print("add channel ok")
+            record_days = await hik_service.record_status_of_channel(
+                device,
+                ch["id"],
+                oldest_date,
+                now.strftime("%Y-%m-%d"),
+                headers
+            )
+            print(f"  Found {len(record_days)} record days.")
             for rd in record_days:
                 record_day = ChannelRecordDay(
-                channel_id=channel.id,
-                record_date=rd["date"],
-                has_record=rd["has_record"]
-            )
+                    channel_id=channel.id,
+                    record_date=rd["date"],
+                    has_record=rd["has_record"]
+                )
                 db.add(record_day)
+                print("  add record day ok")
                 db.flush()
 
-                if(rd["has_record"]):
-                    recordSegment = await hik_service.get_time_ranges_segment(device, ch["channel_no"], rd["date"], headers)
-                    recordSegment = await hik_service.merge_time_ranges(recordSegment, gap_seconds=3)
-                    for rs in recordSegment:
+                if rd["has_record"]:
+                    segments = await hik_service.get_time_ranges_segment(
+                        device,
+                        ch["id"],
+                        rd["date"],
+                        headers
+                    )
+                    segments = await hik_service.merge_time_ranges(
+                        segments, gap_seconds=3
+                    )
+                    print(f"    Found {len(segments)} time range segments after merge.")
+
+                    for seg in segments:
                         db.add(ChannelRecordTimeRange(
-                        record_day_id=record_day.id,
-                        start_time=rs["start"],
-                        end_time=rs["end"]
-                    ))
-            db.commit()
+                            record_day_id=record_day.id,
+                            start_time=seg.start_time,
+                            end_time=seg.end_time
+                        ))
+                        print("    add time range ok")
+        
+        db.commit()
+
+        return {"message": "Channels record info updated successfully"}
 
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error retrieving channel record info: {str(e)}")
-
-
-    return {"message": "Channels record info updated successfully"}
-    
+        print("  ERROR:", e)
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
