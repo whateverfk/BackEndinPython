@@ -42,7 +42,7 @@ async function loadDeviceList() {
                 <div class="device-actions">
                     <button class="device-btn"
                             onclick="deviceAction('${d.id}')">
-                        Action
+                        Load Channels
                     </button>
 
                     <button class="device-btn newest"
