@@ -455,5 +455,5 @@ td:first-child {
 }
 
 .device-btn.newest {
-    background: #eef5ff;
+    background: hwb(201 3% 20%);
 }
