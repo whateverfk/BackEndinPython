@@ -113,7 +113,7 @@ class HikRecordService(RecordService):
 
         return oldest_date
 
-    async def get_time_ranges_segment(self, device, channel_id: int, date_str: str) -> list[RecordTimeRange]:
+    async def get_time_ranges_segment(self, device, channel_id: int, date_str: str, headers) -> list[RecordTimeRange]:
         day = datetime.strptime(date_str, "%Y-%m-%d")
         day_start = datetime(day.year, day.month, day.day, 0, 0, 0)
         day_end = datetime(day.year, day.month, day.day, 23, 59, 59)
@@ -154,7 +154,7 @@ class HikRecordService(RecordService):
             resp = await client.post(
                 f"{base_url}/ISAPI/ContentMgmt/search",
                 content=payload,
-                headers=build_hik_auth(device)
+                headers=headers
             )
           #  print(f"Requesting URL: {repr(f'{base_url}/ISAPI/ContentMgmt/search')}")
            # print(f"Response Status Code: {resp.status_code}")
@@ -259,7 +259,7 @@ class HikRecordService(RecordService):
         print(f"Returning {len(result)} channel record info.")
         return result
 
-    async def record_status_of_channel(self, device, channel_id: int, start_date: str, end_date: str) -> list[dict]:
+    async def record_status_of_channel(self, device, channel_id: int, start_date: str, end_date: str, header) -> list[dict]:
 
         """
         Kiểm tra xem trong khoảng thời gian từ `start_date` đến `end_date` có bản ghi nào hay không.
@@ -291,7 +291,7 @@ class HikRecordService(RecordService):
                 resp = await client.post(
                     url,
                     content=payload,
-                    headers=build_hik_auth(device)
+                    headers=header
                 )
                 
                 print(f"Response Status Code: {resp.status_code}")
@@ -312,6 +312,9 @@ class HikRecordService(RecordService):
                     record = d.find("{*}record")
                     if record is not None and record.text.lower() == "true":
                         had_record = True
+                        break
+                    elif record is not None and record.text.lower() == "false":
+                        had_record = False
                         break
                 
                 # Lưu trạng thái của ngày hiện tại vào danh sách
@@ -355,7 +358,8 @@ class HikRecordService(RecordService):
         device,
         channel_id: int,
         start_date: str,
-        end_date: str
+        end_date: str,
+        headers
     ) -> list[ChannelRecordInfo]:
 
         start_dt = datetime.strptime(start_date, "%Y-%m-%d")
@@ -378,7 +382,8 @@ class HikRecordService(RecordService):
                 channel_id=channel_id,
                 channel_name=None,
                 date=date_str,
-                time_ranges=merged_ranges
+                time_ranges=merged_ranges,
+                headers=headers
             )
         )
 

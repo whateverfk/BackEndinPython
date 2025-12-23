@@ -4,13 +4,16 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db, get_current_user, CurrentUser
 from app.Models.device import Device
 from app.Models.channel import Channel
+from app.Models.channel_record_time_range import ChannelRecordTimeRange
 from app.schemas.device import (
     DeviceCreate,
     DeviceUpdate,
     DeviceOut
 )
+from app.core.time_provider import TimeProvider
 from app.features.RecordInfo.deps import build_hik_auth
 from app.features.RecordInfo.hikrecord import HikRecordService
+from app.Models.channel_record_day import ChannelRecordDay
 
 router = APIRouter(
     prefix="/api/devices",
@@ -157,17 +160,61 @@ async def get_channels_record_info(
     
     headers = build_hik_auth(device.username, device.password)
 
-    #Xóa channels info cũ 
-    db.query(Channel).filter(
-        Channel.device_id == device.id
-    ).delete(synchronize_session=False)
-    db.commit()
 
-    hik_service = HikRecordService()
-    channels = await hik_service._get_channels(device, headers)
+    try:
+      with db.begin():  
+        #Xóa channels info cũ 
+        db.query(Channel).filter(
+            Channel.device_id == device.id
+        ).delete(synchronize_session=False)
 
-    
+        hik_service = HikRecordService()
+        channels_data = await hik_service._get_channels(device, headers)
+
+        if not channels_data:
+            raise HTTPException(status_code=404, detail="No channels found or unable to connect")
+        
+        time = TimeProvider()
+        now = time.now().strftime("%Y-%m-%d")
+        channels = []
+        for ch in channels_data:
+            oldest_date = hik_service.oldest_record_date(device,ch["channel_no"], headers)
+            channel = Channel(
+                device_id=device.id,
+                channel_no=ch["channel_no"],
+                name=ch["name"],
+                oldest_record_date=oldest_date,
+                latest_record_date= now
+            )
+            channels.append(channel)
+            db.add(channel)
+            db.flush()
+            record_days = hik_service.record_status_of_channel(device, ch["channel_no"],oldest_date, now, headers)
+
+            for rd in record_days:
+                record_day = ChannelRecordDay(
+                channel_id=channel.id,
+                record_date=rd["date"],
+                has_record=rd["has_record"]
+            )
+                db.add(record_day)
+                db.flush()
+
+                if(rd["has_record"]):
+                    recordSegment = await hik_service.get_time_ranges_segment(device, ch["channel_no"], rd["date"], headers)
+                    recordSegment = await hik_service.merge_time_ranges(recordSegment, gap_seconds=3)
+                    for rs in recordSegment:
+                        db.add(ChannelRecordTimeRange(
+                        record_day_id=record_day.id,
+                        start_time=rs["start"],
+                        end_time=rs["end"]
+                    ))
+            db.commit()
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error retrieving channel record info: {str(e)}")
 
 
-    return 1
+    return {"message": "Channels record info updated successfully"}
     
