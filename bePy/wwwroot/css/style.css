@@ -457,3 +457,18 @@ td:first-child {
 .device-btn.newest {
     background: hwb(201 3% 20%);
 }
+/* Scrollable container for record days */
+#recordDaysContainer {
+    max-height: 550px; /* or any desired height */
+    overflow-y: auto;
+    padding-right: 10px; /* Optional: to prevent scrollbar overlap */
+}
+
+/* Scrollable list for time ranges */
+.time-ranges-list {
+    max-height: 200px; /* Set the maximum height for the list */
+    overflow-y: auto;
+    margin-top: 10px;
+    padding-right: 10px; /* Optional: to prevent scrollbar overlap */
+}
+

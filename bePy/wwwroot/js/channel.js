@@ -192,6 +192,7 @@ async function selectChannel(channel) {
             // If there are time ranges, display them
             if (recordDay.time_ranges && recordDay.time_ranges.length > 0) {
                 const timeRangesList = document.createElement("ul");
+                timeRangesList.classList.add("time-ranges-list");
 
                 // Loop through each time range and display it
                 recordDay.time_ranges.forEach(timeRange => {
