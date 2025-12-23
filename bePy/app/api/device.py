@@ -8,8 +8,9 @@ from app.Models.channel_record_time_range import ChannelRecordTimeRange
 from app.schemas.device import (
     DeviceCreate,
     DeviceUpdate,
-    DeviceOut
+    DeviceOut,
 )
+from app.schemas.channel_record import ChannelRecordDayOut
 from app.core.time_provider import TimeProvider
 from app.features.RecordInfo.deps import build_hik_auth
 from app.features.RecordInfo.hikrecord import HikRecordService
@@ -143,9 +144,26 @@ def get_device_channels(
         Channel.device_id == id
     ).all()
 
+@router.get(
+    "/channels/{channel_id}/record_days_full",
+    response_model=list[ChannelRecordDayOut]
+)
+def get_channel_record_days_full(
+    channel_id: int,
+    db: Session = Depends(get_db)
+):
+    days = (
+        db.query(ChannelRecordDay)
+        .filter(ChannelRecordDay.channel_id == channel_id)
+        .order_by(ChannelRecordDay.record_date.desc())
+        .all()
+    )
+
+    return days
+
 
 @router.post("/{id}/get_channels_record_info")
-async def get_channels_record_info(
+async def update_channels_record_info(
     id: int,
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
