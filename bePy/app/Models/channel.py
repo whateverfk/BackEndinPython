@@ -13,7 +13,7 @@ class Channel(Base):
     
     oldest_record_date = Column(Date, index=True)
     latest_record_date = Column(Date, index=True)
-    last_sync_at = Column(DateTime)
+    last_sync_at = Column(DateTime, nullable=True)
 
     __table_args__ = (
         Index("ix_device_channel_unique", "device_id", "channel_no", unique=True),

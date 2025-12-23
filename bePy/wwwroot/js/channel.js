@@ -1,170 +1,79 @@
-    /* =========================
-    AUTH REQUIRED
-    ========================= */
+document.addEventListener("DOMContentLoaded", () => {
+    loadDeviceList();
+});
 
-    requireAuth();
+async function loadDeviceList() {
+    const ul = document.getElementById("deviceList");
+    ul.innerHTML = "<li>Loading...</li>";
 
-    /* =========================
-    GLOBAL STATE
-    ========================= */
+    try {
+        const res = await fetch("http://127.0.0.1:8000/api/devices", {
+            headers: {
+                "Authorization": "Bearer " + localStorage.getItem("token"),
+                "Content-Type": "application/json"
+            }
+        });
 
-    let devicesCache = [];
-    let activeDeviceId = null;
+        if (!res.ok) {
+            throw new Error("Load devices failed");
+        }
 
-    /* =========================
-    ELEMENTS
-    ========================= */
+        const devices = await res.json();
+        ul.innerHTML = "";
 
-    const deviceListEl = document.getElementById("deviceList");
-    const channelListEl = document.getElementById("channelList");
-    const channelTitleEl = document.getElementById("channelTitle");
-
-    /* =========================
-    INIT
-    ========================= */
-
-    loadChannels();
-
-    /* =========================
-    API
-    ========================= */
-
-    async function loadChannels() {
-        devicesCache = await apiFetch("http://127.0.0.1:8000/api/channels");
-        if (!devicesCache || devicesCache.length === 0) {
-            renderEmptyState();
+        if (!devices.length) {
+            ul.innerHTML = "<li>No devices</li>";
             return;
         }
 
-        renderDevices();
-
-        // auto select first device
-        selectDevice(devicesCache[0].id);
-    }
-
-    /* =========================
-    DEVICE LIST
-    ========================= */
-
-    function renderDevices() {
-        deviceListEl.innerHTML = "";
-
-        devicesCache.forEach(d => {
+        devices.forEach(d => {
             const li = document.createElement("li");
-            li.className = "device-item";
-            li.id = `device-${d.id}`;
+            li.className = "device-row";
 
             li.innerHTML = `
-                <div><strong>IP WEB:</strong> ${d.ip}</div>
-                <div class="mono">${d.username}</div>
+                <div class="device-info">
+                    <div class="device-ip">${d.ip_web}</div>
+                    <div class="device-user">${d.username}</div>
+                </div>
+
+                <div class="device-actions">
+                    <button class="device-btn"
+                            onclick="deviceAction('${d.id}')">
+                        Action
+                    </button>
+
+                    <button class="device-btn newest"
+                            onclick="getNewestData('${d.id}')">
+                        Get newest data
+                    </button>
+                </div>
             `;
 
-            li.onclick = () => selectDevice(d.id);
-
-            deviceListEl.appendChild(li);
+            ul.appendChild(li);
         });
+
+    } catch (err) {
+        console.error(err);
+        ul.innerHTML = "<li>Error loading devices</li>";
     }
+}
 
-    /* =========================
-    SELECT DEVICE
-    ========================= */
+/**
+ * Nút cũ – tạm thời chưa có tác dụng
+ */
+function deviceAction(deviceId) {
+    console.log("Device action:", deviceId);
+    alert("Action device: " + deviceId);
+}
 
-    function selectDevice(deviceId) {
-        activeDeviceId = deviceId;
+/**
+ * Nút mới – Get Newest Data
+ * Sau này gắn API thật
+ */
+function getNewestData(deviceId) {
+    console.log("Get newest data for device:", deviceId);
+    alert("Get newest data: " + deviceId);
 
-        document
-            .querySelectorAll(".device-item")
-            .forEach(x => x.classList.remove("active"));
-
-        const activeEl = document.getElementById(`device-${deviceId}`);
-        if (activeEl) activeEl.classList.add("active");
-
-        const device = devicesCache.find(d => d.id === deviceId);
-        if (!device) return;
-
-        renderChannels(device);
-    }
-
-    /* =========================
-    CHANNEL LIST
-    ========================= */
-
-    function renderChannels(device) {
-        channelTitleEl.innerText = `Channels - ${device.ip}`;
-        channelListEl.innerHTML = "";
-
-        if (!device.channels || device.channels.length === 0) {
-            renderNoChannels();
-            return;
-        }
-
-        device.channels.forEach(ch => {
-            const tr = document.createElement("tr");
-
-            tr.innerHTML = `
-                <td>${escapeHtml(ch.name)}</td>
-                <td>${renderTimeRanges(ch.time_ranges)}</td>
-            `;
-
-            channelListEl.appendChild(tr);
-        });
-    }
-
-    /* =========================
-    TIME RANGE RENDER
-    ========================= */
-
-    function renderTimeRanges(ranges) {
-        if (!ranges || ranges.length === 0) {
-            return "<span style='color:#9ca3af'>—</span>";
-        }
-
-        return `
-            <div class="time-range">
-                ${ranges.map(r => `
-                    <div>
-                        ${formatDateTime(r.start)} → ${formatDateTime(r.end)}
-                    </div>
-                `).join("")}
-            </div>
-        `;
-    }
-
-    /* =========================
-    EMPTY STATES
-    ========================= */
-
-    function renderEmptyState() {
-        deviceListEl.innerHTML = `
-            <li style="padding:10px;color:#9ca3af">
-                No devices found
-            </li>
-        `;
-        channelListEl.innerHTML = "";
-        channelTitleEl.innerText = "Channels";
-    }
-
-    function renderNoChannels() {
-        channelListEl.innerHTML = `
-            <tr>
-                <td colspan="3" style="text-align:center;color:#9ca3af">
-                    No channel data
-                </td>
-            </tr>
-        `;
-    }
-
-    /* =========================
-    UTILITIES
-    ========================= */
-
-    function formatDateTime(v) {
-        if (!v) return "";
-        return v.replace("T", " ").replace("Z", "");
-    }
-
-    function escapeHtml(text) {
-        const div = document.createElement("div");
-        div.innerText = text;
-        return div.innerHTML;
-    }
+    // ví dụ tương lai:
+    // await fetch(`/api/devices/${deviceId}/newest-data`, { method: "POST" })
+}

@@ -421,3 +421,38 @@ td:first-child {
     font-family: Consolas, monospace;
     width: fit-content;
 }
+.device-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.device-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.device-ip {
+    font-weight: 600;
+}
+
+.device-user {
+    font-size: 12px;
+    color: #777;
+}
+
+.device-btn {
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.device-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.device-btn.newest {
+    background: #eef5ff;
+}

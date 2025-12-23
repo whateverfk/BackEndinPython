@@ -3,11 +3,14 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, get_current_user, CurrentUser
 from app.Models.device import Device
+from app.Models.channel import Channel
 from app.schemas.device import (
     DeviceCreate,
     DeviceUpdate,
     DeviceOut
 )
+from app.features.RecordInfo.deps import build_hik_auth
+from app.features.RecordInfo.hikrecord import HikRecordService
 
 router = APIRouter(
     prefix="/api/devices",
@@ -126,3 +129,45 @@ def get_device(
         raise HTTPException(status_code=404, detail="Device not found")
 
     return device
+
+@router.get("/{id}/channels", response_model=DeviceOut)
+def get_device_channels(
+    id: int,
+    db: Session = Depends(get_db)
+):
+    
+    return db.query(Channel).filter(
+        Channel.device_id == id
+    ).all()
+
+
+@router.post("/{id}/get_channels_record_info")
+async def get_channels_record_info(
+    id: int,
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user)
+):
+    device = db.query(Device).filter(
+        Device.id == id,
+        Device.owner_superadmin_id == user.superadmin_id
+    ).first()    
+
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    
+    headers = build_hik_auth(device.username, device.password)
+
+    #Xóa channels info cũ 
+    db.query(Channel).filter(
+        Channel.device_id == device.id
+    ).delete(synchronize_session=False)
+    db.commit()
+
+    hik_service = HikRecordService()
+    channels = await hik_service._get_channels(device, headers)
+
+    
+
+
+    return 1
+    

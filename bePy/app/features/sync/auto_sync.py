@@ -7,6 +7,16 @@ from app.features.sync.engine import SyncEngine
 
 _is_running = False
 
+# Worker để đồng bộ hóa cho từng superadmin riêng biệt
+async def sync_for_superadmin(db: Session, owner_id: int, interval_minutes: int):
+    engine = SyncEngine()
+    while True:
+        print(f"Starting sync for owner: {owner_id}")
+        await engine.sync_by_superadmin(db, owner_id)
+        
+        # Chờ theo thời gian interval_minutes trước khi tiếp tục sync lần sau
+        print(f"Sync completed for owner {owner_id}. Waiting for {interval_minutes} minutes before next sync.")
+        await asyncio.sleep(interval_minutes * 60)  # Thời gian chờ giữa các lần sync
 
 async def sync_background_worker():
     global _is_running
@@ -21,22 +31,21 @@ async def sync_background_worker():
             db: Session = SessionLocal()
 
             try:
-                #  Lấy tất cả setting đang bật
+                # Lấy tất cả các setting đang bật
                 settings = (
                     db.query(SyncSetting)
                     .filter(SyncSetting.is_enabled == True)
                     .all()
                 )
 
-                engine = SyncEngine()
-                # Với mỗi setting → lấy owner_superadmin_id → sync device của owner đó
+                # Duyệt qua tất cả các setting để tạo worker cho mỗi superadmin
                 for setting in settings:
                     owner_id = setting.owner_superadmin_id
-                    await engine.sync_by_superadmin(db, owner_id)
+                    interval_minutes = setting.interval_minutes if setting else 10
+                    print(f"Creating sync worker for owner: {owner_id} with interval {interval_minutes} minutes")
 
-                
-                delay_minutes = settings[0].interval_minutes if settings else 10
-                await asyncio.sleep(delay_minutes * 60)
+                    # Tạo một worker bất đồng bộ cho mỗi superadmin
+                    asyncio.create_task(sync_for_superadmin(db, owner_id, interval_minutes))
 
             finally:
                 db.close()
