@@ -6,57 +6,52 @@ from app.Models.sync_setting import SyncSetting
 from app.features.sync.engine import SyncEngine
 
 _is_running = False
+running_tasks = {}  # This will store the tasks for each owner_id
 
-# Worker để đồng bộ hóa cho từng superadmin riêng biệt
-async def sync_for_superadmin(db: Session, owner_id: int, interval_minutes: int):
+async def sync_for_superadmin(owner_id: int, interval_minutes: int):
     engine = SyncEngine()
+
     while True:
-        print(f"Starting sync for owner: {owner_id}")
-        await engine.sync_by_superadmin(db, owner_id)
-        
-        # Chờ theo thời gian interval_minutes trước khi tiếp tục sync lần sau
-        print(f"Sync completed for owner {owner_id}. Waiting for {interval_minutes} minutes before next sync.")
-        await asyncio.sleep(interval_minutes * 60)  # Thời gian chờ giữa các lần sync
+        db = SessionLocal()
+        try:
+
+            await engine.sync_by_superadmin(db, owner_id)
+            print(f"Auto sync completed for owner_superadmin_id: {owner_id}")
+        finally:
+            db.close()
+
+        await asyncio.sleep(interval_minutes * 60)
 
 async def sync_background_worker():
-    global _is_running
-
     while True:
-        if _is_running:
-            await asyncio.sleep(5)
-            continue
-
+        db = SessionLocal()
         try:
-            _is_running = True
-            db: Session = SessionLocal()
+            settings = db.query(SyncSetting).filter(
+                SyncSetting.is_enabled == True
+            ).all()
 
-            try:
-                # Lấy tất cả các setting đang bật
-                settings = (
-                    db.query(SyncSetting)
-                    .filter(SyncSetting.is_enabled == True)
-                    .all()
-                )
+            active_owner_ids = set()
 
-                # Duyệt qua tất cả các setting để tạo worker cho mỗi superadmin
-                for setting in settings:
-                    owner_id = setting.owner_superadmin_id
-                    interval_minutes = setting.interval_minutes if setting else 10
-                    print(f"Creating sync worker for owner: {owner_id} with interval {interval_minutes} minutes")
+            for setting in settings:
+                owner_id = setting.owner_superadmin_id
+                active_owner_ids.add(owner_id)
 
-                    # Tạo một worker bất đồng bộ cho mỗi superadmin
-                    asyncio.create_task(sync_for_superadmin(db, owner_id, interval_minutes))
+                if owner_id not in running_tasks or running_tasks[owner_id].done():
+                    running_tasks[owner_id] = asyncio.create_task(
+                        sync_for_superadmin(
+                            owner_id,
+                            setting.interval_minutes or 10
+                        )
+                    )
+                    print(f"Started auto sync for owner_superadmin_id: {owner_id}")
 
-            finally:
-                db.close()
-
-        except asyncio.CancelledError:
-            break
-
-        except Exception as ex:
-            traceback.print_exc()
-            print("SYNC WORKER ERROR:", ex)
-            await asyncio.sleep(30)
+            # cancel worker bị disable aka dừng worker của admin bị xóa khỏi db 
+            for owner_id in list(running_tasks.keys()):
+                if owner_id not in active_owner_ids:
+                    running_tasks[owner_id].cancel()
+                    del running_tasks[owner_id]
 
         finally:
-            _is_running = False
+            db.close()
+
+        await asyncio.sleep(30)

@@ -21,9 +21,9 @@ async def lifespan(app: FastAPI):
     except asyncio.CancelledError:
         print(" AUTO SYNC CANCELLED")
 
-#app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan)
 
-app = FastAPI()
+#app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
