@@ -140,7 +140,7 @@ function renderChannelTable(data, monthStr) {
         // Channel cell (sticky left)
         const tdChannel = document.createElement("td");
         tdChannel.className = "border p-2 sticky left-0 bg-white font-semibold z-10";
-        tdChannel.innerText = `CH ${ch.channel_no} - ${ch.name}`;
+        tdChannel.innerText = ` ${ch.name}`;
         tr.appendChild(tdChannel);
 
         for (let d = 1; d <= daysInMonth; d++) {
@@ -264,4 +264,32 @@ function escapeHtml(str) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+}
+
+let currentMonth = new Date();
+
+document.addEventListener("DOMContentLoaded", () => {
+    updateMonthLabel();
+
+    document.getElementById("prevMonthBtn")?.addEventListener("click", () => {
+        alert("Prev month clicked");
+    });
+
+    document.getElementById("nextMonthBtn")?.addEventListener("click", () => {
+        alert("Next month clicked");
+    });
+
+    document.getElementById("openConfigBtn")?.addEventListener("click", () => {
+        alert("Open config window");
+    });
+});
+
+function updateMonthLabel() {
+    const label = document.getElementById("currentMonthLabel");
+    if (!label) return;
+
+    const month = currentMonth.getMonth() + 1;
+    const year = currentMonth.getFullYear();
+
+    label.innerText = `${String(month).padStart(2, "0")} / ${year}`;
 }

@@ -18,6 +18,36 @@
     <a class="text-white font-bold cursor-pointer pb-1.5 border-b-4 border-teal-500">Channel</a>
     <a href="./usermanager.html" class="text-white font-bold cursor-pointer pb-1.5 hover:border-b-4 hover:border-teal-500">User</a>
 </nav>
+<!-- HEADER -->
+    <div class="flex justify-center mb-3">
+
+    <!-- MONTH CONTROLS -->
+    <div class="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-lg shadow-sm">
+        <button id="prevMonthBtn"
+                class="px-2 py-1 bg-white border rounded hover:bg-gray-200">
+            ◀
+        </button>
+
+        <span id="currentMonthLabel"
+              class="font-semibold min-w-[100px] text-center">
+            --/----
+        </span>
+
+        <button id="nextMonthBtn"
+                class="px-2 py-1 bg-white border rounded hover:bg-gray-200">
+            ▶
+        </button>
+
+        <button id="openConfigBtn"
+                class="ml-2 px-2 py-1 bg-gray-600 text-white rounded hover:bg-gray-700">
+            ⚙
+        </button>
+    </div>
+</div>
+
+
+
+
 
 <!-- MAIN -->
 <div class="min-h-screen p-6">
@@ -31,7 +61,7 @@
 
         <!-- RIGHT: CHANNEL TABLE -->
         <div class="bg-white p-4 rounded-lg shadow-lg flex-1 min-w-0">
-            <h3 class="text-lg font-bold mb-3">Channel Archive</h3>
+            <h3 class="text-lg font-bold mb-3">Monitor</h3>
 
             <!-- SCROLL CONTAINER -->
             <div id="channelTableWrapper"
