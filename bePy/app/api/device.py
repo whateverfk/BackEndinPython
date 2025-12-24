@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta , date   
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
-
+from sqlalchemy import func
 from app.api.deps import get_db, get_current_user, CurrentUser
 from app.Models.device import Device
 from app.Models.channel import Channel
@@ -517,6 +517,17 @@ def get_all_channels_data_in_month(
         Channel.device_id == device.id
     ).all()
 
+    oldest_record_date_query = db.query(func.min(Channel.oldest_record_date).label('oldest_record_date')
+    ).filter(
+        Channel.device_id == device.id
+    ).scalar()
+
+    # Extract month and year from the oldest record date if available
+    oldest_record_month = None
+    if oldest_record_date_query:
+        oldest_record_month = oldest_record_date_query.strftime("%Y-%m")
+
+
     result = []
 
     for ch in channels:
@@ -563,5 +574,9 @@ def get_all_channels_data_in_month(
             "record_days": rd_list
         })
 
-    return result
+    return {
+        "oldest_record_month": oldest_record_month,
+        "channels": result
+    }
+            
 

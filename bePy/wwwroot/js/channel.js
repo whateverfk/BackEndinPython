@@ -87,7 +87,14 @@ async function loadChannelMonthData(deviceId, monthStr) {
         if (!res.ok) throw new Error("Load channel data failed");
 
         const data = await res.json();
-        renderChannelTable(data, monthStr);
+
+        // xem có oldest_record_month không
+        if (data.oldest_record_month) {
+            console.log("Oldest record month:", data.oldest_record_month);
+        }
+
+        
+        renderChannelTable(data.channels, monthStr);
 
     } catch (err) {
         console.error(err);
@@ -95,8 +102,7 @@ async function loadChannelMonthData(deviceId, monthStr) {
     }
 }
 
-function renderChannelTable(data, monthStr) {
-    
+function renderChannelTable(channels, monthStr) {
     const wrapper = document.getElementById("channelTableWrapper");
 
     const [year, month] = monthStr.split("-").map(Number);
@@ -127,7 +133,7 @@ function renderChannelTable(data, monthStr) {
     /* ===== TBODY ===== */
     const tbody = document.createElement("tbody");
 
-    data.forEach(item => {
+    channels.forEach(item => {
         const ch = item.channel;
 
         const recordMap = {};
@@ -137,10 +143,9 @@ function renderChannelTable(data, monthStr) {
 
         const tr = document.createElement("tr");
 
-        // Channel cell (sticky left)
         const tdChannel = document.createElement("td");
         tdChannel.className = "border p-2 sticky left-0 bg-white font-semibold z-10";
-        tdChannel.innerText = ` ${ch.name}`;
+        tdChannel.innerText = ch.name;
         tr.appendChild(tdChannel);
 
         for (let d = 1; d <= daysInMonth; d++) {
@@ -150,29 +155,16 @@ function renderChannelTable(data, monthStr) {
             const cellInfo = analyzeRecordDay(rd);
 
             const td = document.createElement("td");
-            td.className = `
-                border p-1 text-center
-                cursor-pointer
-                relative z-0
-                hover:bg-gray-100
-            `;
+            td.className = "border p-1 text-center cursor-pointer hover:bg-gray-100";
 
-            // CLICK HANDLER (đúng cách)
-
-            td.addEventListener("click", () => {
-                showTimeRanges(rd);
-            });
+            td.addEventListener("click", () => showTimeRanges(rd));
 
             const dot = document.createElement("span");
-            dot.className = `
-                inline-block w-3 h-3 rounded-full
-                ${cellInfo.color}
-                pointer-events-none
-            `;
+            dot.className = `inline-block w-3 h-3 rounded-full ${cellInfo.color}`;
+            dot.style.pointerEvents = "none";
 
             td.appendChild(dot);
             tr.appendChild(td);
-
         }
 
         tbody.appendChild(tr);
@@ -182,8 +174,8 @@ function renderChannelTable(data, monthStr) {
 
     wrapper.innerHTML = "";
     wrapper.appendChild(table);
-    
 }
+
 
 
 function analyzeRecordDay(rd) {
