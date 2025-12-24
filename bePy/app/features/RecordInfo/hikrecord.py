@@ -393,5 +393,52 @@ class HikRecordService(RecordService):
     async def get_channels_record_info():
         pass
 
-    async def recorded_day_in_month(self, device, channel_id: int, year: int, month: int):
-        pass
+    async def recorded_day_in_month(self, device, channel_id: int, year: int, month: int, header) -> list[dict]:
+        time_provider = TimeProvider()
+        base_url = f"http://{device.ip_web}"
+        month = str(month)
+        year = str(year)
+
+        record_status_list = []
+        
+        async with httpx.AsyncClient(timeout=15) as client:
+            payload = f"""<?xml version="1.0" encoding="utf-8"?>
+            <trackDailyParam>
+                <year>{year}</year>
+                <monthOfYear>{month}</monthOfYear>
+            </trackDailyParam>
+            """
+            
+            url = f"{base_url}/ISAPI/ContentMgmt/record/tracks/{channel_id}/dailyDistribution"
+            print(f"Requesting URL: {repr(url)}")
+
+            resp = await client.post(
+                url,
+                content=payload,
+                headers=header
+            )
+
+            print(f"Response Status Code: {resp.status_code}")
+            
+            if resp.status_code != 200:
+                print("Error: API returned non-200 status.")
+                return []
+            
+            root = ET.fromstring(resp.text)
+            
+            # Tìm tất cả các thẻ <day> trong XML (xử lý namespace)
+            days = root.findall(".//{http://www.hikvision.com/ver20/XMLSchema}day")
+
+            for d in days:
+                day_of_month = int(d.find("{http://www.hikvision.com/ver20/XMLSchema}dayOfMonth").text)
+                record = d.find("{http://www.hikvision.com/ver20/XMLSchema}record")
+                has_record = (record is not None and record.text.lower() == "true")
+                
+                # Lưu trạng thái vào danh sách
+                record_status_list.append({
+                    "date": f"{year}-{int(month):02d}-{day_of_month:02d}",
+                    "has_record": has_record
+                })
+                
+        print(f"Returning record status list with {len(record_status_list)} entries.")
+        return record_status_list

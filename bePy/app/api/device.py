@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta    
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -168,6 +168,11 @@ async def update_channels_record_info(
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
+    
+    """
+    Cập nhật / tạo mới thông tin cho toàn bộ channels và các ngày có record + time ranges
+      từng ngày của thiết bị.
+    """
     device = db.query(Device).filter(
         Device.id == id,
         Device.owner_superadmin_id == user.superadmin_id
@@ -269,6 +274,9 @@ async def update_channel_record_info(
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
+    """
+    Cập nhật thông tin time ranges của các ngày cho 1 kênh, chỉ update từ latest_record_date đến hôm nay.
+    """
     # Fetch the channel and device
     channel = db.query(Channel).filter(
         Channel.id == channel_id,
@@ -406,4 +414,74 @@ async def update_channel_record_info(
 
     return {"message": "Channel record info updated successfully"}
 
+
+@router.get("/{id}/channels/{channel_id}/month_data/{date_str}", response_model=list[ChannelRecordDayOut])
+def get_all_channel_data_in_month(
+    id: int,
+    channel_id: int,
+    date_str: str,
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user)
+):
+    """
+    Lấy dữ liệu record ngày của một channel trong tháng năm chỉ định.
+    date_str format: "YYYY-MM" (e.g., "2025-12")
+    """
+    device = db.query(Device).filter(
+        Device.id == id,
+        Device.owner_superadmin_id == user.superadmin_id
+    ).first()
+
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    channel = db.query(Channel).filter(
+        Channel.id == channel_id,
+        Channel.device_id == device.id
+    ).first()
+
+    if not channel:
+        raise HTTPException(status_code=404, detail="Channel not found")
+
+    # Parse date_str (format: "YYYY-MM")
+    try:
+
+        parsed_date = datetime.strptime(date_str, "%Y-%m")
+        year = parsed_date.year
+        month = parsed_date.month
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid date format. Use 'YYYY-MM' (e.g., '2025-12')"
+        )
+
+    # Calculate first and last day of the month
+    if month == 12:
+        first_day = f"{year}-12-01"
+        last_day = f"{year + 1}-01-01"
+    else:
+        first_day = f"{year}-{month + 1:02d}-01"
+        # Last day of current month
+        last_day = f"{year}-{month:02d}-31"
+
+    # More robust: use datetime to get last day
+    if month == 12:
+        last_day_dt = datetime(year + 1, 1, 1)
+    else:
+        last_day_dt = datetime(year, month + 1, 1)
+    
+    last_day_of_month = (last_day_dt - timedelta(days=1)).strftime("%Y-%m-%d")
+
+    days = (
+        db.query(ChannelRecordDay)
+        .filter(
+            ChannelRecordDay.channel_id == channel.id,
+            ChannelRecordDay.record_date >= f"{year}-{month:02d}-01",
+            ChannelRecordDay.record_date <= last_day_of_month
+        )
+        .order_by(ChannelRecordDay.record_date.desc())
+        .all()
+    )
+
+    return days
 
