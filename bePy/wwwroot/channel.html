@@ -23,33 +23,10 @@
 <div class="min-h-screen p-6">
     <div class="max-w-7xl mx-auto flex gap-6">
 
-        <!-- LEFT: DEVICE LIST -->
-        <div class="bg-white p-6 rounded-lg shadow-lg" style="width: 460px;">
+        <!-- ONLY: DEVICE LIST -->
+        <div class="bg-white p-6 rounded-lg shadow-lg w-full">
             <h3 class="text-lg font-bold mb-3">Devices</h3>
             <ul id="deviceList"></ul>
-        </div>
-
-        <!-- MIDDLE: CHANNEL INFO -->
-         <div class="bg-white p-6 rounded-lg shadow-lg" style="width: 460px; min-width: 200px;">
-            <h3 class="text-lg font-bold mb-3">Channels</h3>
-
-            <ul id="channelList" class="space-y-2 max-h-[60vh] overflow-y-auto break-words"></ul>
-        </div>
-
-        <!-- RIGHT: RECORD DAYS -->
-        <div class="bg-white p-6 rounded-lg shadow-lg flex-1" style="min-width: 650px;">
-            <div class="flex items-center justify-between mb-3">
-                <h3 id="channelTitle" class="text-lg font-bold">Record Time</h3>
-
-                <button id="updateChannelBtn"
-                        class="px-2.5 py-1 bg-cyan-600 text-white text-xs rounded-md hover:bg-cyan-700 transition-all"
-                        style="display:none;"
-                        onclick="updateCurrentChannelRecord()">
-                    Update
-                </button>
-            </div>
-
-            <div id="recordDaysContainer" class="overflow-y-auto max-h-[70vh] space-y-4 pr-2"></div>
         </div>
 
     </div>

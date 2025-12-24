@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta    
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_db, get_current_user, CurrentUser
 from app.Models.device import Device
@@ -161,6 +161,68 @@ def get_channel_record_days_full(
     )
 
     return days
+
+
+@router.get("/{id}/channels/records")
+def get_device_channels_records(
+    id: int,
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user)
+):
+    """
+    Return all channels for a device along with their record days and time ranges.
+    Response shape: list of { channel: {id,name,channel_no,oldest_record_date,latest_record_date}, record_days: [ {record_date, has_record, time_ranges: [{start_time,end_time}, ...] } ] }
+    """
+    device = db.query(Device).filter(
+        Device.id == id,
+        Device.owner_superadmin_id == user.superadmin_id
+    ).first()
+
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    # load channels
+    channels = db.query(Channel).filter(Channel.device_id == device.id).all()
+
+    result = []
+    for ch in channels:
+        # load record days and time ranges for each channel
+        days = (
+            db.query(ChannelRecordDay)
+            .options(joinedload(ChannelRecordDay.time_ranges))
+            .filter(ChannelRecordDay.channel_id == ch.id)
+            .order_by(ChannelRecordDay.record_date.desc())
+            .all()
+        )
+
+        # build serializable structure
+        rd_list = []
+        for rd in days:
+            tr_list = []
+            for tr in getattr(rd, 'time_ranges', []):
+                tr_list.append({
+                    'start_time': tr.start_time,
+                    'end_time': tr.end_time
+                })
+
+            rd_list.append({
+                'record_date': rd.record_date,
+                'has_record': rd.has_record,
+                'time_ranges': tr_list
+            })
+
+        result.append({
+            'channel': {
+                'id': ch.id,
+                'channel_no': ch.channel_no,
+                'name': ch.name,
+                'oldest_record_date': ch.oldest_record_date,
+                'latest_record_date': ch.latest_record_date
+            },
+            'record_days': rd_list
+        })
+
+    return result
 
 @router.post("/{id}/get_channels_record_info")
 async def update_channels_record_info(
