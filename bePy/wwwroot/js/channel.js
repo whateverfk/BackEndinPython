@@ -95,8 +95,9 @@ async function loadChannels(deviceId) {
 
         channels.forEach(ch => {
             const li = document.createElement("li");
-            li.className = "channel-row";
-            li.textContent = `${ch.name}`;
+            // use Tailwind utilities to ensure long camera names wrap and don't overflow
+            li.className = "channel-row break-words px-3 py-2 rounded-md hover:bg-gray-100 cursor-pointer";
+            li.textContent = ch.name;
 
             li.onclick = () => selectChannel(ch);
 
@@ -186,29 +187,29 @@ async function selectChannel(channel) {
             return;
         }
 
-        // Loop through each record day and display it
+        // Loop through each record day and display it (add Tailwind classes for spacing/overflow)
         filteredRecordDays.forEach(recordDay => {
             const recordDayElement = document.createElement("div");
-            recordDayElement.className = "record-day";
+            // spacing and wrap
+            recordDayElement.className = "record-day mb-4 break-words";
 
-            
             const recordDateElement = document.createElement("h4");
+            recordDateElement.className = "font-semibold mb-2 text-sm";
             recordDateElement.innerText = `Date: ${recordDay.record_date}`;
             recordDayElement.appendChild(recordDateElement);
 
-            
             if (recordDay.time_ranges && recordDay.time_ranges.length > 0) {
                 const timeRangesList = document.createElement("ul");
-                timeRangesList.classList.add("time-ranges-list");
+                // use compact list styling
+                timeRangesList.className = "time-ranges-list list-none space-y-2 m-0 p-0";
 
-                
                 recordDay.time_ranges.forEach(timeRange => {
                     const timeRangeItem = document.createElement("li");
-                    //timeRangeItem.innerText = `From: ${timeRange.start_time} To: ${timeRange.end_time}`;
+                    timeRangeItem.className = "px-2 py-1 bg-gray-50 rounded text-sm font-mono break-words";
+
                     const startTime = new Date(timeRange.start_time);
                     const endTime = new Date(timeRange.end_time);
 
-                    // Lấy giờ, phút và giây
                     const startHour = startTime.getHours().toString().padStart(2, '0');
                     const startMinute = startTime.getMinutes().toString().padStart(2, '0');
                     const startSecond = startTime.getSeconds().toString().padStart(2, '0');
@@ -217,7 +218,6 @@ async function selectChannel(channel) {
                     const endMinute = endTime.getMinutes().toString().padStart(2, '0');
                     const endSecond = endTime.getSeconds().toString().padStart(2, '0');
 
-                    // Cập nhật nội dung
                     timeRangeItem.innerText = `From: ${startHour}:${startMinute}:${startSecond} To: ${endHour}:${endMinute}:${endSecond}`;
 
                     timeRangesList.appendChild(timeRangeItem);
@@ -226,6 +226,7 @@ async function selectChannel(channel) {
                 recordDayElement.appendChild(timeRangesList);
             } else {
                 const noTimeRanges = document.createElement("p");
+                noTimeRanges.className = "text-sm text-gray-500";
                 noTimeRanges.innerText = "No time ranges available";
                 recordDayElement.appendChild(noTimeRanges);
             }

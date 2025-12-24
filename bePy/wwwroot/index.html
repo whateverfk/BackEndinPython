@@ -3,33 +3,34 @@
 <head>
     <meta charset="utf-8" />
     <title>Add Device</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="./css/style.css" />
 </head>
-<body>
+<body class="bg-gray-100 text-gray-800 font-sans">
 
-    <div class="navbar">
-        <a class="active">Add Device</a>
-        <a href="./list.html">Device List</a>
-        <a href="./sync.html">Sync</a>
-        <a href="./channel.html">Channel</a>
-        <a href="./usermanager.html">User</a>
-    </div>
+    <nav class="bg-gray-700 px-6 py-3 flex gap-6">
+        <a class="text-white font-bold cursor-pointer pb-1.5 border-b-4 border-teal-500">Add Device</a>
+        <a href="./list.html" class="text-white font-bold cursor-pointer pb-1.5 hover:border-b-4 hover:border-teal-500">Device List</a>
+        <a href="./sync.html" class="text-white font-bold cursor-pointer pb-1.5 hover:border-b-4 hover:border-teal-500">Sync</a>
+        <a href="./channel.html" class="text-white font-bold cursor-pointer pb-1.5 hover:border-b-4 hover:border-teal-500">Channel</a>
+        <a href="./usermanager.html" class="text-white font-bold cursor-pointer pb-1.5 hover:border-b-4 hover:border-teal-500">User</a>
+    </nav>
 
-    <div class="container">
-        <div class="card">
-            <h2>Add Device</h2>
+    <div class="min-h-screen flex justify-center p-6">
+        <div class="bg-white p-6 rounded-lg shadow-lg w-96">
+            <h2 class="text-2xl font-bold mb-4">Add Device</h2>
 
-            <input placeholder="IP NVR" id="ipNvr" />
-            <input placeholder="IP Web" id="ipWeb" />
-            <input placeholder="Username" id="userName" />
-            <input placeholder="Password" id="password" />
+            <input placeholder="IP NVR" id="ipNvr" class="w-full px-3 py-2 mb-3 border border-gray-300 rounded-md text-sm" />
+            <input placeholder="IP Web" id="ipWeb" class="w-full px-3 py-2 mb-3 border border-gray-300 rounded-md text-sm" />
+            <input placeholder="Username" id="userName" class="w-full px-3 py-2 mb-3 border border-gray-300 rounded-md text-sm" />
+            <input placeholder="Password" id="password" class="w-full px-3 py-2 mb-3 border border-gray-300 rounded-md text-sm" />
 
-            <select id="brand">
+            <select id="brand" class="w-full px-3 py-2 mb-3 border border-gray-300 rounded-md text-sm">
                 <option value="HIKVision">HIKVision</option>
                 <option value="Dahua">Dahua</option>
             </select>
 
-            <button onclick="addDevice()">Add</button>
+            <button onclick="addDevice()" class="w-full px-3 py-3 bg-teal-500 text-white font-medium rounded-md text-base hover:bg-teal-700">Add</button>
         </div>
     </div>
 
