@@ -21,31 +21,47 @@
 
 <!-- MAIN -->
 <div class="min-h-screen p-6">
-    <div class="max-w-7xl mx-auto flex gap-6">
+    <div class="max-w-[95vw] mx-auto flex gap-6">
 
-        <!-- ONLY: DEVICE LIST -->
-        <div class="bg-white p-6 rounded-lg shadow-lg w-full">
+        <!-- LEFT: DEVICE LIST -->
+        <div class="bg-white p-4 rounded-lg shadow-lg w-[320px] shrink-0">
             <h3 class="text-lg font-bold mb-3">Devices</h3>
-            <ul id="deviceList"></ul>
+            <ul id="deviceList" class="space-y-2"></ul>
+        </div>
+
+        <!-- RIGHT: CHANNEL TABLE -->
+        <div class="bg-white p-4 rounded-lg shadow-lg flex-1 min-w-0">
+            <h3 class="text-lg font-bold mb-3">Channel Archive</h3>
+
+            <!-- SCROLL CONTAINER -->
+            <div id="channelTableWrapper"
+                 class="relative max-h-[75vh] overflow-auto border rounded">
+                <!-- table render here -->
+            </div>
         </div>
 
     </div>
-    <div id="channelTableWrapper" class="mt-6 overflow-x-auto"></div>
+</div>
 
-<!-- MODAL -->
+
+<!-- TIME RANGE MODAL -->
 <div id="timeRangeModal"
-     class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center">
-    <div class="bg-white rounded-lg shadow-lg p-6 w-[400px]">
-        <h3 class="font-bold mb-3">Time ranges</h3>
-        <ul id="timeRangeList" class="text-sm space-y-1"></ul>
-        <button onclick="closeModal()"
-                class="mt-4 px-4 py-2 bg-gray-700 text-white rounded">
-            Close
-        </button>
+     class="hidden fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50">
+
+    <div class="bg-white rounded-lg shadow-lg p-6 w-96 max-w-full">
+        <h3 class="text-lg font-bold mb-3">Time ranges</h3>
+
+        <ul id="timeRangeList" class="space-y-2 text-sm text-gray-700"></ul>
+
+        <div class="mt-4 text-right">
+            <button onclick="closeModal()"
+                    class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+                Close
+            </button>
+        </div>
     </div>
 </div>
 
-</div>
 
 <script src="./js/auth.js"></script>
 <script src="./js/channel.js"></script>

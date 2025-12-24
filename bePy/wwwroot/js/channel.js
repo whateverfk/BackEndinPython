@@ -94,40 +94,54 @@ async function loadChannelMonthData(deviceId, monthStr) {
         wrapper.innerHTML = "Error loading channel data";
     }
 }
+
 function renderChannelTable(data, monthStr) {
+    
     const wrapper = document.getElementById("channelTableWrapper");
 
     const [year, month] = monthStr.split("-").map(Number);
     const daysInMonth = new Date(year, month, 0).getDate();
 
-    let html = `
-    <table class="border-collapse min-w-max bg-white shadow rounded">
-        <thead>
-            <tr>
-                <th class="border p-2 sticky left-0 bg-white z-10">Channel</th>
-    `;
+    const table = document.createElement("table");
+    table.className = "border-collapse min-w-max bg-white shadow rounded";
+
+    /* ===== THEAD ===== */
+    const thead = document.createElement("thead");
+    const headRow = document.createElement("tr");
+
+    const thChannel = document.createElement("th");
+    thChannel.className = "border p-2 sticky left-0 top-0 bg-white z-20";
+    thChannel.innerText = "Channel";
+    headRow.appendChild(thChannel);
 
     for (let d = 1; d <= daysInMonth; d++) {
-        html += `<th class="border p-2 text-xs">${d}</th>`;
+        const th = document.createElement("th");
+        th.className = "border p-2 text-xs sticky top-0 bg-gray-100 z-10";
+        th.innerText = d;
+        headRow.appendChild(th);
     }
 
-    html += `</tr></thead><tbody>`;
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    /* ===== TBODY ===== */
+    const tbody = document.createElement("tbody");
 
     data.forEach(item => {
         const ch = item.channel;
 
-        // map record_days theo date
         const recordMap = {};
         item.record_days.forEach(rd => {
             recordMap[rd.record_date] = rd;
         });
 
-        html += `
-        <tr>
-            <td class="border p-2 sticky left-0 bg-white font-semibold">
-                CH ${ch.channel_no} - ${ch.name}
-            </td>
-        `;
+        const tr = document.createElement("tr");
+
+        // Channel cell (sticky left)
+        const tdChannel = document.createElement("td");
+        tdChannel.className = "border p-2 sticky left-0 bg-white font-semibold z-10";
+        tdChannel.innerText = `CH ${ch.channel_no} - ${ch.name}`;
+        tr.appendChild(tdChannel);
 
         for (let d = 1; d <= daysInMonth; d++) {
             const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
@@ -135,20 +149,43 @@ function renderChannelTable(data, monthStr) {
 
             const cellInfo = analyzeRecordDay(rd);
 
-            html += `
-            <td class="border p-1 text-center cursor-pointer"
-                onclick='showTimeRanges(${JSON.stringify(rd || null)})'>
-                <span class="inline-block w-3 h-3 rounded-full ${cellInfo.color}"></span>
-            </td>
+            const td = document.createElement("td");
+            td.className = `
+                border p-1 text-center
+                cursor-pointer
+                relative z-0
+                hover:bg-gray-100
             `;
+
+            // CLICK HANDLER (đúng cách)
+
+            td.addEventListener("click", () => {
+                showTimeRanges(rd);
+            });
+
+            const dot = document.createElement("span");
+            dot.className = `
+                inline-block w-3 h-3 rounded-full
+                ${cellInfo.color}
+                pointer-events-none
+            `;
+
+            td.appendChild(dot);
+            tr.appendChild(td);
+
         }
 
-        html += `</tr>`;
+        tbody.appendChild(tr);
     });
 
-    html += `</tbody></table>`;
-    wrapper.innerHTML = html;
+    table.appendChild(tbody);
+
+    wrapper.innerHTML = "";
+    wrapper.appendChild(table);
+    
 }
+
+
 function analyzeRecordDay(rd) {
     if (!rd || !rd.has_record || !rd.time_ranges.length) {
         return { color: "bg-gray-300" }; // xám
