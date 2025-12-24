@@ -352,7 +352,6 @@ class HikRecordService(RecordService):
             time_ranges=merged_ranges
         )
     
-
     async def get_channel_record_info_in_range(
         self,
         device,
@@ -392,4 +391,7 @@ class HikRecordService(RecordService):
         return result
 
     async def get_channels_record_info():
+        pass
+
+    async def recorded_day_in_month(self, device, channel_id: int, year: int, month: int):
         pass
