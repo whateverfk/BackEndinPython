@@ -3,25 +3,26 @@
 <head>
     <meta charset="utf-8" />
     <title>Device List</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="./css/style.css" />
 </head>
-<body>
+<body class="bg-gray-100 text-gray-800 font-sans">
 
-    <div class="navbar">
-        <a href="./index.html">Add Device</a>
-        <a class="active">Device List</a>
-        <a href="./sync.html">Sync</a>
-         <a href="./channel.html">Channel</a>
-        <a href="./usermanager.html">User</a>
-    </div>
+    <nav class="bg-gray-700 px-6 py-3 flex gap-6">
+        <a href="./index.html" class="text-white font-bold cursor-pointer pb-1.5 hover:border-b-4 hover:border-teal-500">Add Device</a>
+        <a class="text-white font-bold cursor-pointer pb-1.5 border-b-4 border-teal-500">Device List</a>
+        <a href="./sync.html" class="text-white font-bold cursor-pointer pb-1.5 hover:border-b-4 hover:border-teal-500">Sync</a>
+         <a href="./channel.html" class="text-white font-bold cursor-pointer pb-1.5 hover:border-b-4 hover:border-teal-500">Channel</a>
+        <a href="./usermanager.html" class="text-white font-bold cursor-pointer pb-1.5 hover:border-b-4 hover:border-teal-500">User</a>
+    </nav>
 
-    <div class="container">
-        <div class="card list-box">
-            <h2>Device List</h2>
+    <div class="min-h-screen flex justify-center p-6">
+        <div class="bg-white p-6 rounded-lg shadow-lg" style="width: 460px;">
+            <h2 class="text-2xl font-bold mb-4">Device List</h2>
 
-            <ul id="list"></ul>
+            <ul id="list" class="mb-4"></ul>
 
-            <button onclick="confirmChanges()">Confirm Changes</button>
+            <button onclick="confirmChanges()" class="w-full px-3 py-3 bg-teal-500 text-white font-medium rounded-md text-base hover:bg-teal-700">Confirm Changes</button>
         </div>
     </div>
 

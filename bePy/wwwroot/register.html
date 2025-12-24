@@ -3,23 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <title>Đăng ký</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="./css/style.css">
 </head>
-<body>
+<body class="bg-gray-100 text-gray-800 font-sans">
 
-    <div class="container">
-        <div class="card">
-            <h2 style="text-align:center">Đăng ký tài khoản</h2>
+    <div class="min-h-screen flex justify-center items-center">
+        <div class="bg-white p-6 rounded-lg shadow-lg w-96">
+            <h2 class="text-2xl font-bold text-center mb-4">Đăng ký tài khoản</h2>
 
-            <input id="username" type="text" placeholder="Username">
-            <input id="password" type="password" placeholder="Password">
-            <input id="password2" type="password" placeholder="Nhập lại Password">
+            <input id="username" type="text" placeholder="Username" class="w-full px-3 py-2 mb-3 border border-gray-300 rounded-md text-sm">
+            <input id="password" type="password" placeholder="Password" class="w-full px-3 py-2 mb-3 border border-gray-300 rounded-md text-sm">
+            <input id="password2" type="password" placeholder="Nhập lại Password" class="w-full px-3 py-2 mb-3 border border-gray-300 rounded-md text-sm">
 
-            <button class="btn-big btn-primary" onclick="register()">Đăng ký</button>
+            <button class="w-full px-3 py-3 bg-teal-500 text-white font-medium rounded-md text-base hover:bg-teal-700" onclick="register()">Đăng ký</button>
 
-            <p style="margin-top:15px; text-align:center">
+            <p class="mt-4 text-center text-sm">
                 Đã có tài khoản?
-                <a href="./login.html">Đăng nhập</a>
+                <a href="./login.html" class="text-teal-500 hover:underline">Đăng nhập</a>
             </p>
         </div>
     </div>

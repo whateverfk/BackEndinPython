@@ -1,115 +1,60 @@
 /* =========================
    GLOBAL
 ========================= */
-body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    background: #f4f4f4;
-    color: #333;
+/* =========================
+   TOGGLE SWITCH
+========================= */
+.toggle-switch {
+    position: relative;
+    width: 46px;
+    height: 24px;
+    display: inline-block;
 }
 
+.toggle-input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider-toggle {
+    position: absolute;
+    inset: 0;
+    background: #ccc;
+    border-radius: 999px;
+    transition: 0.3s;
+    cursor: pointer;
+}
+
+.slider-toggle::before {
+    content: "";
+    position: absolute;
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: 0.3s;
+}
+
+.toggle-input:checked + .slider-toggle {
+    background: #22c55e;
+}
+
+.toggle-input:checked + .slider-toggle::before {
+    transform: translateX(22px);
+}
+
+/* =========================
+   HIDDEN CLASS
+========================= */
 .hidden {
     display: none;
 }
 
 /* =========================
-   NAVBAR
-========================= */
-.navbar {
-    background: #2c3e50;
-    padding: 15px 25px;
-    display: flex;
-    gap: 25px;
-}
-
-    .navbar a {
-        color: #fff;
-        text-decoration: none;
-        font-weight: bold;
-        cursor: pointer;
-        padding-bottom: 6px;
-    }
-
-        .navbar a.active {
-            border-bottom: 3px solid #1abc9c;
-        }
-
-/* =========================
-   LAYOUT
-========================= */
-.container {
-    padding: 25px;
-    display: flex;
-    justify-content: center;
-}
-
-/* =========================
-   CARD
-========================= */
-.card {
-    background: #fff;
-    padding: 22px;
-    border-radius: 10px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-}
-
-/* =========================
-   ADD / LIST PAGE
-========================= */
-.card {
-    width: 420px;
-}
-
-.list-box {
-    width: 460px;
-}
-
-/* =========================
-   INPUT
-========================= */
-input, select {
-    width: 100%;
-    padding: 10px;
-    margin: 10px 0;
-    border-radius: 6px;
-    border: 1px solid #ccc;
-    font-size: 14px;
-}
-
-/* =========================
-   BUTTON
-========================= */
-button {
-    padding: 10px;
-    background: #1abc9c;
-    border: none;
-    color: white;
-    font-size: 15px;
-    border-radius: 6px;
-    cursor: pointer;
-}
-
-    button:hover {
-        background: #16a085;
-    }
-
-
-
-
-.btn-big {
-    width: 100%;
-    font-size: 16px;
-    padding: 12px;
-}
-
-.btn-edit {
-    padding: 6px 16px;
-    font-size: 14px;
-    border-radius: 6px;
-}
-
-/* =========================
-   DEVICE LIST ITEM
+   LIST ITEMS - DEVICE LIST
 ========================= */
 li {
     background: white;
@@ -120,228 +65,40 @@ li {
     list-style: none;
 }
 
-    li.mark-delete {
-        background: #ffecec;
-        border-left: 6px solid #e74c3c;
-    }
-
-.device-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
+li.mark-delete {
+    background: #ffecec;
+    border-left: 6px solid #e74c3c;
 }
 
-.device-title {
-    font-weight: bold;
-    font-size: 15px;
-}
-
-.device-actions {
-    display: flex;
-    gap: 20px;
-    align-items: center;
-}
-
-    /* =========================
-   CHECKBOX (DEVICE)
-========================= */
-    .device-actions label {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 14px;
-        cursor: pointer;
-    }
-
-/* =========================
-   SYNC PAGE
-========================= */
-.sync-page {
-    width: 100%;
-    max-width: 1000px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.sync-top {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-}
-
-.sync-card {
-    min-height: 200px;
-}
-
-.form-row {
-    margin-bottom: 15px;
-}
-
-    .form-row input[type="number"] {
-        padding: 8px;
-    }
-
-/* =========================
-   TOGGLE SWITCH
-========================= */
-.toggle-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 14px;
-    margin-bottom: 15px;
-}
-
-.toggle {
-    position: relative;
-    width: 46px;
-    height: 24px;
-}
-
-    .toggle input {
-        opacity: 0;
-        width: 0;
-        height: 0;
-    }
-
-.slider {
-    position: absolute;
-    inset: 0;
-    background: #ccc;
-    border-radius: 999px;
-    transition: 0.3s;
+/* Device item styling */
+.device-item {
     cursor: pointer;
+    transition: all 0.2s ease;
+    border-left: 4px solid transparent;
 }
 
-    .slider::before {
-        content: "";
-        position: absolute;
-        height: 18px;
-        width: 18px;
-        left: 3px;
-        bottom: 3px;
-        background: white;
-        border-radius: 50%;
-        transition: 0.3s;
-    }
-
-.toggle input:checked + .slider {
-    background: #22c55e;
-}
-
-    .toggle input:checked + .slider::before {
-        transform: translateX(22px);
-    }
-
-/* =========================
-   SYNC STATUS
-========================= */
-.sync-status {
-    margin-top: 12px;
-    font-weight: bold;
-    color: #2563eb;
-}
-
-
-/* =========================
-   LOG VIEW (SCROLL FIXED)
-========================= */
-.log-card {
-    height: 60vh;              /* chi?u cao c? ??nh */
-    display: flex;
-    flex-direction: column;
-}
-
-.log-card h3 {
-    margin: 0 0 10px 0;
-    font-size: 15px;
-}
-
-/* v�ng cu?n */
-.log-scroll {
-    flex: 1;
-    overflow-y: auto;
-    background: #fafafa;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-}
-
-/* danh s�ch log */
-.log-list {
-    list-style: none;
-    margin: 0;
-    padding: 6px;
-}
-
-/* t?ng d�ng log */
-.log-list li {
-    padding: 6px 8px;
-    border-bottom: 1px dashed #e5e7eb;
-    font-size: 12px;           /* ?? ch? nh? h?n */
-    line-height: 1.35;
-    font-family: Consolas, monospace; /* ?? ki?u log */
-}
-
-/* th?i gian */
-.log-list li strong {
-    font-size: 11px;
-    color: #6b7280;
-}
-
-/* hover nh? */
-.log-list li:hover {
+.device-item:hover {
     background: #f1f5f9;
 }
 
-/* =========================
-   USER MANAGER
-========================= */
-
-.user-card {
-    width: 420px;
+.device-item.active {
+    border-left: 4px solid #22c55e;
+    background: #eff6ff;
 }
 
-#userInfo {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+.device-item .device-title {
     font-size: 14px;
+    font-weight: 600;
 }
 
-.user-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-bottom: 6px;
-    border-bottom: 1px dashed #e5e7eb;
+.device-item .mono {
+    font-size: 12px;
+    color: #6b7280;
 }
 
-    .user-row .label {
-        color: #6b7280;
-        font-size: 13px;
-    }
-
-    .user-row .value {
-        font-weight: 600;
-        text-align: right;
-    }
-
-/* role badge */
-.role-superadmin {
-    color: #dc2626;
-}
-
-.role-admin {
-    color: #2563eb;
-}
-
-.role-user {
-    color: #16a34a;
-}
-
-/* monospace id */
+/* =========================
+   MONOSPACE FONT
+========================= */
 .mono {
     font-family: Consolas, monospace;
     font-size: 12px;
@@ -350,12 +107,35 @@ li {
     overflow-wrap: anywhere;
 }
 
-/* logout button spacing */
-.user-card button {
-    margin-top: 20px;
+/* =========================
+   LOG STYLES
+========================= */
+.log-list {
+    list-style: none;
+    margin: 0;
+    padding: 6px;
 }
 
+.log-list li {
+    padding: 6px 8px;
+    border-bottom: 1px dashed #e5e7eb;
+    font-size: 12px;
+    line-height: 1.35;
+    font-family: Consolas, monospace;
+}
 
+.log-list li strong {
+    font-size: 11px;
+    color: #6b7280;
+}
+
+.log-list li:hover {
+    background: #f1f5f9;
+}
+
+/* =========================
+   TABLE STYLES
+========================= */
 table {
     width: 100%;
     border-collapse: collapse;
@@ -381,31 +161,10 @@ td:first-child {
     font-size: 13px;
     color: #374151;
 }
-/* DEVICE LIST */
-.device-item {
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border-left: 4px solid transparent;
-}
 
-.device-item:hover {
-    background: #f1f5f9;
-}
-
-.device-item.active {
-    border-left: 4px solid #22c55e;
-    background: #eff6ff;
-}
-
-.device-item .device-title {
-    font-size: 14px;
-    font-weight: 600;
-}
-
-.device-item .mono {
-    font-size: 12px;
-    color: #6b7280;
-}
+/* =========================
+   TIME RANGE STYLES
+========================= */
 .time-range {
     display: flex;
     flex-direction: column;
@@ -421,6 +180,83 @@ td:first-child {
     font-family: Consolas, monospace;
     width: fit-content;
 }
+
+/* =========================
+   DEVICE BUTTON STYLES
+========================= */
+.device-btn {
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.device-btn:hover {
+    background: #1d4ed8;
+}
+
+.device-btn.newest {
+    background: #0891b2;
+}
+
+.device-btn.newest:hover {
+    background: #0e7490;
+}
+
+/* =========================
+   ROLE BADGE COLORS
+========================= */
+.role-superadmin {
+    color: #dc2626;
+}
+
+.role-admin {
+    color: #2563eb;
+}
+
+.role-user {
+    color: #16a34a;
+}
+
+/* =========================
+   FORM ROW SPACING
+========================= */
+.form-row {
+    margin-bottom: 15px;
+}
+
+.form-row input[type="number"] {
+    padding: 8px;
+}
+
+/* =========================
+   FLEX UTILITIES FOR LAYOUT
+========================= */
+.device-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.device-actions {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.device-actions label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
 .device-row {
     display: flex;
     gap: 12px;
@@ -442,39 +278,4 @@ td:first-child {
 .device-user {
     font-size: 12px;
     color: #777;
-}
-
-.device-btn {
-    padding: 4px 10px;
-    font-size: 12px;
-    cursor: pointer;
-}
-.device-actions {
-    display: flex;
-    gap: 6px;
-}
-
-.device-btn.newest {
-    background: hwb(201 3% 20%);
-}
-/* Scrollable container for record days */
-#recordDaysContainer {
-    max-height: 550px; /* or any desired height */
-    overflow-y: auto;
-    padding-right: 10px; /* Optional: to prevent scrollbar overlap */
-}
-
-/* Scrollable list for time ranges */
-.time-ranges-list {
-    max-height: 200px; /* Set the maximum height for the list */
-    overflow-y: auto;
-    margin-top: 10px;
-    padding-right: 10px; /* Optional: to prevent scrollbar overlap */
-}
-
-.channel-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 10px;
 }
