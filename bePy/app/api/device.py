@@ -477,17 +477,19 @@ async def update_channel_record_info(
     return {"message": "Channel record info updated successfully"}
 
 
-@router.get("/{id}/channels/{channel_id}/month_data/{date_str}", response_model=list[ChannelRecordDayOut])
-def get_all_channel_data_in_month(
+@router.get("/{id}/channels/month_data/{date_str}")
+def get_all_channels_data_in_month(
     id: int,
-    channel_id: int,
     date_str: str,
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
     """
-    Lấy dữ liệu record ngày của một channel trong tháng năm chỉ định.
+    Return all channels for a device along with their record days/time ranges
+    limited to the specified month.
+
     date_str format: "YYYY-MM" (e.g., "2025-12")
+    Response shape: [ { channel: {id,name,channel_no,oldest_record_date,latest_record_date}, record_days: [ {record_date, has_record, time_ranges: [{start_time,end_time}, ...] } ] }, ... ]
     """
     device = db.query(Device).filter(
         Device.id == id,
@@ -497,17 +499,8 @@ def get_all_channel_data_in_month(
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
 
-    channel = db.query(Channel).filter(
-        Channel.id == channel_id,
-        Channel.device_id == device.id
-    ).first()
-
-    if not channel:
-        raise HTTPException(status_code=404, detail="Channel not found")
-
     # Parse date_str (format: "YYYY-MM")
     try:
-
         parsed_date = datetime.strptime(date_str, "%Y-%m")
         year = parsed_date.year
         month = parsed_date.month
@@ -517,33 +510,57 @@ def get_all_channel_data_in_month(
             detail="Invalid date format. Use 'YYYY-MM' (e.g., '2025-12')"
         )
 
-    # Calculate first and last day of the month
-    if month == 12:
-        first_day = f"{year}-12-01"
-        last_day = f"{year + 1}-01-01"
-    else:
-        first_day = f"{year}-{month + 1:02d}-01"
-        # Last day of current month
-        last_day = f"{year}-{month:02d}-31"
-
-    # More robust: use datetime to get last day
+    # compute first and last day of month (YYYY-MM-DD)
     if month == 12:
         last_day_dt = datetime(year + 1, 1, 1)
     else:
         last_day_dt = datetime(year, month + 1, 1)
-    
+
+    first_day = f"{year}-{month:02d}-01"
     last_day_of_month = (last_day_dt - timedelta(days=1)).strftime("%Y-%m-%d")
 
-    days = (
-        db.query(ChannelRecordDay)
-        .filter(
-            ChannelRecordDay.channel_id == channel.id,
-            ChannelRecordDay.record_date >= f"{year}-{month:02d}-01",
-            ChannelRecordDay.record_date <= last_day_of_month
-        )
-        .order_by(ChannelRecordDay.record_date.desc())
-        .all()
-    )
+    # load channels for device
+    channels = db.query(Channel).filter(Channel.device_id == device.id).all()
 
-    return days
+    result = []
+    for ch in channels:
+        days = (
+            db.query(ChannelRecordDay)
+            .options(joinedload(ChannelRecordDay.time_ranges))
+            .filter(
+                ChannelRecordDay.channel_id == ch.id,
+                ChannelRecordDay.record_date >= first_day,
+                ChannelRecordDay.record_date <= last_day_of_month
+            )
+            .order_by(ChannelRecordDay.record_date.desc())
+            .all()
+        )
+
+        rd_list = []
+        for rd in days:
+            tr_list = []
+            for tr in getattr(rd, 'time_ranges', []):
+                tr_list.append({
+                    'start_time': tr.start_time,
+                    'end_time': tr.end_time
+                })
+
+            rd_list.append({
+                'record_date': rd.record_date,
+                'has_record': rd.has_record,
+                'time_ranges': tr_list
+            })
+
+        result.append({
+            'channel': {
+                'id': ch.id,
+                'channel_no': ch.channel_no,
+                'name': ch.name,
+                'oldest_record_date': ch.oldest_record_date,
+                'latest_record_date': ch.latest_record_date
+            },
+            'record_days': rd_list
+        })
+
+    return result
 
