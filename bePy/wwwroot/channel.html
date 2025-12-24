@@ -30,6 +30,21 @@
         </div>
 
     </div>
+    <div id="channelTableWrapper" class="mt-6 overflow-x-auto"></div>
+
+<!-- MODAL -->
+<div id="timeRangeModal"
+     class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center">
+    <div class="bg-white rounded-lg shadow-lg p-6 w-[400px]">
+        <h3 class="font-bold mb-3">Time ranges</h3>
+        <ul id="timeRangeList" class="text-sm space-y-1"></ul>
+        <button onclick="closeModal()"
+                class="mt-4 px-4 py-2 bg-gray-700 text-white rounded">
+            Close
+        </button>
+    </div>
+</div>
+
 </div>
 
 <script src="./js/auth.js"></script>
