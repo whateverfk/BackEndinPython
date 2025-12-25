@@ -12,6 +12,11 @@ let oldestMonth = null;
 // tháng hiện tại thực tế (không cho vượt quá)
 const maxMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
+let cachedMonthData = null;   // lưu toàn bộ data tháng
+let currentView = "month";   // "month" | "day"
+let selectedDay = null;      // YYYY-MM-DD
+
+
 
 /*************************************************
  * INIT
@@ -164,8 +169,9 @@ function updateMonthButtons() {
  * LOAD CHANNEL DATA
  *************************************************/
 async function loadChannelMonthData(deviceId, monthStr) {
-    const wrapper = document.getElementById("channelTableWrapper");
-    wrapper.innerHTML = "Loading channel data...";
+    const monthContainer = document.getElementById("monthTableContainer");
+    const dayContainer = document.getElementById("dayTableContainer");
+    monthContainer.innerHTML = "Loading channel data...";
 
     try {
         const res = await fetch(
@@ -186,7 +192,7 @@ async function loadChannelMonthData(deviceId, monthStr) {
             const [y, m] = data.oldest_record_month.split("-");
             oldestMonth = new Date(Number(y), Number(m) - 1, 1);
         }
-
+        cachedMonthData = data;
         renderChannelTable(data.channels, monthStr);
         updateMonthLabel();
         updateMonthButtons();
@@ -203,8 +209,17 @@ async function loadChannelMonthData(deviceId, monthStr) {
  * TABLE RENDER
  *************************************************/
 function renderChannelTable(channels, monthStr) {
-    const wrapper = document.getElementById("channelTableWrapper");
-    wrapper.innerHTML = "";
+
+    const monthContainer = document.getElementById("monthTableContainer");
+    const dayContainer = document.getElementById("dayTableContainer");
+
+    if (!monthContainer) return;
+
+    // reset view
+    monthContainer.innerHTML = "";
+    dayContainer.innerHTML = "";
+    dayContainer.classList.add("hidden");
+    monthContainer.classList.remove("hidden");
 
     const [year, month] = monthStr.split("-").map(Number);
     const daysInMonth = new Date(year, month, 0).getDate();
@@ -217,7 +232,7 @@ function renderChannelTable(channels, monthStr) {
     const headRow = document.createElement("tr");
 
     const thChannel = document.createElement("th");
-    thChannel.className = "border p-2 sticky left-0 top-0 bg-white z-20";
+    thChannel.className = "border p-2 sticky left-0 top-0 bg-white z-20"    ;
     thChannel.innerText = "Channel";
     headRow.appendChild(thChannel);
 
@@ -274,7 +289,10 @@ function renderChannelTable(channels, monthStr) {
             // td.className = "border cursor-pointer p-0 align-middle";
             td.className = " cursor-pointer p-0 align-middle";
 
-            td.addEventListener("click", () => showTimeRanges(rd));
+            //td.addEventListener("click", () => showTimeRanges(rd));
+
+            td.addEventListener("click", () => {  openDayTimeline(dateStr);});
+
 
             const bar = document.createElement("div");
             bar.className = `
@@ -298,7 +316,7 @@ function renderChannelTable(channels, monthStr) {
     });
 
     table.appendChild(tbody);
-    wrapper.appendChild(table);
+    monthContainer.appendChild(table);
 }
 
 
@@ -323,6 +341,7 @@ function analyzeRecordDay(rd) {
     return { color: "bg-yellow-400" };
 }
 
+// Đã thất sủng nhưng không muốn xóa hẳn
 function showTimeRanges(rd) {
     if (!rd || !rd.time_ranges.length) return;
 
@@ -339,6 +358,157 @@ function showTimeRanges(rd) {
     modal.classList.remove("hidden");
     modal.classList.add("flex");
 }
+
+// Mở bảng timeline ngày ============================
+function openDayTimeline(dateStr) {
+    if (!cachedMonthData) return;
+
+    selectedDay = dateStr;
+    currentView = "day";
+
+    document.getElementById("monthTableContainer").classList.add("hidden");
+    document.getElementById("dayTableContainer").classList.remove("hidden");
+
+    renderDayTimelineTable(dateStr);
+}
+
+function renderDayTimelineTable(dateStr) {
+    const container = document.getElementById("dayTableContainer");
+    container.innerHTML = "";
+
+    /* ===== HEADER TITLE ===== */
+    const header = document.createElement("div");
+    header.className = "flex items-center justify-between mb-2";
+
+    const title = document.createElement("div");
+    title.className = "font-semibold text-lg";
+    title.innerText = `Timeline ngày ${dateStr}`;
+
+    const backBtn = document.createElement("button");
+    backBtn.className = "px-3 py-1 bg-gray-600 text-white rounded";
+    backBtn.innerText = "⬅ Back";
+    backBtn.onclick = backToMonthView;
+
+    header.appendChild(title);
+    header.appendChild(backBtn);
+    container.appendChild(header);
+
+    /* ===== TABLE ===== */
+    const table = document.createElement("table");
+    table.className = "w-full border-collapse";
+
+    /* ===== THEAD (mốc giờ nằm trong table) ===== */
+    const thead = document.createElement("thead");
+    const headRow = document.createElement("tr");
+
+    const thChannel = document.createElement("th");
+    thChannel.className =
+        "border p-2 bg-gray-100 text-left font-semibold w-48 sticky left-0 z-10";
+    thChannel.innerText = "Channel";
+
+    const thTimeline = document.createElement("th");
+    thTimeline.className =
+        "border p-2 bg-gray-100 font-semibold";
+
+    thTimeline.appendChild(buildTimeHeader());
+
+    headRow.appendChild(thChannel);
+    headRow.appendChild(thTimeline);
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    /* ===== TBODY ===== */
+    const tbody = document.createElement("tbody");
+
+    cachedMonthData.channels.forEach(item => {
+        const rd = item.record_days.find(d => d.record_date === dateStr);
+
+        const tr = document.createElement("tr");
+
+        const tdName = document.createElement("td");
+        tdName.className =
+            "border p-2 font-semibold bg-white sticky left-0";
+        tdName.innerText = item.channel.name;
+
+        const tdTimeline = document.createElement("td");
+        tdTimeline.className = "border p-2";
+
+        tdTimeline.appendChild(build24hTimeline(rd));
+
+        tr.appendChild(tdName);
+        tr.appendChild(tdTimeline);
+        tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    container.appendChild(table);
+}
+
+function buildTimeHeader() {
+    const wrapper = document.createElement("div");
+    wrapper.className =
+        "relative w-full h-6 flex text-xs text-gray-700";
+
+    for (let h = 0; h < 24; h++) {
+        const tick = document.createElement("div");
+        tick.className =
+            "flex-1 border-l border-gray-300 pl-1";
+        tick.innerText = String(h).padStart(2, "0");
+        wrapper.appendChild(tick);
+    }
+
+    return wrapper;
+}
+
+function build24hTimeline(rd) {
+    const wrapper = document.createElement("div");
+    wrapper.className =
+        "relative w-full h-4 bg-gray-300 rounded overflow-hidden";
+
+    if (!rd || !rd.time_ranges) return wrapper;
+
+    rd.time_ranges.forEach(tr => {
+        const startPercent = timeToPercent(tr.start_time);
+        const endPercent = timeToPercent(tr.end_time);
+
+        const bar = document.createElement("div");
+        bar.className =
+            "absolute top-0 h-full bg-green-500 hover:bg-green-600 cursor-pointer";
+
+        bar.style.left = `${startPercent}%`;
+        bar.style.width = `${Math.max(endPercent - startPercent, 0.3)}%`;
+
+        bar.title =
+            `${tr.start_time.split("T")[1]} → ${tr.end_time.split("T")[1]}`;
+
+        wrapper.appendChild(bar);
+    });
+
+    return wrapper;
+}
+
+
+
+function timeToPercent(iso) {
+    const [h, m, s] = iso.split("T")[1].split(":").map(Number);
+    return ((h * 3600 + m * 60 + s) / 86400) * 100;
+}
+function backToMonthView() {
+    currentView = "month";
+    selectedDay = null;
+
+    document.getElementById("dayTableContainer").classList.add("hidden");
+    document.getElementById("monthTableContainer").classList.remove("hidden");
+}
+function showDayView() {
+    document.getElementById("monthTableContainer").classList.add("hidden");
+    document.getElementById("dayTableContainer").classList.remove("hidden");
+}
+
+
+
+
+// hết timeline ngày ============================
 
 function closeModal() {
     const modal = document.getElementById("timeRangeModal");
