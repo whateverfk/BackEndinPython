@@ -16,6 +16,9 @@ from app.core.time_provider import TimeProvider
 from app.features.RecordInfo.deps import build_hik_auth
 from app.features.RecordInfo.hikrecord import HikRecordService
 from app.Models.channel_record_day import ChannelRecordDay
+from fastapi import BackgroundTasks
+
+from app.features.background.trigger_init_record_data import trigger_device_init_data
 
 router = APIRouter(
     prefix="/api/devices",
@@ -35,7 +38,7 @@ def get_devices(
     ).all()
 
 # =========================
-# GET: /api/devices
+# GET: /api/ active devices
 # =========================
 @router.get("/active", response_model=list[DeviceOut])
 def get_devices(
@@ -54,6 +57,7 @@ def get_devices(
 @router.post("", response_model=DeviceOut, status_code=status.HTTP_201_CREATED)
 def create_device(
     dto: DeviceCreate,
+    bgTask: BackgroundTasks,
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
@@ -78,7 +82,10 @@ def create_device(
 
     db.add(device)
     db.commit()
+
     db.refresh(device)
+    bgTask.add_task(trigger_device_init_data, device.id)
+    
     return device
 
 
@@ -89,6 +96,7 @@ def create_device(
 def update_device(
     id: int,
     dto: DeviceUpdate,
+    bgTask: BackgroundTasks,
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
@@ -108,6 +116,8 @@ def update_device(
     device.is_checked = dto.is_checked
 
     db.commit()
+    bgTask.add_task(trigger_device_init_data, device.id)
+
     return
 
 
@@ -243,104 +253,29 @@ async def update_channels_record_info(
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
-    
-    """
-    Cập nhật / tạo mới thông tin cho toàn bộ channels và các ngày có record + time ranges
-      từng ngày của thiết bị.
-    """
     device = db.query(Device).filter(
         Device.id == id,
         Device.owner_superadmin_id == user.superadmin_id
     ).first()
-
+    hikservice = HikRecordService()
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
 
-    # 
-    headers = build_hik_auth(device)
-
-    hik_service = HikRecordService()
-    time = TimeProvider()
-    now = time.now().date()
-
     try:
-        
-        # 1. XÓA CŨ
-        db.query(Channel).filter(
-            Channel.device_id == device.id
-        ).delete(synchronize_session=False)
-
-        # 2. GET CHANNELS
-        channels_data = await hik_service._get_channels(device, headers)
-        if not channels_data:
-            raise Exception("No channels returned from device")
-
-        for ch in channels_data:
-            print(f"[SYNC] Channel {ch}")
-
-            oldest_date = await hik_service.oldest_record_date(
-                device, ch["id"], headers
-            )
-
-            channel = Channel(
-                device_id=device.id,
-                channel_no=ch["id"],
-                name=ch["name"],
-                oldest_record_date=oldest_date,
-                latest_record_date=now.strftime("%Y-%m-%d")
-            )
-            db.add(channel)
-            db.flush()  # lấy channel.id
-            print("add channel ok")
-            record_days = await hik_service.record_status_of_channel(
-                device,
-                ch["id"],
-                start_date=oldest_date,
-                end_date=now.strftime("%Y-%m-%d"),
-                header=headers
-            )
-            print(f"  Found {len(record_days)} record days.")
-            for rd in record_days:
-                record_day = ChannelRecordDay(
-                    channel_id=channel.id,
-                    record_date=rd["date"],
-                    has_record=rd["has_record"]
-                )
-                db.add(record_day)
-                print(f"add record day ok {record_day.record_date}, bool {record_day.has_record} ")
-                db.flush()
-
-                if rd["has_record"]:
-                    segments = await hik_service.get_time_ranges_segment(
-                        device,
-                        ch["id"],
-                        rd["date"],
-                        headers
-                    )
-                    segments = await hik_service.merge_time_ranges(
-                        segments, gap_seconds=3
-                    )
-                    print(f"    Found {len(segments)} time range segments after merge.")
-
-                    for seg in segments:
-                        db.add(ChannelRecordTimeRange(
-                            record_day_id=record_day.id,
-                            start_time=seg.start_time,
-                            end_time=seg.end_time
-                        ))
-                        print("    add time range ok")
-        
-        db.commit()
-
+        await hikservice.device_channels_init_data(
+            db=db,
+            device=device
+        )
         return {"message": "Channels record info updated successfully"}
 
     except Exception as e:
         db.rollback()
-        print("  ERROR:", e)
+        print("[SYNC ERROR]", e)
         raise HTTPException(
             status_code=500,
             detail=str(e)
         )
+
 
 @router.get("/{id}/channels/month_data/{date_str}")
 def get_all_channels_data_in_month(

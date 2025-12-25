@@ -66,12 +66,6 @@ async function loadDeviceList() {
                     <div class="text-sm text-gray-600 truncate">${escapeHtml(device.username || "")}</div>
                 </div>
                 <div class="flex items-center gap-2 ml-4">
-                    <button
-                        class="text-sm bg-blue-600 text-white px-3 py-1 rounded"
-                        onclick="getNewestData('${device.id}'); event.stopPropagation();"
-                    >
-                        Get all Data
-                    </button>
                 </div>
             `;
 
@@ -517,32 +511,6 @@ function closeModal() {
 }
 
 
-/*************************************************
- * DEVICE SYNC
- *************************************************/
-async function getNewestData(deviceId) {
-    if (!confirm("Get all newest record data for this device?")) return;
-
-    try {
-        const res = await fetch(
-            `http://127.0.0.1:8000/api/devices/${deviceId}/get_channels_record_info`,
-            {
-                method: "POST",
-                headers: {
-                    Authorization: "Bearer " + localStorage.getItem("token"),
-                    "Content-Type": "application/json"
-                }
-            }
-        );
-
-        if (!res.ok) throw new Error(await res.text());
-        alert("Sync started");
-
-    } catch (err) {
-        console.error(err);
-        alert("Sync failed ❌");
-    }
-}
 
 
 /*************************************************
