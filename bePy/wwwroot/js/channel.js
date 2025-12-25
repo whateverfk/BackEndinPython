@@ -270,7 +270,9 @@ function renderChannelTable(channels, monthStr) {
             
             // Hiển thị timeline ?
             const td = document.createElement("td");
-            td.className = "border cursor-pointer p-0 align-middle";
+            // thêm border để dễ nhìn nếu cần
+            // td.className = "border cursor-pointer p-0 align-middle";
+            td.className = " cursor-pointer p-0 align-middle";
 
             td.addEventListener("click", () => showTimeRanges(rd));
 
