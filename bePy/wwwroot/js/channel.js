@@ -15,6 +15,7 @@ const maxMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let cachedMonthData = null;   // lưu toàn bộ data tháng
 let currentView = "month";   // "month" | "day"
 let selectedDay = null;      // YYYY-MM-DD
+let monitorSetting = null;
 
 
 
@@ -79,7 +80,7 @@ async function loadDeviceList() {
     }
 }
 
-function selectDevice(device, li) {
+async function selectDevice(device, li) {
     document.querySelectorAll(".device-row").forEach(el =>
         el.classList.remove("ring-2", "ring-blue-300", "bg-blue-50")
     );
@@ -90,6 +91,7 @@ function selectDevice(device, li) {
     currentMonth = new Date(maxMonth); // reset về tháng hiện tại
     oldestMonth = null;
 
+    await loadMonitorSetting();
     loadCurrentMonth();
 }
 
@@ -107,9 +109,85 @@ function bindMonthButtons() {
     });
 
     document.getElementById("openConfigBtn")?.addEventListener("click", () => {
-        alert("Open config window");
+        openConfigModal();
+
     });
 }
+async function openConfigModal() {
+    const modal = document.getElementById("configModal");
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+
+    try {
+        const res = await fetch("http://127.0.0.1:8000/api/config", {
+            headers: {
+                Authorization: "Bearer " + localStorage.getItem("token")
+            }
+        });
+
+        if (!res.ok) throw new Error("Load config failed");
+
+        const data = await res.json();
+
+        document.getElementById("cfgStartDay").value = data.start_day;
+        document.getElementById("cfgEndDay").value = data.end_day;
+
+    } catch (err) {
+        console.error(err);
+        alert("Cannot load config");
+    }
+}
+async function saveConfig() {
+    const startDay = Number(document.getElementById("cfgStartDay").value);
+    const endDay = Number(document.getElementById("cfgEndDay").value);
+
+    if (startDay > endDay) {
+        alert("Start day must be <= End day");
+        return;
+    }
+
+    try {
+        const res = await fetch("http://127.0.0.1:8000/api/config", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer " + localStorage.getItem("token")
+            },
+            body: JSON.stringify({
+                start_day: startDay,
+                end_day: endDay,
+                
+            })
+        });
+
+        if (!res.ok) throw new Error("Save failed");
+
+        closeConfigModal();
+
+    } catch (err) {
+        console.error(err);
+        alert("Save config failed");
+    }
+}
+function closeConfigModal() {
+    const modal = document.getElementById("configModal");
+    modal.classList.add("hidden");
+    modal.classList.remove("flex");
+}
+
+
+
+
+async function loadMonitorSetting() {
+    const res = await fetch("http://127.0.0.1:8000/api/config", {
+        headers: {
+            Authorization: "Bearer " + localStorage.getItem("token")
+        }
+    });
+
+    monitorSetting = await res.json();
+}
+
 
 function changeMonth(delta) {
     if (!currentDeviceId) return;
@@ -230,7 +308,20 @@ function renderChannelTable(channels, monthStr) {
     thChannel.innerText = "Channel";
     headRow.appendChild(thChannel);
 
-    for (let d = 1; d <= daysInMonth; d++) {
+    const start = monitorSetting?.start_day ?? 1;
+    const end = Math.min(
+    monitorSetting?.end_day ?? daysInMonth,
+    daysInMonth
+    );
+
+    let days = [];
+    for (let d = start; d <= end; d++) {
+        days.push(d);
+    }
+
+
+    for (const d of days) {
+    //for (let d = 1; d <= daysInMonth; d++) {
         const th = document.createElement("th");
         th.className = "border p-2 text-xs sticky top-0 bg-gray-100 z-10";
         th.innerText = d;
