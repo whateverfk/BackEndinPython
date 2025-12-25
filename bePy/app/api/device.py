@@ -34,6 +34,19 @@ def get_devices(
         Device.owner_superadmin_id == user.superadmin_id
     ).all()
 
+# =========================
+# GET: /api/devices
+# =========================
+@router.get("/active", response_model=list[DeviceOut])
+def get_devices(
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user)
+):
+    return db.query(Device).filter(
+        Device.owner_superadmin_id == user.superadmin_id,
+        Device.is_checked == True
+    ).all()
+
 
 # =========================
 # POST: /api/devices

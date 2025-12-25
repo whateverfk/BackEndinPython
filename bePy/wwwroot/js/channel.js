@@ -33,7 +33,7 @@ async function loadDeviceList() {
     ul.innerHTML = "<li>Loading...</li>";
 
     try {
-        const res = await fetch("http://127.0.0.1:8000/api/devices", {
+        const res = await fetch("http://127.0.0.1:8000/api/devices/active", {
             headers: {
                 Authorization: "Bearer " + localStorage.getItem("token"),
                 "Content-Type": "application/json"
@@ -252,21 +252,44 @@ function renderChannelTable(channels, monthStr) {
             const dateStr =
                 `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 
-            const rd = recordMap[dateStr];
-            const info = analyzeRecordDay(rd);
+             const rd = recordMap[dateStr];
+             const info = analyzeRecordDay(rd);
 
+            // const td = document.createElement("td");
+            // td.className =
+            //     "border p-1 text-center cursor-pointer hover:bg-gray-100";
+
+            // td.addEventListener("click", () => showTimeRanges(rd));
+
+            // // Hiển thị chấm màu
+            // const dot = document.createElement("span");
+            // dot.className = `inline-block w-3 h-3 rounded-full ${info.color}`;
+            // dot.style.pointerEvents = "none";
+
+            // td.appendChild(dot);
+            
+            // Hiển thị timeline ?
             const td = document.createElement("td");
-            td.className =
-                "border p-1 text-center cursor-pointer hover:bg-gray-100";
+            td.className = "border cursor-pointer p-0 align-middle";
 
             td.addEventListener("click", () => showTimeRanges(rd));
 
-            const dot = document.createElement("span");
-            dot.className = `inline-block w-3 h-3 rounded-full ${info.color}`;
-            dot.style.pointerEvents = "none";
+            const bar = document.createElement("div");
+            bar.className = `
+                w-full
+                h-4
+                ${info.color}
+                hover:opacity-80`;
 
-            td.appendChild(dot);
-            tr.appendChild(td);
+                // bar không bắt event → click vẫn ăn vào td
+                bar.style.pointerEvents = "none";
+
+                td.appendChild(bar);
+                tr.appendChild(td);
+
+            
+
+            
         }
 
         tbody.appendChild(tr);
