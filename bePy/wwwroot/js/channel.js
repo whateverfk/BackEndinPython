@@ -39,16 +39,14 @@ async function loadDeviceList() {
     ul.innerHTML = "<li>Loading...</li>";
 
     try {
-        const res = await fetch("http://127.0.0.1:8000/api/devices/active", {
-            headers: {
-                Authorization: "Bearer " + localStorage.getItem("token"),
-                "Content-Type": "application/json"
-            }
-        });
+        const devices = await apiFetch(
+            "http://127.0.0.1:8000/api/devices/active"
+        );
 
-        if (!res.ok) throw new Error("Load devices failed");
+        if (!devices || !Array.isArray(devices)) {
+            throw new Error("Load devices failed");
+        }
 
-        const devices = await res.json();
         ul.innerHTML = "";
 
         if (!devices.length) {
@@ -65,8 +63,6 @@ async function loadDeviceList() {
                 <div class="min-w-0">
                     <div class="font-semibold truncate">${escapeHtml(device.ip_web)}</div>
                     <div class="text-sm text-gray-600 truncate">${escapeHtml(device.username || "")}</div>
-                </div>
-                <div class="flex items-center gap-2 ml-4">
                 </div>
             `;
 
@@ -113,21 +109,16 @@ function bindMonthButtons() {
 
     });
 }
+
 async function openConfigModal() {
     const modal = document.getElementById("configModal");
     modal.classList.remove("hidden");
     modal.classList.add("flex");
 
     try {
-        const res = await fetch("http://127.0.0.1:8000/api/config", {
-            headers: {
-                Authorization: "Bearer " + localStorage.getItem("token")
-            }
-        });
+        const data = await apiFetch("http://127.0.0.1:8000/api/config");
 
-        if (!res.ok) throw new Error("Load config failed");
-
-        const data = await res.json();
+        if (!data) throw new Error("Load config failed");
 
         document.getElementById("cfgStartDay").value = data.start_day;
         document.getElementById("cfgEndDay").value = data.end_day;
@@ -137,6 +128,7 @@ async function openConfigModal() {
         alert("Cannot load config");
     }
 }
+
 async function saveConfig() {
     const startDay = Number(document.getElementById("cfgStartDay").value);
     const endDay = Number(document.getElementById("cfgEndDay").value);
@@ -147,45 +139,41 @@ async function saveConfig() {
     }
 
     try {
-        const res = await fetch("http://127.0.0.1:8000/api/config", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: "Bearer " + localStorage.getItem("token")
-            },
-            body: JSON.stringify({
-                start_day: startDay,
-                end_day: endDay,
-                
-            })
-        });
+        const data = await apiFetch(
+            "http://127.0.0.1:8000/api/config",
+            {
+                method: "POST",
+                body: JSON.stringify({
+                    start_day: startDay,
+                    end_day: endDay
+                })
+            }
+        );
 
-        if (!res.ok) throw new Error("Save failed");
+        if (!data) throw new Error("Save failed");
 
+        monitorSetting = data;   // cập nhật setting mới
         closeConfigModal();
+        loadCurrentMonth();      // reload table
 
     } catch (err) {
         console.error(err);
         alert("Save config failed");
     }
 }
+
+
+
 function closeConfigModal() {
     const modal = document.getElementById("configModal");
     modal.classList.add("hidden");
     modal.classList.remove("flex");
 }
 
-
-
-
 async function loadMonitorSetting() {
-    const res = await fetch("http://127.0.0.1:8000/api/config", {
-        headers: {
-            Authorization: "Bearer " + localStorage.getItem("token")
-        }
-    });
-
-    monitorSetting = await res.json();
+    monitorSetting = await apiFetch(
+        "http://127.0.0.1:8000/api/config"
+    );
 }
 
 
@@ -242,37 +230,28 @@ function updateMonthButtons() {
  *************************************************/
 async function loadChannelMonthData(deviceId, monthStr) {
     const monthContainer = document.getElementById("monthTableContainer");
-    const dayContainer = document.getElementById("dayTableContainer");
     monthContainer.innerHTML = "Loading channel data...";
 
     try {
-        const res = await fetch(
-            `http://127.0.0.1:8000/api/devices/${deviceId}/channels/month_data/${monthStr}`,
-            {
-                headers: {
-                    Authorization: "Bearer " + localStorage.getItem("token")
-                }
-            }
+        const data = await apiFetch(
+            `http://127.0.0.1:8000/api/devices/${deviceId}/channels/month_data/${monthStr}`
         );
 
-        if (!res.ok) throw new Error("Load channel data failed");
+        if (!data) throw new Error("Load channel data failed");
 
-        const data = await res.json();
-
-        // set oldest month (chỉ 1 lần)
         if (data.oldest_record_month && !oldestMonth) {
             const [y, m] = data.oldest_record_month.split("-");
             oldestMonth = new Date(Number(y), Number(m) - 1, 1);
         }
+
         cachedMonthData = data;
         renderChannelTable(data.channels, monthStr);
         updateMonthLabel();
         updateMonthButtons();
-        debugMonthState();
 
     } catch (err) {
         console.error(err);
-        wrapper.innerHTML = "Error loading channel data";
+        monthContainer.innerHTML = "Error loading channel data";
     }
 }
 

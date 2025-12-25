@@ -16,7 +16,7 @@ from app.Models.channel import Channel
 from app.Models.channel_record_day import ChannelRecordDay
 from app.Models.channel_record_time_range import ChannelRecordTimeRange
 
-class HikRecordService(RecordService):
+class HikRecordService():
 
     async def _get_channels(self, device, headers):
         base_url = f"http://{device.ip_web}"
@@ -232,37 +232,6 @@ class HikRecordService(RecordService):
     
         return merged
 
-    async def get_channels_record_info_on_specific_date(self, device, date: str) -> List[ChannelRecordInfo]:
-        headers = build_hik_auth(device)
-
-        channels = await self._get_channels(device, headers)
-
-        result: List[ChannelRecordInfo] = []
-
-        for ch in channels:
-
-            if date:
-                time_ranges = await self.get_time_ranges_segment(
-                    date_str=date,
-                    device=device,
-                    channel_id=ch["id"]
-                )
-                time_ranges = await self.merge_time_ranges(time_ranges)
-            else:
-                time_ranges = []
-
-            result.append(
-                ChannelRecordInfo(
-                    channel_id=ch["id"],
-                    channel_name=ch["name"],
-                    date=date,
-                    time_ranges=time_ranges
-                )
-            )
-
-        print(f"Returning {len(result)} channel record info.")
-        return result
-
     async def record_status_of_channel(self, device, channel_id: int, start_date: str, end_date: str, header) -> list[dict]:
 
         """
@@ -328,72 +297,6 @@ class HikRecordService(RecordService):
                 current_date += timedelta(days=1)
         print(f"Returning record status list with {len(record_status_list)} entries.")
         return record_status_list
-
-    async def get_channel_record_info_on_date(
-        self,
-        device,
-        channel_id: int,
-        date: str
-    ) -> ChannelRecordInfo:
-        """
-        Lấy record info của 1 channel trong 1 ngày cụ thể
-        """
-    # Lấy time ranges raw
-        ranges = await self.get_time_ranges_segment(
-            device=device,
-            channel_id=channel_id,
-            date_str=date
-        )
-    # Merge các segment gần nhau
-        merged_ranges = await self.merge_time_ranges(ranges)
-
-        return ChannelRecordInfo(
-            channel_id=channel_id,
-            channel_name=None,  # nếu cần có thể lookup từ _get_channels
-            date=date,
-            time_ranges=merged_ranges
-        )
-    
-    async def get_channel_record_info_in_range(
-        self,
-        device,
-        channel_id: int,
-        start_date: str,
-        end_date: str,
-        headers
-    ) -> list[ChannelRecordInfo]:
-
-        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-
-        result: list[ChannelRecordInfo] = []
-
-        current = start_dt
-        while current <= end_dt:
-            date_str = current.strftime("%Y-%m-%d")
-        ranges = await self.get_time_ranges_segment(
-                device=device,
-                channel_id=channel_id,
-                date_str=date_str
-            )
-        merged_ranges = await self.merge_time_ranges(ranges)
-
-        result.append(
-            ChannelRecordInfo(
-                channel_id=channel_id,
-                channel_name=None,
-                date=date_str,
-                time_ranges=merged_ranges,
-                headers=headers
-            )
-        )
-
-        current += timedelta(days=1)
-
-        return result
-
-    async def get_channels_record_info():
-        pass
 
     async def recorded_day_in_month(self, device, channel_id: int, year: int, month: int, header) -> list[dict]:
         time_provider = TimeProvider()
