@@ -2,7 +2,7 @@
  * GLOBAL STATE
  *************************************************/
 let currentDeviceId = null;
-
+import { API_URL } from "./config.js";
 // tháng đang xem (luôn normalize ngày 1, 00:00)
 let currentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
@@ -40,7 +40,7 @@ async function loadDeviceList() {
 
     try {
         const devices = await apiFetch(
-            "http://127.0.0.1:8000/api/devices/active"
+            `${API_URL}/api/devices/active`
         );
 
         if (!devices || !Array.isArray(devices)) {
@@ -116,7 +116,7 @@ async function openConfigModal() {
     modal.classList.add("flex");
 
     try {
-        const data = await apiFetch("http://127.0.0.1:8000/api/config");
+        const data = await apiFetch(`${API_URL}/api/config`);
 
         if (!data) throw new Error("Load config failed");
 
@@ -140,7 +140,7 @@ async function saveConfig() {
 
     try {
         const data = await apiFetch(
-            "http://127.0.0.1:8000/api/config",
+            `${API_URL}/api/config`,
             {
                 method: "POST",
                 body: JSON.stringify({
@@ -172,7 +172,7 @@ function closeConfigModal() {
 
 async function loadMonitorSetting() {
     monitorSetting = await apiFetch(
-        "http://127.0.0.1:8000/api/config"
+        `${API_URL}/api/config`
     );
 }
 
@@ -234,7 +234,7 @@ async function loadChannelMonthData(deviceId, monthStr) {
 
     try {
         const data = await apiFetch(
-            `http://127.0.0.1:8000/api/devices/${deviceId}/channels/month_data/${monthStr}`
+            `${API_URL}/api/devices/${deviceId}/channels/month_data/${monthStr}`
         );
 
         if (!data) throw new Error("Load channel data failed");

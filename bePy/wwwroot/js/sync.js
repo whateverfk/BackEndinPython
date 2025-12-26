@@ -1,22 +1,22 @@
+import { API_URL } from "./config.js";
+
 // LOAD CONFIG
 async function loadSetting() {
-    const setting = await apiFetch('http://127.0.0.1:8000/api/sync/setting');
+    const setting = await apiFetch(`${API_URL}/api/sync/setting`);
     if (!setting) return;
 
-    // ✅ backend trả snake_case
     enableSync.checked = setting.is_enabled;
     interval.value = setting.interval_minutes;
 }
 
 // SAVE CONFIG
 async function saveSetting() {
-    // ✅ gửi snake_case
     const setting = {
         is_enabled: enableSync.checked,
         interval_minutes: parseInt(interval.value)
     };
 
-    await apiFetch('http://127.0.0.1:8000/api/sync/setting', {
+    await apiFetch(`${API_URL}/api/sync/setting`, {
         method: 'POST',
         body: JSON.stringify(setting)
     });
@@ -29,18 +29,17 @@ async function syncNow() {
     const status = document.getElementById('syncStatus');
     status.innerText = 'Syncing...';
 
-    const result = await apiFetch('http://127.0.0.1:8000/api/sync/now', {
+    const result = await apiFetch(`${API_URL}/api/sync/now`, {
         method: 'POST'
     });
 
     status.innerText = result?.message || result || 'Sync done';
-
     loadLogs();
 }
 
 // LOAD LOGS
 async function loadLogs() {
-    const logs = await apiFetch('http://127.0.0.1:8000/api/logs');
+    const logs = await apiFetch(`${API_URL}/api/logs`);
     if (!logs) return;
 
     const list = document.getElementById('logList');
@@ -57,5 +56,15 @@ async function loadLogs() {
 }
 
 // INIT
-loadSetting();
-loadLogs();
+document.addEventListener("DOMContentLoaded", () => {
+    document
+      .getElementById("btnSaveSetting")
+      .addEventListener("click", saveSetting);
+
+    document
+      .getElementById("btnSyncNow")
+      .addEventListener("click", syncNow);
+
+    loadSetting();
+    loadLogs();
+});

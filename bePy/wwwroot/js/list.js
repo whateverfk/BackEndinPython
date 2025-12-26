@@ -1,9 +1,9 @@
+import { API_URL } from "./config.js";
+
+
 let devicesCache = [];
 
-async function loadDevices() {
-    devicesCache = await apiFetch('http://127.0.0.1:8000/api/devices');
-    if (!devicesCache) return;
-
+function renderDevices() {
     const list = document.getElementById('list');
     list.innerHTML = '';
 
@@ -12,88 +12,114 @@ async function loadDevices() {
         li.id = `row-${d.id}`;
 
         li.innerHTML = `
-        <div class="device-header">
-            <div class="device-title">
-                IP: ${d.ip_web} - ${d.brand}
+            <div class="device-header">
+                <div class="device-title">
+                    IP: ${d.ip_web} - ${d.brand}
+                </div>
+                <button class="btn-edit" data-id="${d.id}">Edit</button>
             </div>
-            <button onclick="editDevice(${d.id})">Edit</button>
-        </div>
 
-        <div class="device-actions">
-            <label>
-                <input type="checkbox"
-                       data-id="${d.id}"
-                       ${d.is_checked ? 'checked' : ''}
-                       onchange="toggleActive(this)">
-                Active
-            </label>
+            <div class="device-actions">
+                <label>
+                    <input type="checkbox"
+                           class="chk-active"
+                           data-id="${d.id}"
+                           ${d.is_checked ? 'checked' : ''}>
+                    Active
+                </label>
 
-            <label>
-                <input type="checkbox"
-                       data-id="${d.id}"
-                       onchange="toggleDelete(this)">
-                Delete
-            </label>
-        </div>
+                <label>
+                    <input type="checkbox"
+                           class="chk-delete"
+                           data-id="${d.id}">
+                    Delete
+                </label>
+            </div>
         `;
 
         list.appendChild(li);
     });
 }
 
-function editDevice(id) {
+async function loadDevices() {
+    devicesCache = await apiFetch(`${API_URL}/api/devices`);
+    if (!devicesCache) return;
+    renderDevices();
+}
+
+function handleListClick(e) {
+    const btn = e.target.closest('.btn-edit');
+    if (!btn) return;
+
+    const id = btn.dataset.id;
     location.href = `./index.html?id=${id}`;
 }
 
-function toggleActive(chk) {
-    if (!chk.checked) return;
+function handleActiveChange(e) {
+    if (!e.target.classList.contains('chk-active')) return;
 
-    const row = chk.closest('li');
-    const del = row.querySelector('input[type="checkbox"]:not(:checked)');
+    if (!e.target.checked) return;
+
+    const row = e.target.closest('li');
+    const del = row.querySelector('.chk-delete');
     if (del) del.checked = false;
 }
 
-function toggleDelete(chk) {
-    const row = chk.closest('li');
-    chk.checked
+function handleDeleteChange(e) {
+    if (!e.target.classList.contains('chk-delete')) return;
+
+    const row = e.target.closest('li');
+    e.target.checked
         ? row.classList.add('mark-delete')
         : row.classList.remove('mark-delete');
 }
 
 async function confirmChanges() {
 
-    // ✅ UPDATE is_checked
+    // UPDATE
     for (let d of devicesCache) {
-        const chk = document.querySelector(`input[data-id="${d.id}"]`);
-
+        const chk = document.querySelector(`.chk-active[data-id="${d.id}"]`);
         if (chk && chk.checked !== d.is_checked) {
-            d.is_checked = chk.checked;
 
-            // ✅ Gửi đúng snake_case
             const payload = {
                 ip_nvr: d.ip_nvr,
                 ip_web: d.ip_web,
                 username: d.username,
                 password: d.password,
                 brand: d.brand,
-                is_checked: d.is_checked
+                is_checked: chk.checked
             };
 
-            await apiFetch(`http://127.0.0.1:8000/api/devices/${d.id}`, {
+            await apiFetch(`${API_URL}/api/devices/${d.id}`, {
                 method: 'PUT',
                 body: JSON.stringify(payload)
             });
         }
     }
 
-    // ✅ DELETE
+    // DELETE
     const deleteRows = document.querySelectorAll('.mark-delete');
     for (let row of deleteRows) {
         const id = row.id.replace('row-', '');
-        await apiFetch(`http://127.0.0.1:8000/api/devices/${id}`, { method: 'DELETE' });
+        await apiFetch(`${API_URL}/api/devices/${id}`, { method: 'DELETE' });
     }
 
     loadDevices();
 }
 
-loadDevices();
+// INIT
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('list')
+        .addEventListener('click', handleListClick);
+
+    document.getElementById('list')
+        .addEventListener('change', handleActiveChange);
+
+    document.getElementById('list')
+        .addEventListener('change', handleDeleteChange);
+
+    document.getElementById('btnConfirm')
+        .addEventListener('click', confirmChanges);
+
+    loadDevices();
+});
