@@ -37,6 +37,9 @@ def get_devices(
         Device.owner_superadmin_id == user.superadmin_id
     ).all()
 
+
+
+
 # =========================
 # GET: /api/ active devices
 # =========================
@@ -107,16 +110,19 @@ def update_device(
 
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
-
+    gonna_update = False
+    if(device.ip_web != dto.ip_web):
+        gonna_update = True
     device.ip_web = dto.ip_web
     device.ip_nvr = dto.ip_nvr
     device.username = dto.username
     device.password = dto.password
     device.brand = dto.brand
     device.is_checked = dto.is_checked
-
+    
     db.commit()
-    bgTask.add_task(trigger_device_init_data, device.id)
+    if(gonna_update):
+     bgTask.add_task(trigger_device_init_data, device.id)
 
     return
 

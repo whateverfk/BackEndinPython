@@ -31,3 +31,14 @@ async function register() {
 
     window.location.href = "./index.html";
 }
+document.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById("btnDangKy");
+
+    if (!btn) {
+        console.error("Không tìm thấy #btnDangKy");
+        return;
+    }
+
+    btn.addEventListener("click", register);
+});
+
