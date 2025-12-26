@@ -1,8 +1,38 @@
-﻿let editingId = null;
+﻿import { API_URL } from "./config.js";
 
-// dùng khi quay lại từ list để edit
+let editingId = null;
+
+// DOM elements
+let ipNvr, ipWeb, userName, password, brand, addBtn;
+
+document.addEventListener("DOMContentLoaded", () => {
+    ipNvr = document.getElementById("ipNvr");
+    ipWeb = document.getElementById("ipWeb");
+    userName = document.getElementById("userName");
+    password = document.getElementById("password");
+    brand = document.getElementById("brand");
+    addBtn = document.getElementById("addBtn");
+
+    if (!addBtn) {
+        console.error("Không tìm thấy addBtn");
+        return;
+    }
+
+    addBtn.addEventListener("click", addDevice);
+
+    // nếu có ?id= → edit
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("id")) {
+        loadDeviceForEdit(params.get("id"));
+        addBtn.innerText = "Update";
+    }
+});
+
+// =======================
+// LOAD DEVICE ĐỂ EDIT
+// =======================
 async function loadDeviceForEdit(id) {
-    const d = await apiFetch(`http://127.0.0.1:8000/api/devices/${id}`);
+    const d = await apiFetch(`${API_URL}/api/devices/${id}`);
     if (!d) return;
 
     ipNvr.value = d.ip_nvr;
@@ -14,17 +44,19 @@ async function loadDeviceForEdit(id) {
     editingId = d.id;
 }
 
+// =======================
+// ADD / UPDATE DEVICE
+// =======================
 async function addDevice() {
     const device = {
-        ip_nvr: ipNvr.value,
-        ip_web: ipWeb.value,
-        username: userName.value,
+        ip_nvr: ipNvr.value.trim(),
+        ip_web: ipWeb.value.trim(),
+        username: userName.value.trim(),
         password: password.value,
         brand: brand.value,
         is_checked: false
     };
 
-    // Sửa lỗi validate
     if (!device.ip_nvr) {
         alert("IP NVR is required");
         return;
@@ -33,37 +65,33 @@ async function addDevice() {
     try {
         if (editingId) {
             // UPDATE
-            await apiFetch(`http://127.0.0.1:8000/api/devices/${editingId}`, {
-                method: 'PUT',
+            await apiFetch(`${API_URL}/api/devices/${editingId}`, {
+                method: "PUT",
                 body: JSON.stringify(device)
             });
         } else {
             // CREATE
-            await apiFetch('http://127.0.0.1:8000/api/devices', {
-                method: 'POST',
+            await apiFetch(`${API_URL}/api/devices`, {
+                method: "POST",
                 body: JSON.stringify(device)
             });
         }
 
         clearForm();
-        location.href = "./list.html";
+        window.location.href = "./list.html";
 
     } catch (err) {
+        console.error(err);
         alert("Error while saving device");
     }
 }
 
+// =======================
 function clearForm() {
-    ipNvr.value = '';
-    ipWeb.value = '';
-    userName.value = '';
-    password.value = '';
+    ipNvr.value = "";
+    ipWeb.value = "";
+    userName.value = "";
+    password.value = "";
     brand.selectedIndex = 0;
     editingId = null;
-}
-
-// nếu có ?id= trên url → edit
-const params = new URLSearchParams(window.location.search);
-if (params.has('id')) {
-    loadDeviceForEdit(params.get('id'));
 }

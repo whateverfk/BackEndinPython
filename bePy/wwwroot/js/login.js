@@ -1,4 +1,17 @@
-﻿async function login() {
+﻿import { API_URL } from "./config.js";
+
+document.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById("loginBtn");
+
+    if (!btn) {
+        console.error("Không tìm thấy #loginBtn");
+        return;
+    }
+
+    btn.addEventListener("click", login);
+});
+
+async function login() {
     const username = document.getElementById("username").value.trim();
     const password = document.getElementById("password").value;
 
@@ -7,7 +20,7 @@
         return;
     }
 
-    const res = await fetch("http://127.0.0.1:8000/api/auth/login", {
+    const res = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password })
@@ -20,6 +33,5 @@
 
     const data = await res.json();
     localStorage.setItem("token", data.token);
-
     window.location.href = "./index.html";
 }
