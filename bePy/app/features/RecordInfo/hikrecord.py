@@ -451,8 +451,7 @@ class HikRecordService():
                         headers
                     )
                     segments = await hik_service.merge_time_ranges(
-                        segments,
-                        gap_seconds=3
+                        segments
                     )
 
                     db.query(ChannelRecordTimeRange).filter(
@@ -553,8 +552,7 @@ class HikRecordService():
                         headers
                     )
                     segments = await hik_service.merge_time_ranges(
-                        segments,
-                        gap_seconds=3
+                        segments
                     )
 
                     for seg in segments:

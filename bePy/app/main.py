@@ -13,7 +13,7 @@ from app.features.background.scheduler import start_scheduler, stop_scheduler
 async def lifespan(app: FastAPI):
     
     # task = asyncio.create_task(sync_background_worker())
-    # start_scheduler()
+    
     # print("AUTO SYNC ( time and data ) STARTED")
 
     # để test nên tạm bỏ sync time 
