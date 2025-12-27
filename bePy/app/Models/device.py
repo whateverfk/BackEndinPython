@@ -4,6 +4,8 @@ from sqlalchemy.dialects.postgresql import UUID
 from app.db.base import Base
 import uuid
 from app.Models.channel import Channel
+from app.Models.device_system_info import DeviceSystemInfo
+from app.Models.device_user import DeviceUser
 
 class Device(Base):
     __tablename__ = "devices"
@@ -27,6 +29,10 @@ class Device(Base):
         nullable=True
     )
     users = relationship("DeviceUser", back_populates="device")
+    
+    system_info = relationship(
+        "DeviceSystemInfo", uselist=False, cascade="all, delete-orphan"
+    )
 
     channels = relationship(
         "Channel",

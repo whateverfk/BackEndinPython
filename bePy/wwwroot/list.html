@@ -20,10 +20,9 @@
         <div class="bg-white p-6 rounded-lg shadow-lg" style="width: 460px;">
             <h2 class="text-2xl font-bold mb-4">Device List</h2>
 
-            <ul id="list" class="mb-4"></ul>
+            <div id="app"></div>
 
-            <button id="btnConfirm" class="w-full px-3 py-3 bg-teal-500 text-white font-medium rounded-md text-base hover:bg-teal-700">Confirm Changes</button>
-        </div>
+            
     </div>
 
 
@@ -31,7 +30,12 @@
     <script>
         requireAuth();
     </script>
-    <script type="module" src="./js/list.js"></script>
+    
+<script type="module">
+    import { initRouter } from "./js/router.js";
+    initRouter();
+</script>
 
+    
 </body>
 </html>

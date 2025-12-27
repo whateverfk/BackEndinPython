@@ -1,6 +1,9 @@
 from sqlalchemy import Column, Integer, String, Boolean, Date, DateTime, Index, ForeignKey
 from app.db.base import Base
 from sqlalchemy.orm import relationship
+from app.Models.channel_extensions import ChannelExtension
+from app.Models.channel_stream_config import ChannelStreamConfig
+from app.Models.device_system_info import DeviceSystemInfo
 
 class Channel(Base):
     __tablename__ = "channels"
@@ -28,9 +31,7 @@ class Channel(Base):
         cascade="all, delete-orphan"
     )
 
-    system_info = relationship(
-        "DeviceSystemInfo", uselist=False, cascade="all, delete-orphan"
-    )
+    
 
     __table_args__ = (
         Index("ix_device_channel_unique", "device_id", "channel_no", unique=True),
