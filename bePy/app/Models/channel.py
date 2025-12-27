@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Boolean, Date, DateTime, Index, ForeignKey
 from app.db.base import Base
-
+from sqlalchemy.orm import relationship
 
 class Channel(Base):
     __tablename__ = "channels"
@@ -16,6 +16,23 @@ class Channel(Base):
     last_sync_at = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True)
     last_channel_sync_at = Column(DateTime, nullable=True)  
+    extension = relationship(
+        "ChannelExtension",
+        uselist=False,
+        back_populates="channel",
+        cascade="all, delete-orphan"
+    )
+    stream_config = relationship(
+        "ChannelStreamConfig",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
+
+    system_info = relationship(
+        "DeviceSystemInfo", uselist=False, cascade="all, delete-orphan"
+    )
+
     __table_args__ = (
         Index("ix_device_channel_unique", "device_id", "channel_no", unique=True),
     )
+

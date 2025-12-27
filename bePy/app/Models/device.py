@@ -26,6 +26,8 @@ class Device(Base):
         
         nullable=True
     )
+    users = relationship("DeviceUser", back_populates="device")
+
     channels = relationship(
         "Channel",
         cascade="all, delete-orphan",
