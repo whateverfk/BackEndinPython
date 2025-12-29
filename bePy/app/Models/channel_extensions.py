@@ -11,7 +11,7 @@ class ChannelExtension(Base):
         primary_key=True
     )
 
-    zero_stream_enabled = Column(Boolean, default=False)
+    
     motion_detect_enabled = Column(Boolean, default=False)
 
     channel = relationship("Channel", back_populates="extension")
