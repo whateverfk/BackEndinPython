@@ -13,7 +13,7 @@ class Channel(Base):
     channel_no = Column(Integer, nullable=False)
     name = Column(String(100))
 
-    connected_type = Column(String(20), nullable=False) 
+    connected_type = Column(String(20), nullable=True) 
     oldest_record_date = Column(Date, index=True)
     latest_record_date = Column(Date, index=True)
     last_sync_at = Column(DateTime, nullable=True)
