@@ -11,7 +11,7 @@ export async function renderDeviceDetail(container, id) {
 
         <div class="flex gap-4 mb-4">
             <button id="tab-info" class="font-semibold">Info</button>
-            <button id="tab-edit" class="text-blue-600">Edit</button>
+            
         </div>
 
         <div id="detailContent"></div>
@@ -23,8 +23,7 @@ export async function renderDeviceDetail(container, id) {
     document.getElementById("tab-info").onclick =
         () => renderInfo(d);
 
-    document.getElementById("tab-edit").onclick =
-        () => renderEdit(d);
+    ;
 
     renderInfo(d);
 }
@@ -39,10 +38,5 @@ function renderInfo(d) {
     `;
 }
 
-function renderEdit(d) {
-    document.getElementById("detailContent").innerHTML = `
-        <input value="${d.ip_web}" class="border p-2 w-full mb-2">
-        <input value="${d.username}" class="border p-2 w-full mb-2">
-        <button class="bg-teal-500 text-white px-4 py-2">Save</button>
-    `;
-}
+
+

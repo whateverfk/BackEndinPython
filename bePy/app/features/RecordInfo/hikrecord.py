@@ -7,7 +7,6 @@ from app.schemas.record import (
     ChannelRecordInfo,
     RecordTimeRange
 )
-from app.features.RecordInfo.base import RecordService
 from app.features.RecordInfo.deps import build_hik_auth
 from app.core.time_provider import TimeProvider
 from sqlalchemy.orm import Session
