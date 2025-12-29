@@ -626,3 +626,10 @@ function debugMonthState() {
     console.log("maxMonth:", maxMonth.toISOString());
     console.groupEnd();
 }
+document
+  .getElementById("cfgCancelBtn")
+  ?.addEventListener("click", closeConfigModal);
+
+document
+  .getElementById("cfgSaveBtn")
+  ?.addEventListener("click", saveConfig);

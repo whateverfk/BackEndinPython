@@ -21,9 +21,25 @@ function route() {
     // /devices/:id
     const match = hash.match(/^#\/devices\/(\d+)$/);
     if (match) {
+        setLayout("detail");
         renderDeviceDetail(app, match[1]);
         return;
     }
 
     app.innerHTML = "<p>Not found</p>";
 }
+
+
+
+function setLayout(mode) {
+    const layout = document.getElementById("layout");
+
+    if (mode === "detail") {
+        layout.className =
+            "bg-white p-6 rounded-lg shadow-lg mx-auto w-full max-w-6xl";
+    } else {
+        layout.className =
+            "bg-white p-6 rounded-lg shadow-lg mx-auto w-full max-w-md";
+    }
+}
+

@@ -36,7 +36,6 @@ class HikDetailService:
                 firmware_full = f"{firmware_version} {firmware_release}".strip()
 
                 system_info = {
-                    "device_id": device.id,
                     "model": model,
                     "serial_number": serial_number,
                     "firmware_version": firmware_full,

@@ -5,7 +5,7 @@ async def saveSystemInfo(db, system_info: dict):
     stmt = select(DeviceSystemInfo).where(
         DeviceSystemInfo.device_id == system_info["device_id"]
     )
-    result = await db.execute(stmt)
+    result =  db.execute(stmt)
     obj = result.scalar_one_or_none()
 
     if obj:

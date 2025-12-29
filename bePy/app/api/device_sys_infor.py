@@ -5,7 +5,7 @@ from sqlalchemy import select
 from app.db.session import get_db
 from app.Models.device import Device
 from app.Models.device_system_info import DeviceSystemInfo
-from app.features.GetDevicesDetail import HikDetailService
+from app.features.GetDevicesDetail.HikDetailService import HikDetailService
 from app.features.RecordInfo.deps import build_hik_auth
 
 router = APIRouter(
@@ -13,16 +13,18 @@ router = APIRouter(
     tags=["Devices_info"]
 )
 
+
+
 @router.get("")
 async def get_device_system_info(
     id: int,
     db: AsyncSession = Depends(get_db)
 ):
-    result = await db.execute(
-        select(DeviceSystemInfo).where(
-            DeviceSystemInfo.device_id == id
-        )
+    stmt = select(DeviceSystemInfo).where(
+        DeviceSystemInfo.device_id == id
     )
+
+    result =  db.execute(stmt)
     info = result.scalar_one_or_none()
 
     if not info:
@@ -45,9 +47,8 @@ async def sync_device_system_info(
     db: AsyncSession = Depends(get_db)
 ):
     # 1. Lấy device
-    result = await db.execute(
-        select(Device).where(Device.id == id)
-    )
+    stmt = select(Device).where(Device.id == id)
+    result =  db.execute(stmt)
     device = result.scalar_one_or_none()
 
     if not device:
@@ -59,6 +60,7 @@ async def sync_device_system_info(
     # 3. Gọi ISAPI
     hikservice = HikDetailService()
     system_info = await hikservice.getSystemInfo(device, headers)
+
     if not system_info:
         raise HTTPException(
             status_code=502,
@@ -66,11 +68,10 @@ async def sync_device_system_info(
         )
 
     # 4. Upsert DB
-    result = await db.execute(
-        select(DeviceSystemInfo).where(
-            DeviceSystemInfo.device_id == id
-        )
+    stmt = select(DeviceSystemInfo).where(
+        DeviceSystemInfo.device_id == id
     )
+    result =  db.execute(stmt)
     obj = result.scalar_one_or_none()
 
     if obj:
@@ -79,10 +80,13 @@ async def sync_device_system_info(
         obj.firmware_version = system_info["firmware_version"]
         obj.mac_address = system_info["mac_address"]
     else:
-        obj = DeviceSystemInfo(**system_info)
+        obj = DeviceSystemInfo(
+            device_id=id,
+            **system_info
+        )
         db.add(obj)
 
-    await db.commit()
+    db.commit()
 
     return {
         "status": "ok",
