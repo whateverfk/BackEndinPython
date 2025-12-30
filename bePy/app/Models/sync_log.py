@@ -4,6 +4,7 @@ from sqlalchemy.sql import func
 import uuid
 
 from app.db.base import Base
+from sqlalchemy.orm import relationship
 
 
 class SyncLog(Base):
@@ -18,3 +19,4 @@ class SyncLog(Base):
     message = Column(String)
 
     owner_superadmin_id = Column(UUID(as_uuid=True), nullable=False)
+    owner = relationship("User", backref="sync_logs", cascade="all, delete-orphan")
