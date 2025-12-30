@@ -6,6 +6,8 @@ from app.Models.channel_extensions import ChannelExtension
 from app.Models.channel_stream_config import ChannelStreamConfig
 from sqlalchemy.orm import Session
 from app.Models.device_storage import DeviceStorage
+from app.Models.device_integration_users import DeviceIntegrationUser
+
 
 
 async def saveSystemInfo(db, system_info: dict):
@@ -127,5 +129,44 @@ async def upsert_device_storage(db, device_id: int, storage_list: list[dict]):
                 property=storage.get("property", "")
             )
             db.add(new_hdd)
+
+    db.commit()
+
+
+async def get_device_integration_users_from_db(
+    db: Session,
+    device_id: int
+):
+    result =  db.execute(
+        select(DeviceIntegrationUser)
+        .where(DeviceIntegrationUser.device_id == device_id)
+        .order_by(DeviceIntegrationUser.user_id)
+    )
+    return result.scalars().all()
+
+async def upsert_device_integration_users(
+    db: Session,
+    device_id: int,
+    users: list[dict]
+):
+    for u in users:
+        result = db.execute(
+            select(DeviceIntegrationUser).where(
+                DeviceIntegrationUser.device_id == device_id,
+                DeviceIntegrationUser.user_id == u["user_id"]
+            )
+        )
+        existing = result.scalars().first()
+
+        if existing:
+            existing.username = u["username"]
+            existing.level = u["level"]
+        else:
+            db.add(DeviceIntegrationUser(
+                device_id=device_id,
+                user_id=u["user_id"],
+                username=u["username"],
+                level=u["level"]
+            ))
 
     db.commit()

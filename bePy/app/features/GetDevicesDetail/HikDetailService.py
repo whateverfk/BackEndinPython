@@ -463,3 +463,37 @@ class HikDetailService:
         except Exception as ex:
             print(f"Error fetching storage info from {url}: {ex}")
             return []
+
+
+    async def get_device_onvif_users(self, device, headers):
+        """
+        Lấy danh sách ONVIF users từ thiết bị
+        """
+        base_url = f"http://{device.ip_web}"
+        url = f"{base_url}/ISAPI/Security/ONVIF/users"
+
+        print(f"Requesting URL: {repr(url)}")
+
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(url, headers=headers)
+                resp.raise_for_status()
+
+            root = ET.fromstring(resp.text)
+            ns = {"hik": "http://www.hikvision.com/ver20/XMLSchema"}
+
+            users = []
+            for u in root.findall("hik:User", ns):
+                users.append({
+                    "device_id": device.id,
+                    "user_id": int(u.findtext("hik:id", "0", ns)),
+                    "username": u.findtext("hik:userName", "", ns),
+                    "level": u.findtext("hik:userType", "", ns),
+                })
+
+            print("ONVIF users fetched:", users)
+            return users
+
+        except Exception as ex:
+            print(f"[ONVIF][User] Error: {ex}")
+            return []

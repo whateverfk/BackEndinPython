@@ -7,7 +7,7 @@ from app.Models.device import Device
 from app.Models.device_system_info import DeviceSystemInfo
 from app.features.GetDevicesDetail.HikDetailService import HikDetailService
 from app.features.RecordInfo.deps import build_hik_auth
-from app.features.GetDevicesDetail.WorkWithDb import upsert_device_storage,get_device_storage_from_db
+from app.features.GetDevicesDetail.WorkWithDb import upsert_device_storage,get_device_storage_from_db,upsert_device_integration_users,get_device_integration_users_from_db
 
 router = APIRouter(
     prefix="/api/device/{id}/infor",
@@ -138,4 +138,43 @@ async def get_device_storage(
             "property": d.property,
         }
         for d in data
+    ]
+
+@router.post("/onvif-users")
+async def sync_device_onvif_users(
+    id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    device = db.get(Device, id)
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    headers = build_hik_auth(device)
+    service = HikDetailService()
+
+    users = await service.get_device_onvif_users(device, headers)
+    if not users:
+        raise HTTPException(status_code=502, detail="Cannot fetch ONVIF users")
+
+    await upsert_device_integration_users(db, device.id, users)
+
+    return {
+        "status": "success",
+        "count": len(users)
+    }
+
+@router.get("/onvif-users")
+async def get_device_onvif_users(
+    id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    data = await get_device_integration_users_from_db(db, id)
+
+    return [
+        {
+            "user_id": u.user_id,
+            "username": u.username,
+            "level": u.level
+        }
+        for u in data
     ]
