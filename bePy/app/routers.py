@@ -6,6 +6,7 @@ from app.api.logs import router as logs_router
 from app.api.config import router as config_router
 from app.api.device_sys_infor import router as device_sys_info_router
 from app.api.channel_device_info import router as channel_device_info_router
+from app.api.device_user import router as whatever
 
 api_router = APIRouter()
 api_router.include_router(auth_router)
@@ -15,3 +16,4 @@ api_router.include_router(logs_router)
 api_router.include_router(config_router)
 api_router.include_router(device_sys_info_router)
 api_router.include_router(channel_device_info_router)
+api_router.include_router(whatever)

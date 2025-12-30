@@ -237,7 +237,7 @@ async def sync_device_users_from_isapi(
     return users
 
 
-async def get_device_users_from_db(
+def get_device_users_from_db(
     db: Session,
     device_id: int,
     only_active: bool = True

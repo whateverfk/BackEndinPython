@@ -30,7 +30,8 @@ if config.config_file_name is not None:
 from app.db.base import Base
 from app.Models import device, sync_log, sync_setting, user, channel, channel_record_day, channel_record_time_range, monitor_setting
 from app.Models import device_user, device_integration_users, device_system_info, device_storage
-from app.Models import channel_extensions, channel_stream_config
+from app.Models import channel_extensions, channel_stream_config,user_channel_permissions,user_global_permissions
+
 target_metadata = Base.metadata
 
 def run_migrations_offline() -> None:

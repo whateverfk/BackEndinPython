@@ -498,7 +498,7 @@ class HikDetailService:
             return []
 
 
-    async def fetch_device_users(device, headers):
+    async def fetch_device_users(self,device, headers):
         """
         Lấy danh sách user từ ISAPI:
         GET /ISAPI/Security/users
