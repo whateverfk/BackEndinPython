@@ -5,6 +5,8 @@ from app.features.GetDevicesDetail.HikDetailService import HikDetailService
 from app.Models.channel_extensions import ChannelExtension
 from app.Models.channel_stream_config import ChannelStreamConfig
 from sqlalchemy.orm import Session
+from app.Models.device_storage import DeviceStorage
+
 
 async def saveSystemInfo(db, system_info: dict):
     stmt = select(DeviceSystemInfo).where(
@@ -66,3 +68,64 @@ async def sync_channel_config(
     ext.motion_detect_enabled = motion_enabled
 
     db.flush()
+
+
+
+
+# -------------------------------
+# 1. Lấy thông tin từ DB
+# -------------------------------
+async def get_device_storage_from_db(db, device_id: int):
+    """
+    Lấy danh sách HDD của device từ DB.
+    """
+    result = db.execute(select(DeviceStorage).where(DeviceStorage.device_id == device_id))
+    hdds = result.scalars().all()
+    return hdds
+
+
+# -------------------------------
+# 2. Upsert thông tin HDD vào DB
+# -------------------------------
+async def upsert_device_storage(db, device_id: int, storage_list: list[dict]):
+    """
+    Lưu hoặc cập nhật thông tin HDD vào DB.
+    
+    Args:
+        db: AsyncSession
+        device_id: ID device
+        storage_list: danh sách dict, mỗi dict có keys tương ứng DeviceStorage
+    """
+    for storage in storage_list:
+        # Kiểm tra xem HDD đã tồn tại chưa
+        result =  db.execute(
+            select(DeviceStorage).where(
+                DeviceStorage.device_id == device_id,
+                DeviceStorage.hdd_id == storage["hdd_id"]
+            )
+        )
+        existing = result.scalars().first()
+
+        if existing:
+            # Update các field
+            existing.hdd_name = storage.get("hdd_name", existing.hdd_name)
+            existing.status = storage.get("status", existing.status)
+            existing.hdd_type = storage.get("hdd_type", existing.hdd_type)
+            existing.capacity = storage.get("capacity", existing.capacity)
+            existing.free_space = storage.get("free_space", existing.free_space)
+            existing.property = storage.get("property", existing.property)
+        else:
+            # Insert mới
+            new_hdd = DeviceStorage(
+                device_id=device_id,
+                hdd_id=storage.get("hdd_id"),
+                hdd_name=storage.get("hdd_name", ""),
+                status=storage.get("status", ""),
+                hdd_type=storage.get("hdd_type", ""),
+                capacity=storage.get("capacity", 0),
+                free_space=storage.get("free_space", 0),
+                property=storage.get("property", "")
+            )
+            db.add(new_hdd)
+
+    db.commit()

@@ -414,3 +414,52 @@ class HikDetailService:
                 "lower_cap": {"min": lower_val, "max": lower_val},
             }
         }
+
+  
+
+    async def get_device_storage(self,device, headers):
+        """
+        Lấy thông tin storage từ thiết bị ISAPI (async)
+
+        Args:
+            device: object chứa thông tin device (device.ip_web, device.id,...)
+            headers: dict headers nếu cần xác thực
+
+        Returns:
+            list of dict: mỗi dict là 1 HDD
+        """
+        base_url = f"http://{device.ip_web}"
+        url = f"{base_url}/ISAPI/ContentMgmt/Storage"
+
+        print(f"Requesting URL: {repr(url)}")
+
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(url, headers=headers, timeout=10)
+                resp.raise_for_status()
+
+                root = ET.fromstring(resp.text)
+                ns = {"hik": "http://www.hikvision.com/ver20/XMLSchema"}
+
+                storage_list = []
+                hdd_list = root.find("hik:hddList", ns)
+                if hdd_list is not None:
+                    for hdd in hdd_list.findall("hik:hdd", ns):
+                        storage_info = {
+                            "device_id": device.id,
+                            "hdd_id": int(hdd.findtext("hik:id", default="0", namespaces=ns)),
+                            "hdd_name": hdd.findtext("hik:hddName", default="", namespaces=ns),
+                            "status": hdd.findtext("hik:status", default="", namespaces=ns),
+                            "hdd_type": hdd.findtext("hik:hddType", default="", namespaces=ns),
+                            "capacity": int(hdd.findtext("hik:capacity", default="0", namespaces=ns)),
+                            "free_space": int(hdd.findtext("hik:freeSpace", default="0", namespaces=ns)),
+                            "property": hdd.findtext("hik:property", default="", namespaces=ns)
+                        }
+                        storage_list.append(storage_info)
+
+                print("Storage info fetched:", storage_list)
+                return storage_list
+
+        except Exception as ex:
+            print(f"Error fetching storage info from {url}: {ex}")
+            return []
