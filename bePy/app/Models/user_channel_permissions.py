@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from app.db.base import Base
 from sqlalchemy import Index
+
 class UserChannelPermission(Base):
     __tablename__ = "user_channel_permissions"
 
@@ -14,16 +15,15 @@ class UserChannelPermission(Base):
         Integer, ForeignKey("channels.id", ondelete="CASCADE")
     )
 
-    scope = Column(String(10))   # local | remote
+    scope = Column(String(10))      # local | remote
+    permission = Column(String(30)) # record | playback | preview | ptz_control
 
-    preview = Column(Boolean)
-    playback = Column(Boolean)
-    record = Column(Boolean)
-    backup = Column(Boolean)
-    ptz_control = Column(Boolean)
+    enabled = Column(Boolean, default=False)
 
-    user = relationship("DeviceUser")
-    channel = relationship("Channel")
-    __table_args__ = (Index("ix_user_channel_permission_device_user_channel", "device_user_id", "channel_id"),
-)
-
+    __table_args__ = (
+        Index(
+            "ix_user_channel_permission_unique",
+            "device_user_id", "channel_id", "scope", "permission",
+            unique=True
+        ),
+    )

@@ -8,6 +8,33 @@ from app.Models.channel_extensions import ChannelExtension
 
 
 class HikDetailService:
+    LOCAL_GLOBAL_FIELDS = [
+    "upgrade",
+    "parameterConfig",
+    "restartOrShutdown",
+    "logOrStateCheck",
+    "manageChannel",
+    "playBack",
+    "record",
+    "backup",
+    ]
+
+    REMOTE_GLOBAL_FIELDS = [
+        "parameterConfig",
+        "logOrStateCheck",
+        "upgrade",
+        "voiceTalk",
+        "restartOrShutdown",
+        "alarmOutOrUpload",
+        "contorlLocalOut",
+        "transParentChannel",
+        "manageChannel",
+        "preview",
+        "record",
+        "playBack",
+    ]
+
+
     CONNECTED_TYPE_LOCAL = "local"
     CONNECTED_TYPE_PROXY = "proxy"
 
@@ -536,3 +563,105 @@ class HikDetailService:
             print(f"[ISAPI][USERS] Error fetching users from {url}: {ex}")
             return []
 
+    def xml_bool(self,el, tag, ns):
+        v = el.findtext(tag, default="false", namespaces=ns)
+        return v.lower() == "true"
+
+    
+    async def fetch_permission_for_1_user(
+        self,
+        device,
+        headers,
+        user_id: int
+    ):
+        base_url = f"http://{device.ip_web}"
+        url = f"{base_url}/ISAPI/Security/UserPermission/{user_id}"
+
+        ns = {"hik": "http://www.hikvision.com/ver20/XMLSchema"}
+
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(url, headers=headers)
+                resp.raise_for_status()
+
+            root = ET.fromstring(resp.text)
+
+            result = {
+                "user_id": user_id,
+                "user_type": root.findtext("hik:userType", namespaces=ns),
+                "local": {
+                    "global": {},
+                    "channels": {}
+                },
+                "remote": {
+                    "global": {},
+                    "channels": {}
+                }
+            }
+
+            # ========== LOCAL ==========
+            local_el = root.find("hik:localPermission", ns)
+            if local_el is not None:
+                # global permissions
+                for f in self.LOCAL_GLOBAL_FIELDS:
+                    result["local"]["global"][f] = self.xml_bool(local_el, f"hik:{f}", ns)
+
+                # videoChannelPermissionList
+                for vc in local_el.findall(
+                    "hik:videoChannelPermissionList/hik:videoChannelPermission",
+                    ns
+                ):
+                    ch_id = int(vc.findtext("hik:id", namespaces=ns))
+
+                    for perm in ["playBack", "record", "backup"]:
+                        if self.xml_bool(vc, f"hik:{perm}", ns):
+                            result["local"]["channels"].setdefault(
+                                perm.lower(), []
+                            ).append(ch_id)
+
+                # ptz
+                for pc in local_el.findall(
+                    "hik:ptzChannelPermissionList/hik:ptzChannelPermission",
+                    ns
+                ):
+                    if self.xml_bool(pc, "hik:ptzControl", ns):
+                        ch_id = int(pc.findtext("hik:id", namespaces=ns))
+                        result["local"]["channels"].setdefault(
+                            "ptz_control", []
+                        ).append(ch_id)
+
+            # ========== REMOTE ==========
+            remote_el = root.find("hik:remotePermission", ns)
+            if remote_el is not None:
+                for f in self.REMOTE_GLOBAL_FIELDS:
+                    result["remote"]["global"][f] = self.xml_bool(
+                        remote_el, f"hik:{f}", ns
+                    )
+
+                for vc in remote_el.findall(
+                    "hik:videoChannelPermissionList/hik:videoChannelPermission",
+                    ns
+                ):
+                    ch_id = int(vc.findtext("hik:id", namespaces=ns))
+
+                    for perm in ["preview", "record", "playBack"]:
+                        if self.xml_bool(vc, f"hik:{perm}", ns):
+                            result["remote"]["channels"].setdefault(
+                                perm.lower(), []
+                            ).append(ch_id)
+
+                for pc in remote_el.findall(
+                    "hik:ptzChannelPermissionList/hik:ptzChannelPermission",
+                    ns
+                ):
+                    if self.xml_bool(pc, "hik:ptzControl", ns):
+                        ch_id = int(pc.findtext("hik:id", namespaces=ns))
+                        result["remote"]["channels"].setdefault(
+                            "ptz_control", []
+                        ).append(ch_id)
+
+            return result
+
+        except Exception as ex:
+            print(f"[ISAPI][USER_PERMISSION] Error fetching from {url}: {ex}")
+            return None

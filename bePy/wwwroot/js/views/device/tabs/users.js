@@ -1,9 +1,10 @@
 import { API_URL } from "../../../config.js";
 
-
 let currentDevice = null;
-let currentUser = null;
 
+/* =========================
+   Render main view
+========================= */
 export async function renderUsers(device) {
     currentDevice = device;
 
@@ -20,17 +21,30 @@ export async function renderUsers(device) {
             </button>
         </div>
 
-        <div id="userList" class="space-y-2"></div>
+        <!-- Header -->
+        <div class="grid grid-cols-2 gap-4 px-3 py-2 text-xs font-semibold text-gray-500 uppercase border-b">
+            <div>User name</div>
+            <div>Role</div>
+        </div>
 
-        <div id="userDetail" class="mt-6"></div>
+        <!-- User list -->
+        <div id="userList" class="divide-y"></div>
+
+        <!-- Modal -->
+        <div id="userModal"
+             class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+        </div>
     `;
 
     await loadUsers();
 }
 
+/* =========================
+   Load users
+========================= */
 async function loadUsers() {
     const listBox = document.getElementById("userList");
-    listBox.innerHTML = `<div class="text-gray-500">Loading users...</div>`;
+    listBox.innerHTML = `<div class="text-gray-500 p-3">Loading users...</div>`;
 
     let users = await apiFetch(
         `${API_URL}/api/device/${currentDevice.id}/user`
@@ -44,36 +58,139 @@ async function loadUsers() {
         );
     }
 
-    listBox.innerHTML = users.map(u => renderUserItem(u)).join("");
+    listBox.innerHTML = users.map(renderUserItem).join("");
 }
+
+/* =========================
+   Render user row (2 columns)
+========================= */
 function renderUserItem(user) {
     return `
         <div
-            onclick="window.selectUser(${user.user_id})"
-            class="p-3 border rounded cursor-pointer hover:bg-gray-100">
+            onclick='window.openUserModal(${JSON.stringify(user)})'
+            class="grid grid-cols-2 gap-4 px-3 py-3 cursor-pointer hover:bg-gray-50">
 
             <div class="font-medium text-gray-800">
                 ${user.user_name}
             </div>
 
-            <div class="text-xs text-gray-500 uppercase">
-                ${user.role}
+            <div class="text-sm text-gray-500 ">
+                ${user.role ?? "-"}
             </div>
         </div>
     `;
 }
-window.selectUser = function (userId) {
-    currentUser = userId;
 
-    const detail = document.getElementById("userDetail");
+/* =========================
+   Modal logic
+========================= */
+window.openUserModal = async function (user) {
+    const modal = document.getElementById("userModal");
 
-    detail.innerHTML = `
-        <div class="bg-gray-50 border rounded p-4 text-gray-500 text-center">
-            User detail & permission editor<br/>
-            <span class="text-sm">(Coming soon)</span>
+    modal.innerHTML = `
+        <div class="bg-white w-[640px] rounded-lg shadow-lg p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">User Permission</h3>
+                <button onclick="window.closeUserModal()">✕</button>
+            </div>
+
+            <div id="permissionBody" class="text-sm text-gray-500">
+                Loading permissions...
+            </div>
         </div>
     `;
+
+    modal.classList.remove("hidden");
+
+    // ===== FETCH PERMISSION =====
+    const perm = await apiFetch(
+         `${API_URL}/api/device/${currentDevice.id}/user/${user.id}/permissions`
+    );
+
+    renderPermissionUI(perm);
 };
+function renderPermissionUI(data) {
+    const box = document.getElementById("permissionBody");
+
+    box.innerHTML = `
+        ${renderScope("Local", data.local)}
+        ${renderScope("Remote", data.remote)}
+    `;
+}
+
+function renderScope(title, scopeData) {
+    return `
+        <div class="mb-6">
+            <h4 class="font-semibold mb-2">${title} Permissions</h4>
+            <div class="grid grid-cols-2 gap-2">
+                ${Object.entries(scopeData.global || {})
+                    .map(([key, value]) => renderPermissionItem(title, key, value))
+                    .join("")}
+            </div>
+        </div>
+    `;
+}
+
+function renderPermissionItem(scope, key, enabled) {
+    return `
+        <div
+            onclick="window.showPermissionChannels('${scope.toLowerCase()}', '${key}')"
+            class="flex items-center justify-between px-3 py-2 border rounded cursor-pointer hover:bg-gray-50">
+
+            <span>${permissionLabel(scope, key)}</span>
+
+            <span class="${enabled ? "text-green-600" : "text-gray-300"}">
+                ${enabled ? "✔" : "—"}
+            </span>
+        </div>
+    `;
+}
+function permissionLabel(scope, key) {
+    const map = {
+        Local: {
+            parameter_config: "Local Parameter Configuration",
+            record: "Local Record",
+            playback: "Local Playback",
+            backup: "Local Backup",
+            upgrade: "Local Upgrade",
+        },
+        Remote: {
+            preview: "Remote Preview",
+            record: "Remote Record",
+            playback: "Remote Playback",
+            alarm_out_or_upload: "Remote Trigger Alarm Output",
+            control_local_out: "Remote Video Output Control",
+            transparent_channel: "Remote Serial Port Control",
+        }
+    };
+
+    return map[scope]?.[key] ?? key;
+}
+window.showPermissionChannels = function (scope, permission) {
+    alert(`Show channels for ${scope} → ${permission}\n(Next step: channel modal)`);
+};
+
+
+window.closeUserModal = function () {
+    const modal = document.getElementById("userModal");
+    modal.classList.add("hidden");
+    modal.innerHTML = "";
+};
+
+/* Click outside modal to close */
+document.addEventListener("click", (e) => {
+    const modal = document.getElementById("userModal");
+    if (!modal) return;
+
+    if (!modal.classList.contains("hidden") && e.target === modal) {
+        window.closeUserModal();
+    }
+});
+
+
+/* =========================
+   Sync users
+========================= */
 window.syncDeviceUsers = async function () {
     await apiFetch(
         `${API_URL}/api/device/${currentDevice.id}/user/sync`,

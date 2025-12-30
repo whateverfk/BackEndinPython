@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from app.Models.device_storage import DeviceStorage
 from app.Models.device_integration_users import DeviceIntegrationUser
 from app.Models.device_user import DeviceUser
+from app.Models.user_channel_permissions import UserChannelPermission
+from app.Models.user_global_permissions import UserGlobalPermission
 
 
 async def saveSystemInfo(db, system_info: dict):
@@ -267,3 +269,68 @@ def get_device_users_from_db(
         for u in users
     ]
 
+def save_permissions(
+        self,
+        db: Session,
+        device_user_id: int,
+        permission_data: dict
+    ):
+        """
+        permission_data = output của fetch_permission_for_1_user()
+        """
+
+        # ========== CLEAR OLD ==========
+        db.query(UserGlobalPermission).filter(
+            UserGlobalPermission.device_user_id == device_user_id
+        ).delete()
+
+        db.query(UserChannelPermission).filter(
+            UserChannelPermission.device_user_id == device_user_id
+        ).delete()
+
+        # ========== GLOBAL ==========
+        for scope in ["local", "remote"]:
+            global_perm = permission_data.get(scope, {}).get("global")
+            if not global_perm:
+                continue
+
+            g = UserGlobalPermission(
+                device_user_id=device_user_id,
+                scope=scope,
+
+                upgrade=global_perm.get("upgrade"),
+                parameter_config=global_perm.get("parameterConfig"),
+                restart_or_shutdown=global_perm.get("restartOrShutdown"),
+                log_or_state_check=global_perm.get("logOrStateCheck"),
+                manage_channel=global_perm.get("manageChannel"),
+
+                playback=global_perm.get("playBack"),
+                record=global_perm.get("record"),
+                backup=global_perm.get("backup"),
+
+                preview=global_perm.get("preview"),
+                voice_talk=global_perm.get("voiceTalk"),
+                alarm_out_or_upload=global_perm.get("alarmOutOrUpload"),
+                control_local_out=global_perm.get("contorlLocalOut"),
+                transparent_channel=global_perm.get("transParentChannel"),
+            )
+
+            db.add(g)
+
+        # ========== CHANNEL ==========
+        for scope in ["local", "remote"]:
+            channels = permission_data.get(scope, {}).get("channels", {})
+
+            for perm, channel_ids in channels.items():
+                for ch_id in channel_ids:
+                    db.add(
+                        UserChannelPermission(
+                            device_user_id=device_user_id,
+                            channel_id=ch_id,
+                            scope=scope,
+                            permission=perm,
+                            enabled=True
+                        )
+                    )
+
+        db.commit()
