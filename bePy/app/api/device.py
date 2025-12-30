@@ -174,6 +174,7 @@ def get_device_channels(
         Channel.device_id == id
     ).all()
 
+
 @router.get(
     "/channels/{channel_id}/record_days_full",
     response_model=list[ChannelRecordDayOut]

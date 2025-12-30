@@ -6,7 +6,9 @@ import { renderIntegration } from "./tabs/integration.js";
 import { renderStorage } from "./tabs/storage.js";
 
 export async function renderDeviceDetail(container, id) {
+
     const d = await apiFetch(`${API_URL}/api/devices/${id}`);
+    window.currentDevice = d;
 
     container.innerHTML = `
         <button class="mb-4 text-blue-600 hover:underline"
@@ -56,10 +58,10 @@ function bindTabs(device) {
 
             const map = {
                 info: () => renderSystemInfo(device),
-                channel: renderChannelConfig,
-                users: renderUsers,
-                integration: renderIntegration,
-                storage: renderStorage
+                channel: () => renderChannelConfig(device), //
+                users: () => renderUsers(device),
+                integration: () => renderIntegration(device),
+                storage: () => renderStorage(device)
             };
 
             map[btn.dataset.tab]?.();
