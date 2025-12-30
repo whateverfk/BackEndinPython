@@ -164,7 +164,6 @@ class HikDetailService:
             resp = await client.put(url, content=payload, headers=headers)
             resp.raise_for_status()
 
-
     async def put_channel_name_local(device, channel, new_name, headers):
         base_url = f"http://{device.ip_web}"
         input_id = (channel.channel_no - 1) // 100
@@ -497,3 +496,43 @@ class HikDetailService:
         except Exception as ex:
             print(f"[ONVIF][User] Error: {ex}")
             return []
+
+
+    async def fetch_device_users(device, headers):
+        """
+        Lấy danh sách user từ ISAPI:
+        GET /ISAPI/Security/users
+        """
+        base_url = f"http://{device.ip_web}"
+        url = f"{base_url}/ISAPI/Security/users"
+
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(url, headers=headers, timeout=10)
+                resp.raise_for_status()
+
+                root = ET.fromstring(resp.text)
+                ns = {"hik": "http://www.hikvision.com/ver20/XMLSchema"}
+
+                users = []
+
+                for user_el in root.findall("hik:User", ns):
+                    user_id = user_el.findtext("hik:id", default=None, namespaces=ns)
+                    user_name = user_el.findtext("hik:userName", default=None, namespaces=ns)
+                    user_level = user_el.findtext("hik:userLevel", default=None, namespaces=ns)
+
+                    if not user_id or not user_name:
+                        continue
+
+                    users.append({
+                        "user_id": int(user_id),
+                        "user_name": user_name,
+                        "role": user_level.lower() if user_level else None
+                    })
+
+                return users
+
+        except Exception as ex:
+            print(f"[ISAPI][USERS] Error fetching users from {url}: {ex}")
+            return []
+

@@ -7,7 +7,7 @@ from app.Models.channel_stream_config import ChannelStreamConfig
 from sqlalchemy.orm import Session
 from app.Models.device_storage import DeviceStorage
 from app.Models.device_integration_users import DeviceIntegrationUser
-
+from app.Models.device_user import DeviceUser
 
 
 async def saveSystemInfo(db, system_info: dict):
@@ -84,7 +84,6 @@ async def get_device_storage_from_db(db, device_id: int):
     result = db.execute(select(DeviceStorage).where(DeviceStorage.device_id == device_id))
     hdds = result.scalars().all()
     return hdds
-
 
 # -------------------------------
 # 2. Upsert thông tin HDD vào DB
@@ -170,3 +169,101 @@ async def upsert_device_integration_users(
             ))
 
     db.commit()
+
+
+async def upsert_device_users(
+    db: Session,
+    device_id: int,
+    users_data: list[dict]
+):
+    """
+    Upsert users của device vào DB
+    """
+
+    existing_users = db.query(DeviceUser).filter(
+        DeviceUser.device_id == device_id
+    ).all()
+
+    existing_map = {
+        u.user_id: u for u in existing_users
+    }
+
+    incoming_ids = set()
+
+    for u in users_data:
+        incoming_ids.add(u["user_id"])
+
+        if u["user_id"] in existing_map:
+            # UPDATE
+            db_user = existing_map[u["user_id"]]
+            db_user.user_name = u["user_name"]
+            db_user.role = u["role"]
+            db_user.is_active = True
+        else:
+            # INSERT
+            db_user = DeviceUser(
+                device_id=device_id,
+                user_id=u["user_id"],
+                user_name=u["user_name"],
+                role=u["role"],
+                is_active=True
+            )
+            db.add(db_user)
+
+    # disable users không còn tồn tại trên device
+    for db_user in existing_users:
+        if db_user.user_id not in incoming_ids:
+            db_user.is_active = False
+
+    db.commit()
+
+async def sync_device_users_from_isapi(
+    db: Session,
+    device,
+    headers
+):
+    hik = HikDetailService()
+    users = await hik.fetch_device_users(device, headers)
+
+    if not users:
+        return []
+
+    upsert_device_users(
+        db=db,
+        device_id=device.id,
+        users_data=users
+    )
+
+    return users
+
+
+async def get_device_users_from_db(
+    db: Session,
+    device_id: int,
+    only_active: bool = True
+):
+    """
+    Lấy danh sách user của device từ DB
+    """
+
+    query = db.query(DeviceUser).filter(
+        DeviceUser.device_id == device_id
+    )
+
+    if only_active:
+        query = query.filter(DeviceUser.is_active == True)
+
+    users = query.order_by(DeviceUser.user_id.asc()).all()
+
+    return [
+        {
+            "id": u.id,
+            "device_id": u.device_id,
+            "user_id": u.user_id,
+            "user_name": u.user_name,
+            "role": u.role,
+            "is_active": u.is_active
+        }
+        for u in users
+    ]
+
