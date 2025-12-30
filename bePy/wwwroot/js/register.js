@@ -32,10 +32,10 @@ async function register() {
     window.location.href = "./index.html";
 }
 document.addEventListener("DOMContentLoaded", () => {
-    const btn = document.getElementById("btnDangKy");
+    const btn = document.getElementById("btnDangky");
 
     if (!btn) {
-        console.error("Không tìm thấy #btnDangKy");
+        console.error("Không tìm thấy #btnDangky");
         return;
     }
 

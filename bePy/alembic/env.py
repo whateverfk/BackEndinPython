@@ -5,9 +5,11 @@ from sqlalchemy import pool
 from alembic import context
 
 # Tải biến môi trường từ file .env (nếu có)
-load_dotenv()
+load_dotenv("./app/.env")
 
 # Lấy giá trị DATABASE_URL từ biến môi trường
+
+
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:

@@ -116,6 +116,7 @@ function bindEvents() {
 
 
 async function confirmChanges() {
+
     // UPDATE
     for (let d of devicesCache) {
         const chk = document.querySelector(`.chk-active[data-id="${d.id}"]`);
@@ -127,11 +128,16 @@ async function confirmChanges() {
         }
     }
 
-    // DELETE
-    document.querySelectorAll(".mark-delete").forEach(async row => {
+    // DELETE ( quan trọng)
+    const rows = document.querySelectorAll(".mark-delete");
+    for (const row of rows) {
         const id = row.id.replace("row-", "");
-        await apiFetch(`${API_URL}/api/devices/${id}`, { method: "DELETE" });
-    });
+        await apiFetch(`${API_URL}/api/devices/${id}`, {
+            method: "DELETE"
+        });
+    }
 
-    loadDevices();
+    //  reload SAU KHI delete xong
+    await loadDevices();
 }
+

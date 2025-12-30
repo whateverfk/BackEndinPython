@@ -3,7 +3,7 @@ from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 import os
 
-load_dotenv()
+load_dotenv("./app/.env")
 
 # Lấy giá trị DATABASE_URL từ biến môi trường
 DATABASE_URL = os.getenv("DATABASE_URL")
