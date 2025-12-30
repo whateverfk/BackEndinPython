@@ -1,39 +1,33 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-
+from app.features.RecordInfo.deps import build_hik_auth
 from app.db.session import get_db
 from app.Models.device_user import DeviceUser
 from app.Models.user_global_permissions import UserGlobalPermission
 from app.features.GetDevicesDetail.PermissionMap import PERMISSION_LABELS
 from app.Models.user_channel_permissions import UserChannelPermission
+from app.features.GetDevicesDetail.HikDetailService import HikDetailService
+from app.features.GetDevicesDetail.WorkWithDb import save_permissions
+from app.Models.device import Device
 
 router = APIRouter(  prefix="/api/device/{id}/user/{device_user_id}",
     tags=["Devices_user_info"])
 
 
-@router.get("/permissions")
-def get_device_user_permissions(
-    device_user_id: int,
-    db: Session = Depends(get_db)
-):
-    device_user = db.query(DeviceUser).get(device_user_id)
-    if not device_user:
-        raise HTTPException(404, "Device user not found")
 
+def build_permission_response(db, device_user_id: int):
     result = {
         "local": {"global": {}, "channels": {}},
-        "remote": {"global": {}, "channels": {}}
+        "remote": {"global": {}, "channels": {}},
     }
 
-    # ========== GLOBAL ==========
+    # GLOBAL
     globals_ = db.query(UserGlobalPermission).filter(
         UserGlobalPermission.device_user_id == device_user_id
     ).all()
 
     for g in globals_:
-        scope = g.scope
-
-        result[scope]["global"] = {
+        result[g.scope]["global"] = {
             "upgrade": g.upgrade,
             "parameter_config": g.parameter_config,
             "restart_or_shutdown": g.restart_or_shutdown,
@@ -51,17 +45,55 @@ def get_device_user_permissions(
             "transparent_channel": g.transparent_channel,
         }
 
-    # ========== CHANNEL ==========
+    # CHANNEL
     channels = db.query(UserChannelPermission).filter(
         UserChannelPermission.device_user_id == device_user_id,
         UserChannelPermission.enabled == True
     ).all()
 
     for c in channels:
-        scope = c.scope
-        perm = c.permission
-
-        result[scope]["channels"].setdefault(perm, [])
-        result[scope]["channels"][perm].append(c.channel_id)
+        result[c.scope]["channels"].setdefault(c.permission, []).append(c.channel_id)
 
     return result
+
+
+@router.get("/permissions")
+async def get_device_user_permissions(
+    id: int,
+    device_user_id: int,
+    db: Session = Depends(get_db),
+   
+):
+    permission_service=  HikDetailService()
+    # 1. Check user
+    device_user = db.query(DeviceUser).get(device_user_id)
+    if not device_user:
+        raise HTTPException(404, "Device user not found")
+
+    # 2. Check permission exists?
+    exists = db.query(UserGlobalPermission).filter(
+        UserGlobalPermission.device_user_id == device_user_id
+    ).first()
+
+    # 3. If NOT exists → fetch from device
+    if not exists:
+        device = device_user.device
+        headers = build_hik_auth(device)
+
+        permission_data = await permission_service.fetch_permission_for_1_user(
+            device=device,
+            headers=headers,
+            user_id=device_user.user_id
+        )
+
+        if not permission_data:
+            raise HTTPException(500, "Failed to fetch permission from device")
+
+        save_permissions(
+            db=db,
+            device_user_id=device_user_id,
+            permission_data=permission_data
+        )
+
+    # 4. Build response from DB (bạn đã có sẵn)
+    return build_permission_response(db, device_user_id)

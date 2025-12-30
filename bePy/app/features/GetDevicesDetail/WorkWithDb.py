@@ -10,6 +10,7 @@ from app.Models.device_integration_users import DeviceIntegrationUser
 from app.Models.device_user import DeviceUser
 from app.Models.user_channel_permissions import UserChannelPermission
 from app.Models.user_global_permissions import UserGlobalPermission
+from app.Models.channel import Channel
 
 
 async def saveSystemInfo(db, system_info: dict):
@@ -269,68 +270,109 @@ def get_device_users_from_db(
         for u in users
     ]
 
-def save_permissions(
-        self,
-        db: Session,
-        device_user_id: int,
-        permission_data: dict
-    ):
-        """
-        permission_data = output của fetch_permission_for_1_user()
-        """
 
-        # ========== CLEAR OLD ==========
-        db.query(UserGlobalPermission).filter(
-            UserGlobalPermission.device_user_id == device_user_id
-        ).delete()
+def save_permissions(db: Session, device_user_id: int, permission_data: dict):
+    """
+    Lưu permissions cho device_user với debug để biết lỗi
+    """
 
-        db.query(UserChannelPermission).filter(
-            UserChannelPermission.device_user_id == device_user_id
-        ).delete()
+    try:
+        print(f"[DEBUG] Start saving permissions for device_user_id={device_user_id}")
 
-        # ========== GLOBAL ==========
+        # ===== GLOBAL =====
         for scope in ["local", "remote"]:
             global_perm = permission_data.get(scope, {}).get("global")
             if not global_perm:
+                print(f"[DEBUG] No global permission for scope={scope}")
                 continue
 
-            g = UserGlobalPermission(
+            g = db.query(UserGlobalPermission).filter_by(
                 device_user_id=device_user_id,
-                scope=scope,
+                scope=scope
+            ).first()
 
-                upgrade=global_perm.get("upgrade"),
-                parameter_config=global_perm.get("parameterConfig"),
-                restart_or_shutdown=global_perm.get("restartOrShutdown"),
-                log_or_state_check=global_perm.get("logOrStateCheck"),
-                manage_channel=global_perm.get("manageChannel"),
+            if g:
+                print(f"[DEBUG] Updating existing global permission for scope={scope}")
+                g.upgrade = global_perm.get("upgrade")
+                g.parameter_config = global_perm.get("parameter_config")
+                g.restart_or_shutdown = global_perm.get("restart_or_shutdown")
+                g.log_or_state_check = global_perm.get("log_or_state_check")
+                g.manage_channel = global_perm.get("manage_channel")
+                g.playback = global_perm.get("playBack")
+                g.record = global_perm.get("record")
+                g.backup = global_perm.get("backup")
+                g.preview = global_perm.get("preview")
+                g.voice_talk = global_perm.get("voiceTalk")
+                g.alarm_out_or_upload = global_perm.get("alarmOutOrUpload")
+                g.control_local_out = global_perm.get("contorlLocalOut")
+                g.transparent_channel = global_perm.get("transParentChannel")
+            else:
+                print(f"[DEBUG] Inserting new global permission for scope={scope}")
+                g = UserGlobalPermission(
+                    device_user_id=device_user_id,
+                    scope=scope,
+                    upgrade=global_perm.get("upgrade"),
+                    parameter_config=global_perm.get("parameter_config"),
+                    restart_or_shutdown=global_perm.get("restart_or_shutdown"),
+                    log_or_state_check=global_perm.get("log_or_state_check"),
+                    manage_channel=global_perm.get("manage_channel"),
+                    playback=global_perm.get("playBack"),
+                    record=global_perm.get("record"),
+                    backup=global_perm.get("backup"),
+                    preview=global_perm.get("preview"),
+                    voice_talk=global_perm.get("voiceTalk"),
+                    alarm_out_or_upload=global_perm.get("alarmOutOrUpload"),
+                    control_local_out=global_perm.get("contorlLocalOut"),
+                    transparent_channel=global_perm.get("transParentChannel"),
+                )
+                db.add(g)
 
-                playback=global_perm.get("playBack"),
-                record=global_perm.get("record"),
-                backup=global_perm.get("backup"),
+        db.flush()
+        print("[DEBUG] Flushed global permissions")
 
-                preview=global_perm.get("preview"),
-                voice_talk=global_perm.get("voiceTalk"),
-                alarm_out_or_upload=global_perm.get("alarmOutOrUpload"),
-                control_local_out=global_perm.get("contorlLocalOut"),
-                transparent_channel=global_perm.get("transParentChannel"),
-            )
-
-            db.add(g)
-
-        # ========== CHANNEL ==========
+        # ===== CHANNEL =====
         for scope in ["local", "remote"]:
             channels = permission_data.get(scope, {}).get("channels", {})
 
             for perm, channel_ids in channels.items():
-                for ch_id in channel_ids:
-                    db.add(
-                        UserChannelPermission(
+                for isapi_ch_id in channel_ids:
+
+                    channel_no = isapi_ch_id * 100 + 1
+                    device_id = db.query(DeviceUser.device_id).filter_by(id=device_user_id).scalar()
+                    channel = db.query(Channel).filter_by(
+                        device_id=device_id,
+                        channel_no=channel_no
+                    ).first()
+
+                    if not channel:
+                        print(f"[WARN] Channel not found: device_user_id={device_user_id}, isapi_id={isapi_ch_id}, channel_no={channel_no}")
+                        continue
+
+                    ucp = db.query(UserChannelPermission).filter_by(
+                        device_user_id=device_user_id,
+                        channel_id=channel.id,
+                        scope=scope,
+                        permission=perm
+                    ).first()
+
+                    if ucp:
+                        print(f"[DEBUG] Updating existing channel permission: channel_id={channel.id}, permission={perm}")
+                        ucp.enabled = True
+                    else:
+                        print(f"[DEBUG] Adding new channel permission: channel_id={channel.id}, permission={perm}")
+                        ucp = UserChannelPermission(
                             device_user_id=device_user_id,
-                            channel_id=ch_id,
+                            channel_id=channel.id,
                             scope=scope,
                             permission=perm,
                             enabled=True
                         )
-                    )
+                        db.add(ucp)
 
         db.commit()
+        print("[DEBUG] Commit successful")
+
+    except Exception as e:
+        db.rollback()
+        print(f"[ERROR] Exception while saving permissions for device_user_id={device_user_id}: {e}")
+        raise

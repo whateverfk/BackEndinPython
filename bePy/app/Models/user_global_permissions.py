@@ -8,7 +8,7 @@ class UserGlobalPermission(Base):
     id = Column(Integer, primary_key=True)
     device_user_id = Column(
         Integer, ForeignKey("device_users.id", ondelete="CASCADE"),
-        unique=True
+        unique=False
     )
 
     scope = Column(String(10))  # local | remote
