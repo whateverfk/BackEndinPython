@@ -1,12 +1,18 @@
 from passlib.context import CryptContext
 from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException, status
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
+
+
+SECRET_KEY = os.getenv("SECRET_KEY")
 import jwt
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-SECRET_KEY = "Im_a_storm_that_is_approaching"
+
 ALGORITHM = "HS256"
 EXPIRE_MINUTES = 60 
 CLAIM_NAME = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"

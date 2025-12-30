@@ -1,7 +1,15 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
+import os
 
-DATABASE_URL = "postgresql://postgres:.@localhost:5432/ForBackEnd"
+load_dotenv()
+
+# Lấy giá trị DATABASE_URL từ biến môi trường
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+
+
 # nếu prod:
 # postgresql://user:pass@host/db
 

@@ -4,6 +4,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 
 from app.db.base import Base
 
@@ -22,3 +23,10 @@ class User(Base):
 
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    devices = relationship(
+        "Device",
+        backref="owner",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )

@@ -22,12 +22,15 @@ class Device(Base):
     is_checked = Column(Boolean, default=False)
 
     #  OWNER – GÁN TỪ TOKEN
+    
+
     owner_superadmin_id = Column(
-        UUID(as_uuid=True),
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
         index=True,
-        
         nullable=True
     )
+
     users = relationship("DeviceUser", back_populates="device")
     
     system_info = relationship(
