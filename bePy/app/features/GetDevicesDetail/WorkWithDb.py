@@ -74,9 +74,6 @@ async def sync_channel_config(
 
     db.flush()
 
-
-
-
 # -------------------------------
 # 1. Lấy thông tin từ DB
 # -------------------------------
@@ -271,19 +268,34 @@ def get_device_users_from_db(
     ]
 
 
+GLOBAL_PERMISSION_MAP = {
+    # common
+    "upgrade": "upgrade",
+    "parameterConfig": "parameter_config",
+    "restartOrShutdown": "restart_or_shutdown",
+    "logOrStateCheck": "log_or_state_check",
+    "manageChannel": "manage_channel",
+
+    # local
+    "playBack": "playback",
+    "record": "record",
+    "backup": "backup",
+
+    # remote
+    "preview": "preview",
+    "voiceTalk": "voice_talk",
+    "alarmOutOrUpload": "alarm_out_or_upload",
+    "contorlLocalOut": "control_local_out",
+    "transParentChannel": "transparent_channel",
+}
+
+
 def save_permissions(db: Session, device_user_id: int, permission_data: dict):
-    """
-    Lưu permissions cho device_user với debug để biết lỗi
-    """
-
     try:
-        print(f"[DEBUG] Start saving permissions for device_user_id={device_user_id}")
-
         # ===== GLOBAL =====
         for scope in ["local", "remote"]:
             global_perm = permission_data.get(scope, {}).get("global")
             if not global_perm:
-                print(f"[DEBUG] No global permission for scope={scope}")
                 continue
 
             g = db.query(UserGlobalPermission).filter_by(
@@ -291,44 +303,19 @@ def save_permissions(db: Session, device_user_id: int, permission_data: dict):
                 scope=scope
             ).first()
 
-            if g:
-                print(f"[DEBUG] Updating existing global permission for scope={scope}")
-                g.upgrade = global_perm.get("upgrade")
-                g.parameter_config = global_perm.get("parameter_config")
-                g.restart_or_shutdown = global_perm.get("restart_or_shutdown")
-                g.log_or_state_check = global_perm.get("log_or_state_check")
-                g.manage_channel = global_perm.get("manage_channel")
-                g.playback = global_perm.get("playBack")
-                g.record = global_perm.get("record")
-                g.backup = global_perm.get("backup")
-                g.preview = global_perm.get("preview")
-                g.voice_talk = global_perm.get("voiceTalk")
-                g.alarm_out_or_upload = global_perm.get("alarmOutOrUpload")
-                g.control_local_out = global_perm.get("contorlLocalOut")
-                g.transparent_channel = global_perm.get("transParentChannel")
-            else:
-                print(f"[DEBUG] Inserting new global permission for scope={scope}")
+            if not g:
                 g = UserGlobalPermission(
                     device_user_id=device_user_id,
-                    scope=scope,
-                    upgrade=global_perm.get("upgrade"),
-                    parameter_config=global_perm.get("parameter_config"),
-                    restart_or_shutdown=global_perm.get("restart_or_shutdown"),
-                    log_or_state_check=global_perm.get("log_or_state_check"),
-                    manage_channel=global_perm.get("manage_channel"),
-                    playback=global_perm.get("playBack"),
-                    record=global_perm.get("record"),
-                    backup=global_perm.get("backup"),
-                    preview=global_perm.get("preview"),
-                    voice_talk=global_perm.get("voiceTalk"),
-                    alarm_out_or_upload=global_perm.get("alarmOutOrUpload"),
-                    control_local_out=global_perm.get("contorlLocalOut"),
-                    transparent_channel=global_perm.get("transParentChannel"),
+                    scope=scope
                 )
                 db.add(g)
 
+            # map XML key → DB column
+            for xml_key, db_field in GLOBAL_PERMISSION_MAP.items():
+                if xml_key in global_perm:
+                    setattr(g, db_field, bool(global_perm.get(xml_key)))
+
         db.flush()
-        print("[DEBUG] Flushed global permissions")
 
         # ===== CHANNEL =====
         for scope in ["local", "remote"]:
@@ -338,14 +325,15 @@ def save_permissions(db: Session, device_user_id: int, permission_data: dict):
                 for isapi_ch_id in channel_ids:
 
                     channel_no = isapi_ch_id * 100 + 1
-                    device_id = db.query(DeviceUser.device_id).filter_by(id=device_user_id).scalar()
+                    device_id = db.query(DeviceUser.device_id)\
+                                  .filter_by(id=device_user_id).scalar()
+
                     channel = db.query(Channel).filter_by(
                         device_id=device_id,
                         channel_no=channel_no
                     ).first()
 
                     if not channel:
-                        print(f"[WARN] Channel not found: device_user_id={device_user_id}, isapi_id={isapi_ch_id}, channel_no={channel_no}")
                         continue
 
                     ucp = db.query(UserChannelPermission).filter_by(
@@ -355,11 +343,7 @@ def save_permissions(db: Session, device_user_id: int, permission_data: dict):
                         permission=perm
                     ).first()
 
-                    if ucp:
-                        print(f"[DEBUG] Updating existing channel permission: channel_id={channel.id}, permission={perm}")
-                        ucp.enabled = True
-                    else:
-                        print(f"[DEBUG] Adding new channel permission: channel_id={channel.id}, permission={perm}")
+                    if not ucp:
                         ucp = UserChannelPermission(
                             device_user_id=device_user_id,
                             channel_id=channel.id,
@@ -368,11 +352,12 @@ def save_permissions(db: Session, device_user_id: int, permission_data: dict):
                             enabled=True
                         )
                         db.add(ucp)
+                    else:
+                        ucp.enabled = True
 
         db.commit()
-        print("[DEBUG] Commit successful")
 
-    except Exception as e:
+    except Exception:
         db.rollback()
-        print(f"[ERROR] Exception while saving permissions for device_user_id={device_user_id}: {e}")
         raise
+

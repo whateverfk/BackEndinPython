@@ -2,6 +2,52 @@ import { API_URL } from "../../../config.js";
 
 let currentDevice = null;
 
+const SCOPE_PERMISSION_WHITELIST = {
+    local: [
+        "upgrade",
+        "parameter_config",
+        "restart_or_shutdown",
+        "log_or_state_check",
+        "manage_channel",
+        "playback",
+        "record",
+        "backup",
+    ],
+    remote: [
+        "parameter_config",
+        "log_or_state_check",
+        "upgrade",
+        "voice_talk",
+        "restart_or_shutdown",
+        "alarm_out_or_upload",
+        "control_local_out",
+        "transparent_channel",
+        "manage_channel",
+        "preview",
+        "record",
+        "playback",
+    ]
+};
+const PERMISSION_LABELS = {
+    upgrade: "Upgrade / Format",
+    parameter_config: "Parameter Configuration",
+    restart_or_shutdown: "Shutdown / Reboot",
+    log_or_state_check: "Log / Status Check",
+    manage_channel: "Camera Management",
+
+    playback: "Playback",
+    record: "Manual Record",
+    backup: "Video Export",
+
+    preview: "Live View",
+    voice_talk: "Two-way Audio",
+    alarm_out_or_upload: "Trigger Alarm Output",
+    control_local_out: "Video Output Control",
+    transparent_channel: "Serial Port Control",
+};
+
+
+
 /* =========================
    Render main view
 ========================= */
@@ -117,19 +163,29 @@ function renderPermissionUI(data) {
         ${renderScope("Remote", data.remote)}
     `;
 }
-
 function renderScope(title, scopeData) {
+    const scopeKey = title.toLowerCase(); // local | remote
+    const allowed = SCOPE_PERMISSION_WHITELIST[scopeKey] || [];
+
     return `
         <div class="mb-6">
             <h4 class="font-semibold mb-2">${title} Permissions</h4>
+
             <div class="grid grid-cols-2 gap-2">
-                ${Object.entries(scopeData.global || {})
-                    .map(([key, value]) => renderPermissionItem(title, key, value))
+                ${allowed
+                    .map((key) =>
+                        renderPermissionItem(
+                            title,
+                            key,
+                            Boolean(scopeData.global?.[key])
+                        )
+                    )
                     .join("")}
             </div>
         </div>
     `;
 }
+
 
 function renderPermissionItem(scope, key, enabled) {
     return `
@@ -146,26 +202,9 @@ function renderPermissionItem(scope, key, enabled) {
     `;
 }
 function permissionLabel(scope, key) {
-    const map = {
-        Local: {
-            parameter_config: "Local Parameter Configuration",
-            record: "Local Record",
-            playback: "Local Playback",
-            backup: "Local Backup",
-            upgrade: "Local Upgrade",
-        },
-        Remote: {
-            preview: "Remote Preview",
-            record: "Remote Record",
-            playback: "Remote Playback",
-            alarm_out_or_upload: "Remote Trigger Alarm Output",
-            control_local_out: "Remote Video Output Control",
-            transparent_channel: "Remote Serial Port Control",
-        }
-    };
-
-    return map[scope]?.[key] ?? key;
+    return `${scope}: ${PERMISSION_LABELS[key] ?? key}`;
 }
+
 window.showPermissionChannels = function (scope, permission) {
     alert(`Show channels for ${scope} → ${permission}\n(Next step: channel modal)`);
 };

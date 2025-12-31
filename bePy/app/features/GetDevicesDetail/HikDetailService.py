@@ -665,3 +665,5 @@ class HikDetailService:
         except Exception as ex:
             print(f"[ISAPI][USER_PERMISSION] Error fetching from {url}: {ex}")
             return None
+        
+        
