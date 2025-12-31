@@ -16,7 +16,7 @@ class MonitorSetting(Base):
     owner_id = Column(
         String(36),
         ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False
+        nullable=True
     )
 
     owner = relationship(

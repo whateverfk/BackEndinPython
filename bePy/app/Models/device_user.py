@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from app.db.base import Base
+from sqlalchemy import UniqueConstraint
 
 class DeviceUser(Base):
     __tablename__ = "device_users"
@@ -15,3 +16,6 @@ class DeviceUser(Base):
     is_active = Column(Boolean, default=True)
 
     device = relationship("Device", back_populates="users")
+    __table_args__ = (
+        UniqueConstraint('user_id', name='uq_user_id'),
+    )

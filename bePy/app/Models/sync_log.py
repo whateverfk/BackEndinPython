@@ -17,7 +17,7 @@ class SyncLog(Base):
     message = Column(String)
 
     owner_superadmin_id = Column(UUID(as_uuid=True), nullable=False)
-    owner_id = Column(String(36), ForeignKey("users.id"), nullable=False)  # Foreign key to User
+    owner_id = Column(String(36), ForeignKey("users.id"), nullable=True)  # Foreign key to User
 
     # Relationship with User
     owner = relationship(

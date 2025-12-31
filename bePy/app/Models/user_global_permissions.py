@@ -9,7 +9,7 @@ class UserGlobalPermission(Base):
     id = Column(Integer, primary_key=True)
 
     device_user_id = Column(
-        Integer, ForeignKey("device_users.id", ondelete="CASCADE"),
+        Integer, ForeignKey("device_users.user_id", ondelete="CASCADE"),
         nullable=False
     )
 
