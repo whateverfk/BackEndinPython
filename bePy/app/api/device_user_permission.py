@@ -10,7 +10,7 @@ from app.features.GetDevicesDetail.HikDetailService import HikDetailService
 from app.features.GetDevicesDetail.WorkWithDb import save_permissions
 from app.Models.device import Device
 
-router = APIRouter(  prefix="/api/device/{id}/user/{device_user_id}",
+router = APIRouter(  prefix="/api/device/{id}/user/{device_user_id}/permissions",
     tags=["Devices_user_info"])
 
 
@@ -57,7 +57,7 @@ def build_permission_response(db, device_user_id: int):
     return result
 
 
-@router.get("/permissions")
+@router.get("")
 async def get_device_user_permissions(
     id: int,
     device_user_id: int,
@@ -97,3 +97,45 @@ async def get_device_user_permissions(
 
     # 4. Build response from DB (bạn đã có sẵn)
     return build_permission_response(db, device_user_id)
+
+@router.post("/sync")
+async def sync_user_permission(
+    id: int,
+    device_user_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Fetch permission từ device cho 1 user
+    và upsert vào DB
+    """
+    device = db.get(Device, id)
+    if not device:
+        raise HTTPException(404, "Device not found")
+
+    device_user = db.query(DeviceUser).filter_by(
+        id=device_user_id,
+        device_id=id
+    ).first()
+
+    if not device_user:
+        raise HTTPException(404, "User not found")
+
+    headers = build_hik_auth(device)
+    hik = HikDetailService()
+
+    permission_data = await hik.fetch_permission_for_1_user(
+        device=device,
+        headers=headers,
+        user_id=device_user.user_id  # ISAPI user id
+    )
+
+    if not permission_data:
+        raise HTTPException(502, "Cannot fetch permission from device")
+
+    save_permissions(
+        db=db,
+        device_user_id=device_user.id,
+        permission_data=permission_data
+    )
+
+    return {"status": "success"}

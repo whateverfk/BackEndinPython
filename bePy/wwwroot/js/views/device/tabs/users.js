@@ -134,10 +134,20 @@ window.openUserModal = async function (user) {
     const modal = document.getElementById("userModal");
 
     modal.innerHTML = `
-        <div class="bg-white w-[640px] rounded-lg shadow-lg p-6">
+        <div class="bg-white w-[720px] rounded-lg shadow-lg p-6">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-semibold">User Permission</h3>
+                <h3 class="text-lg font-semibold">
+                    User Permission – ${user.user_name}
+                </h3>
                 <button onclick="window.closeUserModal()">✕</button>
+            </div>
+
+            <div class="flex justify-end mb-3">
+                <button
+                    onclick="window.syncUserPermission(${user.id})"
+                    class="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                    Fetch newest data 
+                </button>
             </div>
 
             <div id="permissionBody" class="text-sm text-gray-500">
@@ -148,13 +158,28 @@ window.openUserModal = async function (user) {
 
     modal.classList.remove("hidden");
 
-    // ===== FETCH PERMISSION =====
     const perm = await apiFetch(
-         `${API_URL}/api/device/${currentDevice.id}/user/${user.id}/permissions`
+        `${API_URL}/api/device/${currentDevice.id}/user/${user.id}/permissions`
     );
 
     renderPermissionUI(perm);
 };
+
+window.syncUserPermission = async function (userId) {
+    await apiFetch(
+        `${API_URL}/api/device/${currentDevice.id}/user/${userId}/permissions/sync`,
+        { method: "POST" }
+    );
+
+    // Reload permission sau khi sync
+    const perm = await apiFetch(
+        `${API_URL}/api/device/${currentDevice.id}/user/${userId}/permissions`
+    );
+
+    renderPermissionUI(perm);
+};
+
+
 function renderPermissionUI(data) {
     const box = document.getElementById("permissionBody");
 
