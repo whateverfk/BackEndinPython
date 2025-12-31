@@ -292,6 +292,13 @@ GLOBAL_PERMISSION_MAP = {
 
 def save_permissions(db: Session, device_user_id: int, permission_data: dict):
     try:
+        # ===== RESET CHANNEL PERMISSIONS =====
+        db.query(UserChannelPermission).filter(
+            UserChannelPermission.device_user_id == device_user_id
+            ).delete(synchronize_session=False)
+
+        db.flush()
+
         # ===== GLOBAL =====
         for scope in ["local", "remote"]:
             global_perm = permission_data.get(scope, {}).get("global")
@@ -311,9 +318,13 @@ def save_permissions(db: Session, device_user_id: int, permission_data: dict):
                 db.add(g)
 
             # map XML key → DB column
+            for field in GLOBAL_PERMISSION_MAP.values():
+                setattr(g, field, False)
+
             for xml_key, db_field in GLOBAL_PERMISSION_MAP.items():
                 if xml_key in global_perm:
                     setattr(g, db_field, bool(global_perm.get(xml_key)))
+
 
         db.flush()
 
