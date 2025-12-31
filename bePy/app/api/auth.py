@@ -21,7 +21,7 @@ def register(dto: RegisterDto, db: Session = Depends(get_db)):
         is_active=True
     )
 
-    print(" DEBUG - User object before commit:", user.__dict__)
+   
     db.add(user)
     db.commit()
     db.refresh(user)

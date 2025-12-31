@@ -33,7 +33,6 @@ async def get_channel_info(
         )
         .first()
     )
-    print("DEBUG:", device_id, channel_id)
 
     #  KHÔNG TỒN TẠI → 404 NGAY
     if not channel:

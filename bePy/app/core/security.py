@@ -40,7 +40,7 @@ def create_jwt(user) -> str:
 
         "exp": datetime.now().astimezone() + timedelta(minutes=EXPIRE_MINUTES)
     }
-    print(" DEBUG - JWT Payload:", payload)
+    
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
