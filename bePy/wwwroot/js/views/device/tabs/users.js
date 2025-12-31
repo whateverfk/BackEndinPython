@@ -24,6 +24,7 @@ const SCOPE_PERMISSION_WHITELIST = {
         "playback",
         "record",
         "backup",
+         "ptz_control",
     ],
     remote: [
         "parameter_config",
@@ -38,6 +39,7 @@ const SCOPE_PERMISSION_WHITELIST = {
         "preview",
         "record",
         "playback",
+         "ptz_control",
     ],
 };
 const CHANNEL_BASED_PERMISSIONS = [
@@ -45,7 +47,7 @@ const CHANNEL_BASED_PERMISSIONS = [
     "playback",
     "record",
     "backup",
-    
+     "ptz_control",
     "voice_talk",
 ];
 
@@ -60,7 +62,7 @@ const PERMISSION_LABELS = {
     playback: "Playback",
     record: "Manual Record",
     backup: "Video Export",
-
+    ptz_control: "PTZ Control",
     preview: "Live View",
     voice_talk: "Two-way Audio",
     alarm_out_or_upload: "Trigger Alarm Output",
@@ -253,17 +255,15 @@ function renderScope(title, scopeData) {
             <h4 class="font-semibold mb-2">${title} Permissions</h4>
 
             <div class="space-y-2">
-                ${allowed.map(key =>
-                    renderPermissionItem(
-                        scopeKey,
-                        key,
-                        Boolean(scopeData?.global?.[key])
-                    )
-                ).join("")}
+                ${allowed.map(key => {
+                    const enabled = isPermissionEnabled(scopeData, key);
+                    return renderPermissionItem(scopeKey, key, enabled);
+                }).join("")}
             </div>
         </div>
     `;
 }
+
 
 function renderPermissionItem(scope, key, enabled) {
     const isSelected =
@@ -381,3 +381,15 @@ document.addEventListener("click", (e) => {
 });
 
 
+function isPermissionEnabled(scopeData, permission) {
+    if (!scopeData) return false;
+
+    // Global permission
+    if (!CHANNEL_BASED_PERMISSIONS.includes(permission)) {
+        return Boolean(scopeData.global?.[permission]);
+    }
+
+    //  Channel-based permission (PTZ, preview, playback...)
+    const channels = scopeData.channels?.[permission] || [];
+    return channels.length > 0;
+}
