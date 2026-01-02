@@ -557,3 +557,4 @@ class HikRecordService():
             f"{len(all_record_days)} record days | "
             f"{len(all_time_ranges)} time ranges"
         )
+
