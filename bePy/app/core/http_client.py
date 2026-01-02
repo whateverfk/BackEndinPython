@@ -1,4 +1,4 @@
-# app/core/http_client.py
+
 import httpx
 
 _client: httpx.AsyncClient | None = None
@@ -20,3 +20,4 @@ async def close_http_client():
     if _client:
         await _client.aclose()
         _client = None
+

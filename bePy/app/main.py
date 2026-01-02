@@ -8,6 +8,8 @@ from app.features.background.update_data_record import auto_sync_all_devices
 import asyncio
 from contextlib import asynccontextmanager
 from app.features.background.scheduler import start_scheduler, stop_scheduler
+from app.core.http_client import close_http_client
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -26,6 +28,7 @@ async def lifespan(app: FastAPI):
 
     yield
     stop_scheduler()
+    close_http_client()
     #task.cancel()
     #try:
     #     await task
