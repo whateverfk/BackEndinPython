@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.Models.device import Device    
 from app.Models.channel import Channel
 from app.Models.channel_record_day import ChannelRecordDay
+from collections import defaultdict
 from app.Models.channel_record_time_range import ChannelRecordTimeRange
 
 
@@ -237,72 +238,77 @@ class HikRecordService():
         
             return merged
 
-    async def record_status_of_channel(self, device, channel_id: int, start_date: str, end_date: str, header) -> list[dict]:
-
-            """
-            Kiểm tra xem trong khoảng thời gian từ `start_date` đến `end_date` có bản ghi nào hay không.
-            
-            """
-            time_provider = TimeProvider()
-            base_url = f"http://{device.ip_web}"
-            
-            # Convert start_date và end_date thành datetime để dễ thao tác
-            start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
-            end_datetime = datetime.strptime(end_date, "%Y-%m-%d")
-
-            record_status_list = []
-            
-            async with httpx.AsyncClient(timeout=15) as client:
-                # Duyệt qua từng ngày từ start_date đến end_date
-                current_date = start_datetime
-                while current_date <= end_datetime:
-                    payload = f"""<?xml version="1.0" encoding="utf-8"?>
-                    <trackDailyParam>
-                        <year>{current_date.year}</year>
-                        <monthOfYear>{current_date.month}</monthOfYear>
-                    </trackDailyParam>
-                    """
-                    
-                    url = f"{base_url}/ISAPI/ContentMgmt/record/tracks/{channel_id}/dailyDistribution"
-                    print(f"Requesting URL: {repr(url)}")
-
-                    resp = await client.post(
-                        url,
-                        content=payload,
-                        headers=header
-                    )
-                    
-                    print(f"Response Status Code: {resp.status_code}")
-                    
-                    if resp.status_code != 200:
-                        print("Error: API returned non-200 status.")
-                        # Thêm thông tin lỗi vào danh sách trả về
-                        record_status_list.append({"date": current_date.strftime("%Y-%m-%d"), "has_record": False})
-                        current_date += timedelta(days=1)
-                        continue
-                    
-                    root = ET.fromstring(resp.text)
-                    days = root.findall(".//{*}day")
-
-                    had_record = False
-                    
-                    for d in days:
-                        record = d.find("{*}record")
-                        if record is not None and record.text.lower() == "true":
-                            had_record = True
-                            break
-                    
-                    # Lưu trạng thái của ngày hiện tại vào danh sách
-                    record_status_list.append({
-                        "date": current_date.strftime("%Y-%m-%d"),
-                        "has_record": had_record
-                    })
-                    print(f"từ service gốc : Date: {current_date.strftime('%Y-%m-%d')}, Has Record: {had_record}")
-                    
-                    current_date += timedelta(days=1)
-            print(f"Returning record status list with {len(record_status_list)} entries.")
-            return record_status_list
+    async def record_status_of_channel(
+        self,
+        device,
+        channel_id: int,
+        start_date: str,
+        end_date: str,
+        header
+    ) -> list[dict]:
+        """
+        Kiểm tra trạng thái record của channel trong khoảng ngày.
         
+        """
+
+        base_url = f"http://{device.ip_web}"
+        url = f"{base_url}/ISAPI/ContentMgmt/record/tracks/{channel_id}/dailyDistribution"
+
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+
+        # Gom các ngày theo (year, month)
+        months = defaultdict(list)
+        current = start_dt
+        while current <= end_dt:
+            months[(current.year, current.month)].append(current)
+            current += timedelta(days=1)
+
+        results = []
+
+        async with httpx.AsyncClient(timeout=15) as client:
+            for (year, month), days_in_month in months.items():
+
+                payload = f"""<?xml version="1.0" encoding="utf-8"?>
+                <trackDailyParam>
+                    <year>{year}</year>
+                    <monthOfYear>{month}</monthOfYear>
+                </trackDailyParam>
+                """
+
+                resp = await client.post(url, content=payload, headers=header)
+
+                if resp.status_code != 200:
+                    # Nếu lỗi → đánh false cho toàn bộ ngày trong tháng đó
+                    for d in days_in_month:
+                        results.append({
+                            "date": d.strftime("%Y-%m-%d"),
+                            "has_record": False
+                        })
+                    continue
+
+                # Parse XML
+                root = ET.fromstring(resp.text)
+
+                # Map dayOfMonth -> has_record
+                record_map = {}
+
+                for day in root.findall(".//{*}day"):
+                    day_num = int(day.find("{*}dayOfMonth").text)
+                    record_text = day.find("{*}record")
+                    record_map[day_num] = (
+                        record_text is not None and record_text.text.lower() == "true"
+                    )
+
+                # Lấy đúng các ngày cần kiểm tra
+                for d in days_in_month:
+                    results.append({
+                        "date": d.strftime("%Y-%m-%d"),
+                        "has_record": record_map.get(d.day, False)
+                    })
+
+        return results
+
     async def recorded_day_in_month(self, device, channel_id: int, year: int, month: int, header) -> list[dict]:
 
 

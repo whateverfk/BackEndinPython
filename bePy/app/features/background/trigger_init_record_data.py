@@ -14,7 +14,8 @@ async def trigger_device_init_data(device_id: int):
         record_service = HikRecordService()
         await record_service.device_channels_init_data(db, device)
 
-        db.commit()   
+        db.commit() 
+        print("Init done ????")  
     except Exception as e:
         db.rollback()
         print("[AUTO SYNC ERROR]", e)
