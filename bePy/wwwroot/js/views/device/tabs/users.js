@@ -276,7 +276,7 @@ function renderPermissionItem(scope, key, enabled) {
             onclick="window.selectPermission('${scope}', '${key}')"
             class="flex items-center justify-between px-3 py-2 border rounded cursor-pointer
                    hover:bg-gray-50
-                   ${isSelected ? "bg-blue-50 border-blue-400" : ""}">
+                   ${isSelected ? "bg-blue-50 border-blue-500 ring-1 ring-blue-300" : ""}">
 
             <span>${permissionLabel(scope, key)}</span>
 
@@ -288,6 +288,7 @@ function renderPermissionItem(scope, key, enabled) {
 }
 
 
+
 function permissionLabel(scope, key) {
     return `${scope.toUpperCase()}: ${PERMISSION_LABELS[key] ?? key}`;
 }
@@ -297,6 +298,10 @@ function permissionLabel(scope, key) {
 ========================= */
 window.selectPermission = function (scope, permission) {
     selectedPermission = { scope, permission };
+
+    // 👉 RENDER LẠI permission list để highlight
+    renderPermissionUI(currentPermissionData);
+
     const panel = document.getElementById("channelPanel");
 
     // ===== Global permission → không có channel =====
@@ -312,12 +317,8 @@ window.selectPermission = function (scope, permission) {
     const scopeData = currentPermissionData?.[scope];
     if (!scopeData) return;
 
-    
     const enabledChannels = scopeData.channels?.[permission] || [];
-
-    const enabledSet = new Set(
-        enabledChannels.map(Number)
-    );
+    const enabledSet = new Set(enabledChannels.map(Number));
 
     panel.innerHTML = `
         <h4 class="font-semibold mb-3">
@@ -334,11 +335,7 @@ window.selectPermission = function (scope, permission) {
             ).join("")}
         </div>
     `;
-    console.log("Enabled channels:", enabledChannels);
-    console.log("Device channels:", deviceChannels);
-
 };
-
 
 
 
