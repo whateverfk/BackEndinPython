@@ -10,25 +10,18 @@ from app.db.session import get_db
 
 
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 
 class CurrentUser:
     def __init__(self, payload: dict):
-        self.user_id = UUID(payload[
+        self.user_id: str = payload[
             "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
-        ])
-        self.role = payload[
+        ]
+        self.role: str = payload[
             "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
         ]
-        self.superadmin_id = UUID(payload["superAdminId"])
-
+        self.superadmin_id: str | None = payload.get("superAdminId")
 
 def get_current_user(
     authorization: str | None = Header(None),

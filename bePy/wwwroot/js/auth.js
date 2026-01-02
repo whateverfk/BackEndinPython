@@ -21,6 +21,8 @@ function requireAuth() {
    API FETCH WRAPPER
 ========================= */
 
+
+
 async function apiFetch(url, options = {}) {
     const token = getToken();
 
@@ -38,6 +40,7 @@ async function apiFetch(url, options = {}) {
         }
     });
 
+    // ===== AUTH =====
     if (res.status === 401) {
         logout();
         return;
@@ -48,10 +51,26 @@ async function apiFetch(url, options = {}) {
         return;
     }
 
+    // ===== NO CONTENT =====
     if (res.status === 204) {
         return null;
     }
 
-    const text = await res.text();
-    return text ? JSON.parse(text) : null;
+    // ===== PARSE BODY =====
+    let data = null;
+    try {
+        data = await res.json();
+    } catch {
+        // ignore
+    }
+
+    // ===== THROW FOR ERROR (QUAN TRỌNG) =====
+    if (!res.ok) {
+        const err = new Error(data?.detail || "API Error");
+        err.status = res.status;
+        err.data = data;
+        throw err;
+    }
+
+    return data;
 }

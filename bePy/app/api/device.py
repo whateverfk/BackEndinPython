@@ -44,7 +44,7 @@ def get_devices(
 # GET: /api/ active devices
 # =========================
 @router.get("/active", response_model=list[DeviceOut])
-def get_devices(
+def get_active_devices(
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
@@ -173,6 +173,7 @@ def get_device_channels(
     return db.query(Channel).filter(
         Channel.device_id == id
     ).all()
+
 
 @router.get(
     "/channels/{channel_id}/record_days_full",

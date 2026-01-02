@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.schemas.auth import RegisterDto, LoginDto
+from app.schemas.auth import RegisterDto, LoginDto, ChangePasswordDto
 from app.Models.user import User
-from app.api.deps import get_db
+from app.api.deps import get_db,get_current_user,CurrentUser
 from app.core.security import create_jwt, hash_password, verify_password
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
@@ -21,7 +21,7 @@ def register(dto: RegisterDto, db: Session = Depends(get_db)):
         is_active=True
     )
 
-    print(" DEBUG - User object before commit:", user.__dict__)
+   
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -40,3 +40,26 @@ def login(dto: LoginDto, db: Session = Depends(get_db)):
         raise HTTPException(401, "Invalid credentials")
 
     return {"token": create_jwt(user)}
+
+
+@router.post("/change-password")
+def change_password(
+    dto: ChangePasswordDto,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(
+        User.id == current_user.user_id,
+        User.is_active == True
+    ).first()
+
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    if not verify_password(dto.old_password, user.password_hash):
+        raise HTTPException(400, "Old password incorrect")
+
+    user.password_hash = hash_password(dto.new_password)
+    db.commit()
+
+    return {"message": "Password updated"}

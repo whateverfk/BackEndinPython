@@ -4,6 +4,8 @@ from sqlalchemy.dialects.postgresql import UUID
 from app.db.base import Base
 import uuid
 from app.Models.channel import Channel
+from app.Models.device_system_info import DeviceSystemInfo
+from app.Models.device_user import DeviceUser
 
 class Device(Base):
     __tablename__ = "devices"
@@ -20,12 +22,27 @@ class Device(Base):
     is_checked = Column(Boolean, default=False)
 
     #  OWNER – GÁN TỪ TOKEN
+    
+
     owner_superadmin_id = Column(
-        UUID(as_uuid=True),
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
         index=True,
-        
         nullable=True
     )
+
+    users = relationship(
+    "DeviceUser",
+    back_populates="device",
+    cascade="all, delete-orphan",
+    passive_deletes=True
+    )
+
+    
+    system_info = relationship(
+        "DeviceSystemInfo", uselist=False, cascade="all, delete-orphan"
+    )
+
     channels = relationship(
         "Channel",
         cascade="all, delete-orphan",
