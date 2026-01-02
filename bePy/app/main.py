@@ -14,7 +14,7 @@ from app.core.http_client import close_http_client
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     
-    # task = asyncio.create_task(sync_background_worker())
+    task = asyncio.create_task(sync_background_worker())
     
     # print("AUTO SYNC ( time and data ) STARTED")
 
@@ -29,11 +29,11 @@ async def lifespan(app: FastAPI):
     yield
     stop_scheduler()
     await close_http_client()
-    #task.cancel()
-    #try:
-    #     await task
-    # except asyncio.CancelledError:
-    #     print(" AUTO SYNC CANCELLED")
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        print(" AUTO SYNC CANCELLED")
 
 #app = FastAPI()
 

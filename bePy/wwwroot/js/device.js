@@ -95,3 +95,16 @@ function clearForm() {
     brand.selectedIndex = 0;
     editingId = null;
 }
+const togglePassword = document.getElementById("togglePassword");
+const passwordInput = document.getElementById("password");
+const eyeOpen = document.getElementById("eyeOpen");
+const eyeClosed = document.getElementById("eyeClosed");
+
+togglePassword.addEventListener("click", () => {
+    const type = passwordInput.type === "password" ? "text" : "password";
+    passwordInput.type = type;
+
+    // đổi icon
+    eyeOpen.classList.toggle("hidden");
+    eyeClosed.classList.toggle("hidden");
+});
