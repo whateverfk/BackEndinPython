@@ -31,7 +31,13 @@ class Device(Base):
         nullable=True
     )
 
-    users = relationship("DeviceUser", back_populates="device")
+    users = relationship(
+    "DeviceUser",
+    back_populates="device",
+    cascade="all, delete-orphan",
+    passive_deletes=True
+    )
+
     
     system_info = relationship(
         "DeviceSystemInfo", uselist=False, cascade="all, delete-orphan"

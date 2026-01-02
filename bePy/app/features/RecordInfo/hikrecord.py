@@ -480,97 +480,74 @@ class HikRecordService():
                 channel.latest_record_date = today
 
 
-
     async def device_channels_init_data(
         self,
         db: Session,
         device: Device
     ):
-        """
-        Atomic init:
-        - channels
-        - record days
-        - time ranges
-        """
-
         headers = build_hik_auth(device)
         hik_service = HikRecordService()
         today = TimeProvider().now().date()
 
-        try:
-            #  TRANSACTION BẮT ĐẦU
-            with db.begin():
+        # ❗ KHÔNG begin / commit ở đây
 
-                # =========================
-                # 1. GET CHANNELS TỪ NVR (TRƯỚC) KO CÓ THÔI LUÔN
-                # =========================
-                channels_data = await hik_service._get_channels(device, headers)
-                if not channels_data:
-                    raise Exception("No channels returned from device")
+        channels_data = await hik_service._get_channels(device, headers)
+        if not channels_data:
+            raise Exception("No channels returned from device")
 
-                # =========================
-                # 2. XÓA CHANNEL CŨ
-                # =========================
-                db.query(Channel).filter(
-                    Channel.device_id == device.id
-                ).delete(synchronize_session=False)
+        db.query(Channel).filter(
+            Channel.device_id == device.id
+        ).delete(synchronize_session=False)
 
-                # =========================
-                # 3. INIT TỪNG CHANNEL
-                # =========================
-                for ch in channels_data:
-                    oldest_date = await hik_service.oldest_record_date(
-                        device, ch["id"], headers
-                    )
+        for ch in channels_data:
+            oldest_date = await hik_service.oldest_record_date(
+                device, ch["id"], headers
+            )
 
-                    channel = Channel(
-                        device_id=device.id,
-                        channel_no=ch["id"],
-                        name=ch["name"],
-                        connected_type=ch["connected_type"],
-                        oldest_record_date=oldest_date,
-                        latest_record_date=today
-                    )
-                    db.add(channel)
-                    db.flush()  # lấy channel.id
+            channel = Channel(
+                device_id=device.id,
+                channel_no=ch["id"],
+                name=ch["name"],
+                connected_type=ch["connected_type"],
+                oldest_record_date=oldest_date,
+                latest_record_date=today
+            )
+            db.add(channel)
+            db.flush()
 
-                    record_days = await hik_service.record_status_of_channel(
+            record_days = await hik_service.record_status_of_channel(
+                device,
+                ch["id"],
+                start_date=oldest_date,
+                end_date=today.strftime("%Y-%m-%d"),
+                header=headers
+            )
+
+            for rd in record_days:
+                record_day = ChannelRecordDay(
+                    channel_id=channel.id,
+                    record_date=rd["date"],
+                    has_record=rd["has_record"]
+                )
+                db.add(record_day)
+                db.flush()
+                print("add xong record day ")
+                if rd["has_record"]:
+                    segments = await hik_service.get_time_ranges_segment(
                         device,
                         ch["id"],
-                        start_date=oldest_date,
-                        end_date=today.strftime("%Y-%m-%d"),
-                        header=headers
+                        rd["date"],
+                        headers
                     )
+                    print("Lay xong time segment")
+                    segments = await hik_service.merge_time_ranges(segments)
 
-                    for rd in record_days:
-                        record_day = ChannelRecordDay(
-                            channel_id=channel.id,
-                            record_date=rd["date"],
-                            has_record=rd["has_record"]
-                        )
-                        db.add(record_day)
-                        db.flush()
-
-                        if rd["has_record"]:
-                            segments = await hik_service.get_time_ranges_segment(
-                                device,
-                                ch["id"],
-                                rd["date"],
-                                headers
+                    for seg in segments:
+                        db.add(
+                            ChannelRecordTimeRange(
+                                record_day_id=record_day.id,
+                                start_time=seg.start_time,
+                                end_time=seg.end_time
                             )
-                            segments = await hik_service.merge_time_ranges(segments)
-
-                            for seg in segments:
-                                db.add(
-                                    ChannelRecordTimeRange(
-                                        record_day_id=record_day.id,
-                                        start_time=seg.start_time,
-                                        end_time=seg.end_time
-                                    )
-                                )
-
-            db.commit()
-
-        except Exception as e:
-            # rollback tự động khi out khỏi db.begin()
-            raise
+                        )
+                    print("add xong merge time segment ???")

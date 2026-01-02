@@ -18,7 +18,10 @@ class ChannelRecordDay(Base):
     record_date = Column(Date, nullable=False)
     has_record = Column(Boolean, default=True)
 
-    channel = relationship("Channel", backref="record_days")
+    channel = relationship(
+        "Channel",
+        back_populates="record_days"
+    )
 
     __table_args__ = (
         Index(

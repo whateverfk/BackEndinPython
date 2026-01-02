@@ -19,6 +19,12 @@ class Channel(Base):
     last_sync_at = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True)
     last_channel_sync_at = Column(DateTime, nullable=True)  
+    record_days = relationship(
+        "ChannelRecordDay",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        back_populates="channel"
+    )
     extension = relationship(
         "ChannelExtension",
         uselist=False,

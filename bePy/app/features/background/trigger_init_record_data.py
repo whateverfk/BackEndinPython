@@ -10,13 +10,14 @@ async def trigger_device_init_data(device_id: int):
         device = db.query(Device).filter(Device.id == device_id).first()
         if not device:
             return
+
         record_service = HikRecordService()
-        await record_service.device_channels_init_data(
-            db=db,
-            device=device
-        )
+        await record_service.device_channels_init_data(db, device)
+
+        db.commit()   
     except Exception as e:
         db.rollback()
         print("[AUTO SYNC ERROR]", e)
+        raise
     finally:
         db.close()
