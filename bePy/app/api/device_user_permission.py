@@ -52,7 +52,7 @@ def build_permission_response(db, device_user_id: int):
 
     for c in channels:
         result[c.scope]["channels"].setdefault(c.permission, []).append(c.channel_id)
-
+    print(result)
     return result
 
 

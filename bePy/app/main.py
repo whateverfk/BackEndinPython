@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
 
     yield
     stop_scheduler()
-    close_http_client()
+    await close_http_client()
     #task.cancel()
     #try:
     #     await task

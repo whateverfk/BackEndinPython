@@ -223,6 +223,7 @@ window.syncUserPermission = async function (userId) {
     const perm = await apiFetch(
         `${API_URL}/api/device/${currentDevice.id}/user/${userId}/permissions`
     );
+    console.log(perm);
 
     
 
