@@ -448,7 +448,7 @@ class HikRecordService():
         today = TimeProvider().now().date()
 
         # ❗ KHÔNG begin / commit ở đây
-
+        print("Inside init data")
         channels_data = await hik_service._get_channels(device, headers)
         if not channels_data:
             raise Exception("No channels returned from device")
@@ -457,21 +457,44 @@ class HikRecordService():
             Channel.device_id == device.id
         ).delete(synchronize_session=False)
 
-        for ch in channels_data:
-            oldest_date = await hik_service.oldest_record_date(
-                device, ch["id"], headers
-            )
 
+        # =========================
+# BATCH CHANNEL
+# =========================
+
+        channels_to_add = []
+        channel_map = {}  # channel_no -> Channel instance
+
+        for ch in channels_data:
             channel = Channel(
                 device_id=device.id,
                 channel_no=ch["id"],
                 name=ch["name"],
                 connected_type=ch["connected_type"],
-                oldest_record_date=oldest_date,
+                oldest_record_date=None,   # set sau
                 latest_record_date=today
             )
-            db.add(channel)
-            db.flush()
+            channels_to_add.append(channel)
+            channel_map[ch["id"]] = channel
+
+        db.add_all(channels_to_add)
+        db.flush()  #  cần channel.id
+
+        # =========================
+        # BATCH RECORD DAY + TIME RANGE
+        # =========================
+
+        all_record_days = []
+        all_time_ranges = []
+
+        for ch in channels_data:
+            channel = channel_map[ch["id"]]
+
+            # ---- gọi API ----
+            oldest_date = await hik_service.oldest_record_date(
+                device, ch["id"], headers
+            )
+            channel.oldest_record_date = oldest_date
 
             record_days = await hik_service.record_status_of_channel(
                 device,
@@ -480,36 +503,55 @@ class HikRecordService():
                 end_date=today.strftime("%Y-%m-%d"),
                 header=headers
             )
-            rdlist=[]
 
+            record_day_map = {}
+
+            # ---- BATCH RECORD DAY ----
             for rd in record_days:
-                record_day = ChannelRecordDay(
+                rd_obj = ChannelRecordDay(
                     channel_id=channel.id,
                     record_date=rd["date"],
                     has_record=rd["has_record"]
                 )
-                rdlist.append(record_day)
+                all_record_days.append(rd_obj)
+                record_day_map[rd["date"]] = rd_obj
 
-            db.add(rdlist)
-            db.flush()
-            print("add xong record day ")
+            # ---- TIME RANGE (CHƯA ADD DB) ----
             for rd in record_days:
-                if rd["has_record"]:
-                    segments = await hik_service.get_time_ranges_segment(
-                        device,
-                        ch["id"],
-                        rd["date"],
-                        headers
-                    )
-                    print("Lay xong time segment")
-                    segments = await hik_service.merge_time_ranges(segments)
+                if not rd["has_record"]:
+                    continue
 
-                    for seg in segments:
-                        db.add(
-                            ChannelRecordTimeRange(
-                                record_day_id=record_day.id,
-                                start_time=seg.start_time,
-                                end_time=seg.end_time
-                            )
+                segments = await hik_service.get_time_ranges_segment(
+                    device,
+                    ch["id"],
+                    rd["date"],
+                    headers
+                )
+                segments = await hik_service.merge_time_ranges(segments)
+
+                record_day = record_day_map[rd["date"]]
+
+                for seg in segments:
+                    all_time_ranges.append(
+                        ChannelRecordTimeRange(
+                            record_day=record_day,  #  ORM relationship, chưa cần id
+                            start_time=seg.start_time,
+                            end_time=seg.end_time
                         )
-                    print("add xong merge time segment ???")
+                    )
+
+        # =========================
+        # COMMIT DB
+        # =========================
+
+        db.add_all(all_record_days)
+        db.flush()  #  sinh record_day.id
+
+        db.add_all(all_time_ranges)
+        db.flush()
+
+        print(
+            f"Batch done: {len(channels_to_add)} channels | "
+            f"{len(all_record_days)} record days | "
+            f"{len(all_time_ranges)} time ranges"
+        )

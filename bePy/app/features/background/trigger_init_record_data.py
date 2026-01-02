@@ -12,6 +12,7 @@ async def trigger_device_init_data(device_id: int):
             return
 
         record_service = HikRecordService()
+        print("start init")
         await record_service.device_channels_init_data(db, device)
 
         db.commit() 
