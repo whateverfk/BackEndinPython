@@ -113,7 +113,7 @@ async def sync_device_storage(
     if not storage_data:
         raise HTTPException(status_code=502, detail="Cannot fetch storage from device")
 
-    await upsert_device_storage(db, device.id, storage_data)
+    upsert_device_storage(db, device.id, storage_data)
 
     return {
         "status": "success",
@@ -156,7 +156,7 @@ async def sync_device_onvif_users(
     if not users:
         raise HTTPException(status_code=502, detail="Cannot fetch ONVIF users")
 
-    await upsert_device_integration_users(db, device.id, users)
+    upsert_device_integration_users(db, device.id, users)
 
     return {
         "status": "success",

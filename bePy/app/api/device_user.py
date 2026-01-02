@@ -41,7 +41,7 @@ async def sync_device_users(
             detail="Cannot fetch users from device"
         )
 
-    await upsert_device_users(
+    upsert_device_users(
         db=db,
         device_id=device.id,
         users_data=users

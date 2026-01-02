@@ -360,12 +360,12 @@ class HikDetailService:
         else:
             url = f"http://{device.ip_web}/ISAPI/ContentMgmt/StreamingProxy/channels/{channel.channel_no}/capabilities"
 
-        print(f"▶ Fetching URL: {url}")
+        
         
         resp = await self.client.get(url, headers=headers)
         resp.raise_for_status()
 
-        print(f"▶ Raw XML response:\n{resp.text}\n{'-'*40}")
+        
 
         root = ET.fromstring(resp.text)
         video = self.hik_find(root, "Video")
