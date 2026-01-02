@@ -13,7 +13,7 @@ from app.schemas.device import (
 )
 from app.schemas.channel_record import ChannelRecordDayOut
 from app.core.time_provider import TimeProvider
-from app.features.RecordInfo.deps import build_hik_auth
+from app.features.deps import build_hik_auth
 from app.features.RecordInfo.hikrecord import HikRecordService
 from app.Models.channel_record_day import ChannelRecordDay
 from fastapi import BackgroundTasks

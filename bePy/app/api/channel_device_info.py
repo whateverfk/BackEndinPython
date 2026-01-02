@@ -7,7 +7,7 @@ from app.Models.device import Device
 from app.Models.channel import Channel
 from app.Models.device_system_info import DeviceSystemInfo
 from app.features.GetDevicesDetail.HikDetailService import HikDetailService
-from app.features.RecordInfo.deps import build_hik_auth
+from app.features.deps import build_hik_auth
 from app.schemas.ChannelUpdate import ChannelUpdateSchema
 from app.Models.channel_extensions import ChannelExtension
 from app.Models.channel_stream_config import ChannelStreamConfig

@@ -1,13 +1,17 @@
 
 from logging import root
 import httpx
+import re
 import xml.etree.ElementTree as ET
-from app.features.GetDevicesDetail.deps import xml_text, HIK_NS
+from app.features.deps import xml_text, HIK_NS
 from app.Models.channel_stream_config import ChannelStreamConfig
 from app.Models.channel_extensions import ChannelExtension
+from app.core.http_client import get_http_client
 
 
 class HikDetailService:
+    def __init__(self):
+        self.client = get_http_client()
     LOCAL_GLOBAL_FIELDS = [
     "upgrade",
     "parameterConfig",
@@ -48,8 +52,8 @@ class HikDetailService:
         print(f"Requesting URL: {repr(url)}")
 
         try:
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(url, headers=headers, timeout=10)
+            
+                resp = await self.client.get(url, headers=headers, timeout=10)
                 resp.raise_for_status()
 
                 root = ET.fromstring(resp.text)
@@ -96,9 +100,9 @@ class HikDetailService:
         else:
             url = f"{base_url}/ISAPI/ContentMgmt/StreamingProxy/channels/{channel.channel_no}"
 
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.get(url, headers=headers)
-            resp.raise_for_status()
+        
+        resp = await self.client.get(url, headers=headers)
+        resp.raise_for_status()
 
         root = ET.fromstring(resp.text)
 
@@ -139,9 +143,9 @@ class HikDetailService:
         else:
             url = f"{base_url}/ISAPI/ContentMgmt/InputProxy/channels/{index}/video/motionDetection"
 
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.get(url, headers=headers)
-            resp.raise_for_status()
+       
+        resp = await self.client.get(url, headers=headers)
+        resp.raise_for_status()
 
         root = ET.fromstring(resp.text)
         enabled = xml_text(root, "hik:enabled")
@@ -150,6 +154,7 @@ class HikDetailService:
     
 
     async def put_motion_detection(
+    self,
     device,
     channel,
     enabled: bool,
@@ -187,11 +192,11 @@ class HikDetailService:
     </MotionDetection>
     """
 
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.put(url, content=payload, headers=headers)
-            resp.raise_for_status()
+       
+        resp = await self.client.put(url, content=payload, headers=headers)
+        resp.raise_for_status()
 
-    async def put_channel_name_local(device, channel, new_name, headers):
+    async def put_channel_name_local(self,device, channel, new_name, headers):
         base_url = f"http://{device.ip_web}"
         input_id = (channel.channel_no - 1) // 100
 
@@ -206,40 +211,40 @@ class HikDetailService:
     </VideoInputChannel>
     """
 
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.put(
+        
+        resp = await self.client.put(
                 f"{base_url}/ISAPI/System/Video/inputs/channels/{input_id}",
                 content=payload,
                 headers=headers
             )
-            resp.raise_for_status()
+        resp.raise_for_status()
 
-    async def put_channel_name_proxy(device, channel, new_name, headers):
+    async def put_channel_name_proxy(self,device, channel, new_name, headers):
         base_url = f"http://{device.ip_web}"
         input_id = (channel.channel_no - 1) // 100
         url = f"{base_url}/ISAPI/ContentMgmt/InputProxy/channels/{input_id}"
 
-        async with httpx.AsyncClient(timeout=10) as client:
-            get_resp = await client.get(url, headers=headers)
-            get_resp.raise_for_status()
+        
+        get_resp = await self.client.get(url, headers=headers)
+        get_resp.raise_for_status()
 
-            xml = get_resp.text
-            xml = xml.replace(
+        xml = get_resp.text
+        xml = xml.replace(
                 "<name>", "<name>").replace("</name>", "</name>"
             )
 
             # replace name content
-            import re
-            xml = re.sub(
-                r"<name>.*?</name>",
-                f"<name>{new_name}</name>",
-                xml
+        
+        xml = re.sub(
+            r"<name>.*?</name>",
+            f"<name>{new_name}</name>",
+            xml
             )
 
-            put_resp = await client.put(url, content=xml, headers=headers)
-            put_resp.raise_for_status()
+        put_resp = await self.client.put(url, content=xml, headers=headers)
+        put_resp.raise_for_status()
 
-    async def put_stream_config_local(device, channel, cfg, headers):
+    async def put_stream_config_local(self,device, channel, cfg, headers):
         base_url = f"http://{device.ip_web}"
 
         payload = f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -268,15 +273,15 @@ class HikDetailService:
     </StreamingChannel>
     """
 
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.put(
+        
+        resp = await self.client.put(
                 f"{base_url}/ISAPI/Streaming/channels/{channel.channel_no}",
                 content=payload,
                 headers=headers
             )
-            resp.raise_for_status()
+        resp.raise_for_status()
 
-    async def put_stream_config_proxy(device, channel, cfg, headers):
+    async def put_stream_config_proxy(self,device, channel, cfg, headers):
         base_url = f"http://{device.ip_web}"
 
         payload = f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -304,13 +309,13 @@ class HikDetailService:
     </StreamingChannel>
     """
 
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.put(
+        
+        resp = await self.client.put(
                 f"{base_url}/ISAPI/ContentMgmt/StreamingProxy/channels/{channel.channel_no}",
                 content=payload,
                 headers=headers
             )
-            resp.raise_for_status()
+        resp.raise_for_status()
 
     async def push_channel_config_to_device(
         self,
@@ -356,9 +361,9 @@ class HikDetailService:
             url = f"http://{device.ip_web}/ISAPI/ContentMgmt/StreamingProxy/channels/{channel.channel_no}/capabilities"
 
         print(f"▶ Fetching URL: {url}")
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.get(url, headers=headers)
-            resp.raise_for_status()
+        
+        resp = await self.client.get(url, headers=headers)
+        resp.raise_for_status()
 
         print(f"▶ Raw XML response:\n{resp.text}\n{'-'*40}")
 
@@ -460,8 +465,8 @@ class HikDetailService:
         print(f"Requesting URL: {repr(url)}")
 
         try:
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(url, headers=headers, timeout=10)
+            
+                resp = await self.client.get(url, headers=headers, timeout=10)
                 resp.raise_for_status()
 
                 root = ET.fromstring(resp.text)
@@ -483,7 +488,7 @@ class HikDetailService:
                         }
                         storage_list.append(storage_info)
 
-                print("Storage info fetched:", storage_list)
+                
                 return storage_list
 
         except Exception as ex:
@@ -498,12 +503,10 @@ class HikDetailService:
         base_url = f"http://{device.ip_web}"
         url = f"{base_url}/ISAPI/Security/ONVIF/users"
 
-        print(f"Requesting URL: {repr(url)}")
-
         try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                resp = await client.get(url, headers=headers)
-                resp.raise_for_status()
+            
+            resp = await self.client.get(url, headers=headers)
+            resp.raise_for_status()
 
             root = ET.fromstring(resp.text)
             ns = {"hik": "http://www.hikvision.com/ver20/XMLSchema"}
@@ -517,7 +520,7 @@ class HikDetailService:
                     "level": u.findtext("hik:userType", "", ns),
                 })
 
-            print("ONVIF users fetched:", users)
+            
             return users
 
         except Exception as ex:
@@ -534,8 +537,8 @@ class HikDetailService:
         url = f"{base_url}/ISAPI/Security/users"
 
         try:
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(url, headers=headers, timeout=10)
+            
+                resp = await self.client.get(url, headers=headers, timeout=10)
                 resp.raise_for_status()
 
                 root = ET.fromstring(resp.text)
@@ -580,9 +583,9 @@ class HikDetailService:
         ns = {"hik": "http://www.hikvision.com/ver20/XMLSchema"}
 
         try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                resp = await client.get(url, headers=headers)
-                resp.raise_for_status()
+            
+            resp = await self.client.get(url, headers=headers)
+            resp.raise_for_status()
 
             root = ET.fromstring(resp.text)
 

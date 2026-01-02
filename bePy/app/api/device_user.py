@@ -8,7 +8,7 @@ from app.features.GetDevicesDetail.WorkWithDb import (
     upsert_device_users,
     get_device_users_from_db
 )
-from app.features.RecordInfo.deps import build_hik_auth
+from app.features.deps import build_hik_auth
 
 
 router = APIRouter(

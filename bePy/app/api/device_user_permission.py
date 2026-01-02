@@ -1,10 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.features.RecordInfo.deps import build_hik_auth
+from app.features.deps import build_hik_auth
 from app.db.session import get_db
 from app.Models.device_user import DeviceUser
 from app.Models.user_global_permissions import UserGlobalPermission
-from app.features.GetDevicesDetail.PermissionMap import PERMISSION_LABELS
 from app.Models.user_channel_permissions import UserChannelPermission
 from app.features.GetDevicesDetail.HikDetailService import HikDetailService
 from app.features.GetDevicesDetail.WorkWithDb import save_permissions

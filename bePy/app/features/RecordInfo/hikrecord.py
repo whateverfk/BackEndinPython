@@ -8,7 +8,7 @@ from app.schemas.record import (
     ChannelRecordInfo,
     RecordTimeRange
 )
-from app.features.RecordInfo.deps import build_hik_auth
+from app.features.deps import build_hik_auth
 from app.core.time_provider import TimeProvider
 from sqlalchemy.orm import Session
 from app.Models.device import Device    
@@ -16,9 +16,11 @@ from app.Models.channel import Channel
 from app.Models.channel_record_day import ChannelRecordDay
 from collections import defaultdict
 from app.Models.channel_record_time_range import ChannelRecordTimeRange
-
+from app.core.http_client import get_http_client
 
 class HikRecordService():
+    def __init__(self):
+        self.client = get_http_client()
 
     async def _get_channels(self, device, headers):
         base_url = f"http://{device.ip_web}"
@@ -29,13 +31,13 @@ class HikRecordService():
 
         channels = []
 
-        async with httpx.AsyncClient() as client:
-            for endpoint, tag_name, ctype in endpoints:
+        
+        for endpoint, tag_name, ctype in endpoints:
                 url = f"{base_url}{endpoint}"
                 print(f"Requesting URL: {repr(url)}")
 
                 try:
-                    resp = await client.get(url, headers=headers, timeout=10)
+                    resp = await self.client.get(url, headers=headers, timeout=10)
                     resp.raise_for_status()
 
                     root = ET.fromstring(resp.text)
@@ -67,8 +69,8 @@ class HikRecordService():
             month = now.month
             base_url = f"http://{device.ip_web}"
             oldest_date: str | None = None
-            async with httpx.AsyncClient(timeout=15) as client:
-                while True:
+           
+            while True:
                     payload = f"""<?xml version="1.0" encoding="utf-8"?>
     <trackDailyParam>
         <year>{year}</year>
@@ -82,7 +84,7 @@ class HikRecordService():
                     )
                     print(f"Requesting URL: {repr(url)}")
 
-                    resp = await client.post(
+                    resp = await self.client.post(
                         url,
                         content=payload,
                         headers=headers
@@ -160,8 +162,8 @@ class HikRecordService():
 
             #print(f"Tìm từ ngày {search_start} tới {search_end}.")
             
-            async with httpx.AsyncClient(timeout=20) as client:
-                resp = await client.post(
+           
+            resp = await self.client.post(
                     f"{base_url}/ISAPI/ContentMgmt/search",
                     content=payload,
                     headers=headers
@@ -266,8 +268,8 @@ class HikRecordService():
 
         results = []
 
-        async with httpx.AsyncClient(timeout=15) as client:
-            for (year, month), days_in_month in months.items():
+        
+        for (year, month), days_in_month in months.items():
 
                 payload = f"""<?xml version="1.0" encoding="utf-8"?>
                 <trackDailyParam>
@@ -276,7 +278,7 @@ class HikRecordService():
                 </trackDailyParam>
                 """
 
-                resp = await client.post(url, content=payload, headers=header)
+                resp = await self.client.post(url, content=payload, headers=header)
 
                 if resp.status_code != 200:
                     # Nếu lỗi → đánh false cho toàn bộ ngày trong tháng đó
@@ -447,7 +449,7 @@ class HikRecordService():
         hik_service = HikRecordService()
         today = TimeProvider().now().date()
 
-        # ❗ KHÔNG begin / commit ở đây
+        # KHÔNG begin / commit ở đây
         print("Inside init data")
         channels_data = await hik_service._get_channels(device, headers)
         if not channels_data:
