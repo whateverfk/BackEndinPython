@@ -49,9 +49,14 @@ def build_permission_response(db, device_user_id: int):
         UserChannelPermission.device_user_id == device_user_id,
         UserChannelPermission.enabled == True
     ).all()
+    for ch in channels:
+        scope = ch.scope          # local | remote
+        perm = ch.permission      # playback | record | backup | ptz_control
+        result[scope]["channels"].setdefault(perm, []).append(ch.channel_id)
+
 
    
-    print(result)
+    
     return result
 
 
@@ -120,7 +125,7 @@ async def sync_user_permission(
 
     headers = build_hik_auth(device)
     hik = HikDetailService()
-
+    print("are you the lỗi")
     permission_data = await hik.fetch_permission_for_1_user(
         device=device,
         headers=headers,

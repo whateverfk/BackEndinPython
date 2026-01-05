@@ -47,8 +47,8 @@ const CHANNEL_BASED_PERMISSIONS = [
     "playback",
     "record",
     "backup",
-     "ptz_control",
-    "voice_talk",
+    "ptz_control",
+    
 ];
 
 
@@ -65,7 +65,7 @@ const PERMISSION_LABELS = {
     ptz_control: "PTZ Control",
     preview: "Live View",
     voice_talk: "Two-way Audio",
-    alarm_out_or_upload: "Trigger Alarm Output",
+    alarm_out_or_upload: "Notify Surveillance Center / Trigger Alarm Output",
     control_local_out: "Video Output Control",
     transparent_channel: "Serial Port Control",
 };
