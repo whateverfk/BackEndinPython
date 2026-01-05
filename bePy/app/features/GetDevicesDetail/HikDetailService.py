@@ -38,7 +38,6 @@ class HikDetailService:
         "playBack",
     ]
 
-
     CONNECTED_TYPE_LOCAL = "local"
     CONNECTED_TYPE_PROXY = "proxy"
 
@@ -86,7 +85,6 @@ class HikDetailService:
             print(f"Error fetching system info from {url}: {ex}")
             return None
 
-   
     async def fetch_stream_config(
         self,
         device,
@@ -433,7 +431,7 @@ class HikDetailService:
                 {"width": int(w), "height": int(h)}
                 for w, h in zip(widths_list, heights_list)
             ]
-        print(f"✔ Parsed resolutions: {resolutions}")
+        #print(f"✔ Parsed resolutions: {resolutions}")
 
         # -------- Codec --------
         codec_node = self.hik_find(video, "videoCodecType")
@@ -442,7 +440,7 @@ class HikDetailService:
             video_codecs = []
         else:
             video_codecs = codec_node.attrib.get("opt", "").split(",") or [codec_node.text]
-        print(f" Parsed video codecs: {video_codecs}")
+        #print(f" Parsed video codecs: {video_codecs}")
                 # -------- Fixed Quality (ENUM) --------
         fixed_q_node = self.hik_find(video, "fixedQuality")
 

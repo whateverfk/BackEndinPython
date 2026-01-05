@@ -125,7 +125,6 @@ async def sync_user_permission(
 
     headers = build_hik_auth(device)
     hik = HikDetailService()
-    print("are you the lỗi")
     permission_data = await hik.fetch_permission_for_1_user(
         device=device,
         headers=headers,
