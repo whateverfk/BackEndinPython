@@ -133,7 +133,15 @@ async function loadUsers() {
 /* =========================
    Render user row
 ========================= */
+const ROLE_LABELS = {
+administrator: "Admin",
+    operator: "Operator",
+    viewer: "User", // 👈 viewer hiển thị là user
+};
+
 function renderUserItem(user) {
+    const roleLabel = ROLE_LABELS[user.role] ?? user.role ?? "-";
+
     return `
         <div
             onclick='window.openUserModal(${JSON.stringify(user)})'
@@ -144,11 +152,12 @@ function renderUserItem(user) {
             </div>
 
             <div class="text-sm text-gray-500">
-                ${user.role ?? "-"}
+                ${roleLabel}
             </div>
         </div>
     `;
 }
+
 
 /* =========================
    Modal

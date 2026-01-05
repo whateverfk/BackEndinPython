@@ -1,12 +1,9 @@
 import asyncio
-import datetime
 from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.Models.device import Device
 from app.features.RecordInfo.hikrecord import HikRecordService
-
-
-from datetime import datetime
+from datetime import datetime, date
 from sqlalchemy.orm import Session
 from app.Models.channel import Channel
 from app.Models.channel_record_day import ChannelRecordDay
@@ -17,9 +14,7 @@ from app.core.time_provider import TimeProvider
 
 async def auto_sync_all_devices():
     db: Session = SessionLocal()
-    print(
-        f"[SCHEDULER] Job triggered at {datetime.datetime.now()}"
-    )
+    
 
     try:
         devices = db.query(Device).filter(
@@ -96,9 +91,17 @@ async def refresh_oldest_record_of_channel(
         db.flush()
         return
 
-    # 3. Xóa dữ liệu cũ trước oldest mới
-    new_oldest_dt = datetime.strptime(new_oldest, "%Y-%m-%d").date()
+    # 3. Chuyển new_oldest về datetime.date nếu cần
+    if isinstance(new_oldest, str):
+        new_oldest_dt = datetime.strptime(new_oldest, "%Y-%m-%d").date()
+    elif isinstance(new_oldest, datetime):
+        new_oldest_dt = new_oldest.date()
+    elif isinstance(new_oldest, date):
+        new_oldest_dt = new_oldest
+    else:
+        raise ValueError(f"Invalid type for new_oldest: {type(new_oldest)}")
 
+    # 4. Xóa dữ liệu cũ trước oldest mới
     db.query(ChannelRecordTimeRange).join(ChannelRecordDay).filter(
         ChannelRecordDay.channel_id == channel.id,
         ChannelRecordDay.record_date < new_oldest_dt
@@ -111,14 +114,14 @@ async def refresh_oldest_record_of_channel(
 
     db.flush()
 
-    # 4. Cập nhật oldest_record_date
-    channel.oldest_record_date = new_oldest
+    # 5. Cập nhật oldest_record_date
+    channel.oldest_record_date = new_oldest_dt
 
-    # 5. Cập nhật segment cho oldest mới
+    # 6. Cập nhật segment cho oldest mới
     segments = await hik_service.get_time_ranges_segment(
         device,
         channel.channel_no,
-        new_oldest,
+        new_oldest_dt,
         headers
     )
     segments = await hik_service.merge_time_ranges(segments)
@@ -153,17 +156,14 @@ async def refresh_oldest_record_of_channel(
         ))
 
     db.flush()
-    print(f"Channel {channel.channel_no} oldest_record_date đã cập nhật: {new_oldest}, {len(segments)} segments mới")
-
+    print(f"Channel {channel.channel_no} oldest_record_date đã cập nhật: {new_oldest_dt}, {len(segments)} segments mới")
 
 
 async def refresh_device_oldest_records(db: Session, device):
     """
     Refresh oldest_record_date cho tất cả channel của device
     """
-    from app.Models.channel import Channel
     headers = build_hik_auth(device)
-
     channels = db.query(Channel).filter(Channel.device_id == device.id).all()
     for ch in channels:
         await refresh_oldest_record_of_channel(db, device, ch, headers)

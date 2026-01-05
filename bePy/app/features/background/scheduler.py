@@ -15,14 +15,14 @@ def start_scheduler():
         max_instances=1,
         coalesce=True
     )
-    scheduler.add_job(
-        lambda: asyncio.run(daily_refresh_oldest()),
-        trigger=CronTrigger(hour=1, minute=0),
-        id="daily_refresh_oldest",
-        replace_existing=True,
-        max_instances=1,
-        coalesce=True
-    )
+    # scheduler.add_job(
+    #     lambda: asyncio.run(daily_refresh_oldest()),
+    #     trigger=CronTrigger(hour=1, minute=0),
+    #     id="daily_refresh_oldest",
+    #     replace_existing=True,
+    #     max_instances=1,
+    #     coalesce=True
+    # )
     scheduler.start()
 
 def stop_scheduler():

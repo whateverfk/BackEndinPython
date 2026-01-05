@@ -5,6 +5,7 @@ from app.db.base import Base
 from fastapi.middleware.cors import CORSMiddleware
 from app.features.sync.auto_sync import sync_background_worker 
 from app.features.background.update_data_record import auto_sync_all_devices
+from app.features.background.daily_refresh_oldest import daily_refresh_oldest
 import asyncio
 from contextlib import asynccontextmanager
 from app.features.background.scheduler import start_scheduler, stop_scheduler
@@ -21,7 +22,8 @@ async def lifespan(app: FastAPI):
     # để test nên tạm bỏ sync time 
     
     # tự chạy sync new data luôn khi mở 1 lần
-    #await auto_sync_all_devices()
+    await auto_sync_all_devices()
+    #await daily_refresh_oldest()
     #chạy theo lịch mỗi 5p 1 lần
     start_scheduler()
     print("AUTO SYNC (  data ) STARTED")

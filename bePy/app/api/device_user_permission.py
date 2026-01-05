@@ -50,8 +50,7 @@ def build_permission_response(db, device_user_id: int):
         UserChannelPermission.enabled == True
     ).all()
 
-    for c in channels:
-        result[c.scope]["channels"].setdefault(c.permission, []).append(c.channel_id)
+   
     print(result)
     return result
 
@@ -64,17 +63,17 @@ async def get_device_user_permissions(
    
 ):
     permission_service=  HikDetailService()
-    # 1. Check user
+    
     device_user = db.query(DeviceUser).get(device_user_id)
     if not device_user:
         raise HTTPException(404, "Device user not found")
 
-    # 2. Check permission exists?
+   
     exists = db.query(UserGlobalPermission).filter(
         UserGlobalPermission.device_user_id == device_user_id
     ).first()
 
-    # 3. If NOT exists → fetch from device
+   
     if not exists:
         device = device_user.device
         headers = build_hik_auth(device)
