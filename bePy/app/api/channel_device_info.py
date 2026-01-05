@@ -123,7 +123,7 @@ async def update_channel_info(
     cfg.fixed_quality = data.fixed_quality
     cfg.vbr_average_cap = data.vbr_average_cap
 
-    # ✅ Commit DB trước
+    #  Commit DB trước
     db.commit()
     db.refresh(channel)
 

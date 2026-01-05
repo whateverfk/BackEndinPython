@@ -243,6 +243,7 @@ class HikDetailService:
         put_resp.raise_for_status()
 
     async def put_stream_config_proxy(self, device, channel, cfg, headers):
+        
         base_url = f"http://{device.ip_web}"
         url = f"{base_url}/ISAPI/ContentMgmt/StreamingProxy/channels/{channel.channel_no}"
 
@@ -261,7 +262,7 @@ class HikDetailService:
                 </ControlProtocol>
             </ControlProtocolList>
         </Transport>
-        <Video xmlns="">
+        <Video>
             <enabled>true</enabled>
             <dynVideoInputChannelID>{(channel.channel_no-1)//100}</dynVideoInputChannelID>
             <videoCodecType>{cfg.video_codec}</videoCodecType>
@@ -286,7 +287,7 @@ class HikDetailService:
         print("Body:\n", resp.text)
         print("--------------------")
 
-        resp.raise_for_st
+        resp.raise_for_status()
 
     async def put_stream_config_local(self, device, channel, cfg, headers):
         base_url = f"http://{device.ip_web}"
@@ -368,8 +369,10 @@ class HikDetailService:
         if channel.stream_config:
             if channel.connected_type == "local":
                 await self.put_stream_config_local(device, channel, channel.stream_config, headers)
+                
             else:
                 await self.put_stream_config_proxy(device, channel, channel.stream_config, headers)
+                
 
         print(" PUSH DONE")
 
