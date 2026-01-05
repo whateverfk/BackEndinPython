@@ -9,6 +9,8 @@ def xml_text(elem, path: str):
     return node.text if node is not None else None
 
 def build_hik_auth(device):
+    
+
     auth = base64.b64encode(
         f"{device.username}:{device.password}".encode()
     ).decode()

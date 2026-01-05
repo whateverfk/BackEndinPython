@@ -2,6 +2,14 @@ import { API_URL } from "../../../config.js";
 let capabilitiesCache = {}; // key: channelId, value: capabilities
 
 let currentChannel = null;
+const FIXED_QUALITY_LABELS = {
+    90: "Highest",
+    75: "Higher",
+    60: "Medium",
+    45: "Low",
+    30: "Lower",
+    20: "Lowest"
+};
 
 
 export async function renderChannelConfig(device) {
@@ -83,6 +91,11 @@ function renderChannelForm(info, cap, device, channel) {
     const curFps = info?.max_frame_rate || cap.max_frame_rates[0];
     const curVbr = info?.vbr_average_cap ?? cap.vbr.upper_cap.min;
     const curMotion = info?.motion_detect ?? false;
+    const curQuality =
+    info?.fixed_quality ??
+    cap.fixed_quality?.current ??
+    cap.fixed_quality?.default;
+
 
     return `
     <div class="bg-gray-50 p-4 border rounded space-y-3">
@@ -121,6 +134,17 @@ function renderChannelForm(info, cap, device, channel) {
                 `).join("")}
             </select>
         </label>
+        <label class="block">
+            <span>Video Quality</span>
+            <select id="fixed_quality" class="border p-2 w-full">
+                ${cap.fixed_quality.options.map(q => `
+                    <option value="${q}" ${q === curQuality ? "selected" : ""}>
+                        ${FIXED_QUALITY_LABELS[q] || q}
+                    </option>
+                `).join("")}
+            </select>
+        </label>
+
 
         <label class="block">
             <span>VBR Average (${cap.vbr.upper_cap.min} – ${cap.vbr.upper_cap.max})</span>
@@ -178,7 +202,9 @@ window.saveChannel = async function () {
         video_codec: document.getElementById("codec").value,
         max_frame_rate: Number(document.getElementById("fps").value),
         vbr_average_cap: Number(document.getElementById("vbr").value),
-        fixed_quality: 75,
+        fixed_quality: Number(
+            document.getElementById("fixed_quality").value
+        ),
         motion_detect: document.getElementById("motion_detect").checked
     };
 

@@ -11,7 +11,6 @@ from app.features.deps import build_hik_auth
 from app.schemas.ChannelUpdate import ChannelUpdateSchema
 from app.Models.channel_extensions import ChannelExtension
 from app.Models.channel_stream_config import ChannelStreamConfig
-from app.features.GetDevicesDetail.HikDetailService import HikDetailService
 from app.features.GetDevicesDetail.WorkWithDb import sync_channel_config
 import logging
 router = APIRouter(
@@ -84,13 +83,12 @@ async def get_channel_info(
         if channel.stream_config else None,
     }
 
-
 @router.put("")
-def update_channel_info(
+async def update_channel_info(
     device_id: int,
     channel_id: int,
     data: ChannelUpdateSchema,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     channel = (
         db.query(Channel)
@@ -125,9 +123,38 @@ def update_channel_info(
     cfg.fixed_quality = data.fixed_quality
     cfg.vbr_average_cap = data.vbr_average_cap
 
+    # ✅ Commit DB trước
     db.commit()
+    db.refresh(channel)
+
+    # -------- PUSH TO DEVICE --------
+    device = (
+    db.query(Device)
+    .filter(Device.id == device_id)
+    .first())
+
+    if not device:
+        raise HTTPException(404, "Device not found")
+
+
+    headers = build_hik_auth(device)  # auth hik / proxy
+    device_service = HikDetailService()
+    try:
+        print("fail here")
+        await device_service.push_channel_config_to_device(
+            device=device,
+            channel=channel,
+            headers=headers
+        )
+    except Exception as e:
+        #  DB đã commit → chỉ cảnh báo
+        raise HTTPException(
+            status_code=502,
+            detail=f"Saved but failed to push config to device: {str(e)}"
+        )
 
     return {"status": "ok"}
+
 
 @router.get("/capabilities")
 async def get_channel_capabilities(

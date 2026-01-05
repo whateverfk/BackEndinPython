@@ -244,8 +244,66 @@ class HikDetailService:
         put_resp = await self.client.put(url, content=xml, headers=headers)
         put_resp.raise_for_status()
 
-    async def put_stream_config_local(self,device, channel, cfg, headers):
+    async def put_stream_config_proxy(self, device, channel, cfg, headers):
         base_url = f"http://{device.ip_web}"
+        url = f"{base_url}/ISAPI/ContentMgmt/StreamingProxy/channels/{channel.channel_no}"
+
+        print("\n===== PUT STREAM PROXY =====")
+        print("URL:", url)
+
+        payload = f"""<?xml version="1.0" encoding="UTF-8"?>
+    <StreamingChannel xmlns="{HIK_NS}" version="1.0">
+        <id>{channel.channel_no}</id>
+        <channelName>{channel.channel_no}</channelName>
+        <enabled>true</enabled>
+        <Transport>
+            <ControlProtocolList>
+                <ControlProtocol>
+                    <streamingTransport>RTSP</streamingTransport>
+                </ControlProtocol>
+            </ControlProtocolList>
+        </Transport>
+        <Video xmlns="">
+            <enabled>true</enabled>
+            <dynVideoInputChannelID>{(channel.channel_no-1)//100}</dynVideoInputChannelID>
+            <videoCodecType>{cfg.video_codec}</videoCodecType>
+            <videoResolutionWidth>{cfg.resolution_width}</videoResolutionWidth>
+            <videoScanType>progressive</videoScanType>
+            <videoResolutionHeight>{cfg.resolution_height}</videoResolutionHeight>
+            <videoQualityControlType>vbr</videoQualityControlType>
+            <fixedQuality>{cfg.fixed_quality}</fixedQuality>
+            <maxFrameRate>{cfg.max_frame_rate}</maxFrameRate>
+        </Video>
+    </StreamingChannel>
+    """
+
+        print("----- REQUEST XML -----")
+        print(payload)
+        print("-----------------------")
+
+        resp = await self.client.put(url, content=payload, headers=headers)
+
+        print("----- RESPONSE -----")
+        print("Status:", resp.status_code)
+        print("Body:\n", resp.text)
+        print("--------------------")
+
+        resp.raise_for_st
+
+    async def put_stream_config_local(self, device, channel, cfg, headers):
+        base_url = f"http://{device.ip_web}"
+        url = f"{base_url}/ISAPI/Streaming/channels/{channel.channel_no}"
+
+        print("\n===== PUT STREAM LOCAL =====")
+        print("URL:", url)
+        print("CFG:",
+            "codec=", cfg.video_codec,
+            "w=", cfg.resolution_width,
+            "h=", cfg.resolution_height,
+            "fps=", cfg.max_frame_rate,
+            "fixedQ=", cfg.fixed_quality,
+            "vbrCap=", cfg.vbr_average_cap,
+        )
 
         payload = f"""<?xml version="1.0" encoding="UTF-8"?>
     <StreamingChannel xmlns="{HIK_NS}" version="1.0">
@@ -264,6 +322,7 @@ class HikDetailService:
             <videoInputChannelID>{(channel.channel_no-1)//100}</videoInputChannelID>
             <videoCodecType>{cfg.video_codec}</videoCodecType>
             <videoResolutionWidth>{cfg.resolution_width}</videoResolutionWidth>
+            <videoScanType>progressive</videoScanType>
             <videoResolutionHeight>{cfg.resolution_height}</videoResolutionHeight>
             <videoQualityControlType>vbr</videoQualityControlType>
             <fixedQuality>{cfg.fixed_quality}</fixedQuality>
@@ -273,76 +332,48 @@ class HikDetailService:
     </StreamingChannel>
     """
 
-        
-        resp = await self.client.put(
-                f"{base_url}/ISAPI/Streaming/channels/{channel.channel_no}",
-                content=payload,
-                headers=headers
-            )
+        print("----- REQUEST XML -----")
+        print(payload)
+        print("-----------------------")
+
+        resp = await self.client.put(url, content=payload, headers=headers)
+
+        print("----- RESPONSE -----")
+        print("Status:", resp.status_code)
+        print("Body:\n", resp.text)
+        print("--------------------")
+
         resp.raise_for_status()
 
-    async def put_stream_config_proxy(self,device, channel, cfg, headers):
-        base_url = f"http://{device.ip_web}"
 
-        payload = f"""<?xml version="1.0" encoding="UTF-8"?>
-    <StreamingChannel xmlns="{HIK_NS}" version="1.0">
-        <id>{channel.channel_no}</id>
-        <channelName>{channel.channel_no}</channelName>
-        <enabled>true</enabled>
-        <Transport>
-            <ControlProtocolList>
-                <ControlProtocol>
-                    <streamingTransport>RTSP</streamingTransport>
-                </ControlProtocol>
-            </ControlProtocolList>
-        </Transport>
-        <Video>
-            <enabled>true</enabled>
-            <dynVideoInputChannelID>{(channel.channel_no-1)//100}</dynVideoInputChannelID>
-            <videoCodecType>{cfg.video_codec}</videoCodecType>
-            <videoResolutionWidth>{cfg.resolution_width}</videoResolutionWidth>
-            <videoResolutionHeight>{cfg.resolution_height}</videoResolutionHeight>
-            <videoQualityControlType>vbr</videoQualityControlType>
-            <fixedQuality>{cfg.fixed_quality}</fixedQuality>
-            <maxFrameRate>{cfg.max_frame_rate}</maxFrameRate>
-        </Video>
-    </StreamingChannel>
-    """
 
-        
-        resp = await self.client.put(
-                f"{base_url}/ISAPI/ContentMgmt/StreamingProxy/channels/{channel.channel_no}",
-                content=payload,
-                headers=headers
-            )
-        resp.raise_for_status()
 
-    async def push_channel_config_to_device(
-        self,
-        device,
-        channel,
-        headers
-    ):
-        # Motion
+    async def push_channel_config_to_device(self, device, channel, headers):
+        print(" PUSH START",
+            "device=", device.id,
+            "channel=", channel.channel_no,
+            "type=", channel.connected_type)
+
+        print(" MOTION")
         await self.put_motion_detection(
-            device,
-            channel,
-            channel.extension.motion_detect_enabled,
-            headers
+            device, channel, channel.extension.motion_detect_enabled, headers
         )
+        print(" MOTION OK")
 
-        # Name
+        print(" NAME")
         if channel.connected_type == "local":
             await self.put_channel_name_local(device, channel, channel.name, headers)
         else:
             await self.put_channel_name_proxy(device, channel, channel.name, headers)
 
-        # Streaming
+        print(" STREAM")
         if channel.stream_config:
             if channel.connected_type == "local":
                 await self.put_stream_config_local(device, channel, channel.stream_config, headers)
             else:
                 await self.put_stream_config_proxy(device, channel, channel.stream_config, headers)
+
+        print(" PUSH DONE")
 
     def hik_find(self,parent, tag):
         return parent.find(f"hik:{tag}", HIK_NS)
@@ -412,6 +443,33 @@ class HikDetailService:
         else:
             video_codecs = codec_node.attrib.get("opt", "").split(",") or [codec_node.text]
         print(f"✔ Parsed video codecs: {video_codecs}")
+                # -------- Fixed Quality (ENUM) --------
+        fixed_q_node = self.hik_find(video, "fixedQuality")
+
+        if fixed_q_node is None:
+            print("⚠ fixedQuality node missing")
+            fixed_quality = {
+                "options": [],
+                "current": None,
+                "default": None
+            }
+        else:
+            opt = fixed_q_node.attrib.get("opt", "")
+            options = [
+                int(v) for v in opt.split(",")
+                if v.isdigit()
+            ]
+
+            current = int(fixed_q_node.text) if fixed_q_node.text and fixed_q_node.text.isdigit() else None
+
+            fixed_quality = {
+                "options": options,
+                "current": current,
+                "default": current or (options[-1] if options else None)
+            }
+
+        print(f"✔ Fixed quality: {fixed_quality}")
+
 
         # -------- FPS --------
         fps_node = self.hik_find(video, "maxFrameRate")
@@ -440,10 +498,12 @@ class HikDetailService:
             "resolutions": resolutions,
             "video_codec": video_codecs,
             "max_frame_rates": max_frame_rates,
+            "fixed_quality": fixed_quality,
             "vbr": {
                 "upper_cap": {"min": upper_min, "max": upper_max},
                 "lower_cap": {"min": lower_val, "max": lower_val},
             }
+            
         }
 
   
