@@ -22,6 +22,74 @@ class HikRecordService():
     def __init__(self):
         self.client = get_http_client()
 
+    async def oldest_record_date(self, device, channel_id: int, headers) -> str | None:
+        time_provider = TimeProvider()
+        now = time_provider.now()
+        year = now.year
+        month = now.month
+
+        base_url = f"http://{device.ip_web}"
+        oldest_date: str | None = None
+
+        while True:
+            payload = f"""<?xml version="1.0" encoding="utf-8"?>
+    <trackDailyParam>
+        <year>{year}</year>
+        <monthOfYear>{month}</monthOfYear>
+    </trackDailyParam>
+    """
+
+            url = (
+                f"{base_url}"
+                f"/ISAPI/ContentMgmt/record/tracks/{channel_id}/dailyDistribution"
+            )
+            print(f"Requesting URL: {url}")
+
+            resp = await self.client.post(
+                url,
+                content=payload,
+                headers=headers
+            )
+
+            print(f"Response Status Code: {resp.status_code}")
+
+            if resp.status_code != 200:
+                print("Error: API returned non-200 status.")
+                break
+
+            root = ET.fromstring(resp.text)
+            days = root.findall(".//{*}day")
+
+            found_in_month = False
+
+            for d in days:
+                record = d.find("{*}record")
+                if record is not None and record.text.lower() == "true":
+                    day_num = int(d.find("{*}dayOfMonth").text)
+
+                    # Lưu lại ngày oldest của tháng này
+                    oldest_date = f"{year}-{month:02d}-{day_num:02d}"
+                    print(f"Found record at: {oldest_date}")
+
+                    found_in_month = True
+                    break  # không cần duyệt tiếp ngày trong tháng
+
+            #  cả tháng không có record → dừng luôn
+            if not found_in_month:
+                print(f"No records found for {year}-{month}, stop searching.")
+                break
+
+            #  có record → lùi tháng
+            month -= 1
+            if month == 0:
+                month = 12
+                year -= 1
+
+        print("Returning oldest record date:", oldest_date)
+        return oldest_date
+
+
+
     async def _get_channels(self, device, headers):
         base_url = f"http://{device.ip_web}"
         endpoints = [
@@ -60,70 +128,6 @@ class HikRecordService():
                     return []
 
         return channels
-
-    async def oldest_record_date(self, device, channel_id: int, headers) -> str | None:
-
-            time_provider = TimeProvider()
-            now = time_provider.now()
-            year = now.year
-            month = now.month
-            base_url = f"http://{device.ip_web}"
-            oldest_date: str | None = None
-           
-            while True:
-                    payload = f"""<?xml version="1.0" encoding="utf-8"?>
-    <trackDailyParam>
-        <year>{year}</year>
-        <monthOfYear>{month}</monthOfYear>
-    </trackDailyParam>
-    """
-
-                    url = (
-                        f"{base_url}"
-                        f"/ISAPI/ContentMgmt/record/tracks/{channel_id}/dailyDistribution"
-                    )
-                    print(f"Requesting URL: {repr(url)}")
-
-                    resp = await self.client.post(
-                        url,
-                        content=payload,
-                        headers=headers
-                    )
-
-                    print(f"Response Status Code: {resp.status_code}")
-
-                    if resp.status_code != 200:
-                        print("Error: API returned non-200 status.")
-                        break
-
-                    root = ET.fromstring(resp.text)
-                    days = root.findall(".//{*}day")
-
-                    record_days: list[int] = []
-
-                    for d in days:
-                        record = d.find("{*}record")
-                        if record is not None and record.text.lower() == "true":
-                            day_num = int(d.find("{*}dayOfMonth").text)
-                            record_days.append(day_num)
-
-                    # No records in this month
-                    if not record_days:
-                        print(f"No records found for {year}-{month}. Moving to previous month.")
-                        break
-
-                    # Found records, get the smallest (oldest) day
-                    oldest_day = min(record_days)
-                    oldest_date = f"{year}-{month:02d}-{oldest_day:02d}"
-                    print(f"Oldest record date: {oldest_date}")
-
-                    # Move to the previous month
-                    month -= 1
-                    if month == 0:
-                        month = 12
-                        year -= 1
-            print("ok Returning oldest record date:", oldest_date)
-            return oldest_date
 
     async def get_time_ranges_segment(self, device, channel_id: int, date_str: str, headers) -> list[RecordTimeRange]:
             day = to_date(date_str)
