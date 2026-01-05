@@ -16,8 +16,12 @@ def start_scheduler():
         coalesce=True
     )
     scheduler.add_job(
-        lambda: asyncio.run(daily_refresh_oldest()),
-        trigger=CronTrigger(hour=1, minute=0),
+        daily_refresh_oldest(),
+        #trigger mỗi 60p
+        trigger=IntervalTrigger(minutes=60),
+
+        # trigger mỗi 1h mỗi ngày
+        #trigger=CronTrigger(hour=1, minute=0),
         id="daily_refresh_oldest",
         replace_existing=True,
         max_instances=1,
