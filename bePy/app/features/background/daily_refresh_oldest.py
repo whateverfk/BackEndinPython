@@ -6,29 +6,28 @@ from app.Models.device import Device
 from app.features.background.update_data_record import refresh_device_oldest_records
 
 async def daily_refresh_oldest():
-    """
-    Job hàng ngày: refresh oldest_record_date cho tất cả channel của tất cả device
-    """
     print("=== Start daily refresh oldest_record_date for all devices ===")
+
     db: Session = SessionLocal()
     try:
-        # Lấy tất cả user
         users = db.query(User).filter(User.is_active == True).all()
 
         for user in users:
-            # Lấy tất cả device của user
-            devices = db.query(Device).filter(Device.owner_superadmin_id == user.id).all()
-            
-            # Chạy song song từng device
-            tasks = [
-                refresh_device_oldest_records(db, device)
-                for device in devices
-            ]
-            if tasks:
-                await asyncio.gather(*tasks)
+            devices = db.query(Device).filter(
+                Device.owner_superadmin_id == user.id
+            ).all()
+
+            print(f"Refresh oldest for user name = {user.username}")
+
+            for device in devices:
+                await refresh_device_oldest_records(db, device)
+                db.commit()   # commit theo device
 
         print("=== Daily refresh oldest completed ===")
+
     except Exception as e:
+        db.rollback()
         print("Error in daily refresh oldest:", e)
+
     finally:
         db.close()

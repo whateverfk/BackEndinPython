@@ -133,7 +133,7 @@ class HikRecordService():
 
             # Expand the search by ±1 day to be sure
             search_start = day_start - timedelta(days=1)
-            search_end = day_end + timedelta(days=1)
+            search_end = day_end + timedelta(days=1) 
 
             # ========================
             # ISAPI SEARCH

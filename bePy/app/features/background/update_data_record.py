@@ -46,6 +46,25 @@ def normalize_to_date(value):
         return datetime.strptime(value, "%Y-%m-%d").date()
     raise ValueError(f"Invalid date value type: {type(value)}")
 
+def delete_records_before_date(db: Session, channel_id: int, before_date):
+    subq = (
+        db.query(ChannelRecordDay.id)
+        .filter(
+            ChannelRecordDay.channel_id == channel_id,
+            ChannelRecordDay.record_date < before_date
+        )
+        .subquery()
+    )
+
+    db.query(ChannelRecordTimeRange).filter(
+        ChannelRecordTimeRange.record_day_id.in_(subq)
+    ).delete(synchronize_session=False)
+
+    db.query(ChannelRecordDay).filter(
+        ChannelRecordDay.channel_id == channel_id,
+        ChannelRecordDay.record_date < before_date
+    ).delete(synchronize_session=False)
+
 
 async def refresh_oldest_record_of_channel(
     db: Session,
@@ -90,16 +109,6 @@ async def refresh_oldest_record_of_channel(
     if not new_oldest:
         print(f"Channel {channel.channel_no} không tìm thấy oldest record mới, đặt oldest_record_date = None")
         channel.oldest_record_date = None
-
-        # Xóa tất cả record_day + time_range cũ
-        db.query(ChannelRecordTimeRange).join(ChannelRecordDay).filter(
-            ChannelRecordDay.channel_id == channel.id
-        ).delete(synchronize_session=False)
-
-        db.query(ChannelRecordDay).filter(
-            ChannelRecordDay.channel_id == channel.id
-        ).delete(synchronize_session=False)
-
         db.flush()
         return
 
@@ -108,15 +117,8 @@ async def refresh_oldest_record_of_channel(
 
 
     # 4. Xóa dữ liệu cũ trước oldest mới
-    db.query(ChannelRecordTimeRange).join(ChannelRecordDay).filter(
-        ChannelRecordDay.channel_id == channel.id,
-        ChannelRecordDay.record_date < new_oldest_dt
-    ).delete(synchronize_session=False)
+    delete_records_before_date(db, channel.id, new_oldest_dt)
 
-    db.query(ChannelRecordDay).filter(
-        ChannelRecordDay.channel_id == channel.id,
-        ChannelRecordDay.record_date < new_oldest_dt
-    ).delete(synchronize_session=False)
 
     db.flush()
 
