@@ -416,8 +416,8 @@ class HikRecordService():
                     else:
                         record_day.has_record = has_record
 
-                    #  CHỈ SYNC SEGMENT GẦN HIỆN TẠI
-                    if has_record and record_date >= today - timedelta(days=2):
+                    #  CHỈ SYNC SEGMENT GẦN HIỆN TẠI thì thêm "and record_date >= today - timedelta(days=2)"" vào if condition
+                    if has_record :
                         segments = await hik_service.get_time_ranges_segment(
                             device,
                             channel.channel_no,
@@ -437,7 +437,7 @@ class HikRecordService():
                                 end_time=seg.end_time
                             ))
 
-                channel.last_sync_at = datetime.utcnow()
+                channel.last_sync_at =  datetime.now().astimezone()
                 channel.latest_record_date = today
 
 

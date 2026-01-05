@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
     # để test nên tạm bỏ sync time 
     
     # tự chạy sync new data luôn khi mở 1 lần
-    #await auto_sync_all_devices()
+    await auto_sync_all_devices()
     await daily_refresh_oldest()
     #chạy theo lịch mỗi 5p 1 lần
     start_scheduler()
