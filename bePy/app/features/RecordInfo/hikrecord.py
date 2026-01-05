@@ -2,13 +2,13 @@ import httpx
 import uuid
 import xml.etree.ElementTree as ET
 from sqlalchemy.exc import SQLAlchemyError
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from typing import List
 from app.schemas.record import (
     ChannelRecordInfo,
     RecordTimeRange
 )
-from app.features.deps import build_hik_auth
+from app.features.deps import build_hik_auth, to_date
 from app.core.time_provider import TimeProvider
 from sqlalchemy.orm import Session
 from app.Models.device import Device    
@@ -126,9 +126,10 @@ class HikRecordService():
             return oldest_date
 
     async def get_time_ranges_segment(self, device, channel_id: int, date_str: str, headers) -> list[RecordTimeRange]:
-            day = datetime.strptime(date_str, "%Y-%m-%d")
-            day_start = datetime(day.year, day.month, day.day, 0, 0, 0)
-            day_end = datetime(day.year, day.month, day.day, 23, 59, 59)
+            day = to_date(date_str)
+            day_start = datetime.combine(day, time(0, 0, 0))
+            day_end = datetime.combine(day, time(23, 59, 59))
+
 
             # Expand the search by ±1 day to be sure
             search_start = day_start - timedelta(days=1)
@@ -256,8 +257,8 @@ class HikRecordService():
         base_url = f"http://{device.ip_web}"
         url = f"{base_url}/ISAPI/ContentMgmt/record/tracks/{channel_id}/dailyDistribution"
 
-        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+        start_dt = to_date(start_date)
+        end_dt = to_date(end_date)
 
         # Gom các ngày theo (year, month)
         months = defaultdict(list)
@@ -493,10 +494,11 @@ class HikRecordService():
             channel = channel_map[ch["id"]]
 
             # ---- gọi API ----
-            oldest_date = await hik_service.oldest_record_date(
-                device, ch["id"], headers
+            oldest_date = to_date(
+                await hik_service.oldest_record_date(device, ch["id"], headers)
             )
             channel.oldest_record_date = oldest_date
+
 
             record_days = await hik_service.record_status_of_channel(
                 device,
@@ -505,7 +507,7 @@ class HikRecordService():
                 end_date=today.strftime("%Y-%m-%d"),
                 header=headers
             )
-
+ 
             record_day_map = {}
 
             # ---- BATCH RECORD DAY ----

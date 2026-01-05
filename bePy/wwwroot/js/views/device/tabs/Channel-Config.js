@@ -147,7 +147,7 @@ function renderChannelForm(info, cap, device, channel) {
 
 
         <label class="block">
-            <span>VBR Average (${cap.vbr.upper_cap.min} – ${cap.vbr.upper_cap.max})</span>
+            <span>Average Bitrate (${cap.vbr.upper_cap.min} – ${cap.vbr.upper_cap.max})</span>
             <input id="vbr" type="number"
                 min="${cap.vbr.upper_cap.min}"
                 max="${cap.vbr.upper_cap.max}"

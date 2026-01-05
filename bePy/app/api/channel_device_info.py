@@ -140,7 +140,7 @@ async def update_channel_info(
     headers = build_hik_auth(device)  # auth hik / proxy
     device_service = HikDetailService()
     try:
-        print("fail here")
+
         await device_service.push_channel_config_to_device(
             device=device,
             channel=channel,
@@ -205,7 +205,7 @@ async def sync_channel_from_device(
     )
 
     if not channel:
-        print("❌ Channel not found in DB")
+        print(" Channel not found in DB")
         raise HTTPException(404, "Channel not found")
 
     device = channel.device

@@ -9,7 +9,7 @@ from app.Models.channel import Channel
 from app.Models.channel_record_day import ChannelRecordDay
 from app.Models.channel_record_time_range import ChannelRecordTimeRange
 from app.features.RecordInfo.hikrecord import HikRecordService
-from app.features.deps import build_hik_auth
+from app.features.deps import build_hik_auth,to_date
 from app.core.time_provider import TimeProvider
 
 async def auto_sync_all_devices():
@@ -35,6 +35,17 @@ async def auto_sync_all_devices():
     finally:
         db.close()
 
+def normalize_to_date(value):
+    if value is None:
+        return None
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return value
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, str):
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    raise ValueError(f"Invalid date value type: {type(value)}")
+
 
 async def refresh_oldest_record_of_channel(
     db: Session,
@@ -55,7 +66,8 @@ async def refresh_oldest_record_of_channel(
         print(f"Channel {channel.channel_no} chưa có oldest_record_date, bỏ qua")
         return
 
-    oldest_date = channel.oldest_record_date
+    oldest_date = to_date(channel.oldest_record_date)
+
     today = TimeProvider().now().date()
 
     # 1. Kiểm tra trạng thái của oldest cũ
@@ -92,14 +104,8 @@ async def refresh_oldest_record_of_channel(
         return
 
     # 3. Chuyển new_oldest về datetime.date nếu cần
-    if isinstance(new_oldest, str):
-        new_oldest_dt = datetime.strptime(new_oldest, "%Y-%m-%d").date()
-    elif isinstance(new_oldest, datetime):
-        new_oldest_dt = new_oldest.date()
-    elif isinstance(new_oldest, date):
-        new_oldest_dt = new_oldest
-    else:
-        raise ValueError(f"Invalid type for new_oldest: {type(new_oldest)}")
+    new_oldest_dt = normalize_to_date(new_oldest)
+
 
     # 4. Xóa dữ liệu cũ trước oldest mới
     db.query(ChannelRecordTimeRange).join(ChannelRecordDay).filter(

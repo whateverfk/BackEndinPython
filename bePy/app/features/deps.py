@@ -19,3 +19,20 @@ def build_hik_auth(device):
         "Authorization": f"Basic {auth}",
         "Content-Type": "application/xml"
     }
+
+from datetime import datetime, date
+
+def to_date(value) -> date | None:
+    if value is None:
+        return None
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return value
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, str):
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    raise TypeError(f"Invalid date type: {type(value)}")
+
+def to_date_str(value) -> str | None:
+    d = to_date(value)
+    return d.strftime("%Y-%m-%d") if d else None
