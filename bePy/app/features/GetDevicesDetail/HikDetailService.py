@@ -414,20 +414,20 @@ class HikDetailService:
         width_node = self.hik_find(video, "videoResolutionWidth")
         height_node = self.hik_find(video, "videoResolutionHeight")
 
-        if width_node is None:
-            print("⚠ videoResolutionWidth node missing")
-        if height_node is None:
-            print("⚠ videoResolutionHeight node missing")
+        # if width_node is None:
+        #     print(" videoResolutionWidth node missing")
+        # if height_node is None:
+        #     print(" videoResolutionHeight node missing")
 
         resolutions = []
         if width_node is not None and height_node is not None:
             widths = width_node.attrib.get("opt", "")
             heights = height_node.attrib.get("opt", "")
-            print(f"▶ Width OPT: {widths}, Height OPT: {heights}")
+            #print(f" Width OPT: {widths}, Height OPT: {heights}")
 
             widths_list = [w for w in widths.split(",") if w.isdigit()] or [width_node.text]
             heights_list = [h for h in heights.split(",") if h.isdigit()] or [height_node.text]
-            print(f"▶ Width list: {widths_list}, Height list: {heights_list}")
+            #print(f" Width list: {widths_list}, Height list: {heights_list}")
 
             resolutions = [
                 {"width": int(w), "height": int(h)}
@@ -438,16 +438,16 @@ class HikDetailService:
         # -------- Codec --------
         codec_node = self.hik_find(video, "videoCodecType")
         if codec_node is None:
-            print("⚠ videoCodecType node missing")
+            print(" videoCodecType node missing")
             video_codecs = []
         else:
             video_codecs = codec_node.attrib.get("opt", "").split(",") or [codec_node.text]
-        print(f"✔ Parsed video codecs: {video_codecs}")
+        print(f" Parsed video codecs: {video_codecs}")
                 # -------- Fixed Quality (ENUM) --------
         fixed_q_node = self.hik_find(video, "fixedQuality")
 
         if fixed_q_node is None:
-            print("⚠ fixedQuality node missing")
+            print(" fixedQuality node missing")
             fixed_quality = {
                 "options": [],
                 "current": None,
@@ -468,18 +468,18 @@ class HikDetailService:
                 "default": current or (options[-1] if options else None)
             }
 
-        print(f"✔ Fixed quality: {fixed_quality}")
+        #print(f"✔ Fixed quality: {fixed_quality}")
 
 
         # -------- FPS --------
         fps_node = self.hik_find(video, "maxFrameRate")
         if fps_node is None:
-            print("⚠ maxFrameRate node missing")
+            #print(" maxFrameRate node missing")
             max_frame_rates = []
         else:
             opt_fps = fps_node.attrib.get("opt", "")
             max_frame_rates = self.parse_opt_list(opt_fps) or [int(fps_node.text)]
-        print(f"✔ Parsed max frame rates: {max_frame_rates}")
+        #print(f" Parsed max frame rates: {max_frame_rates}")
 
         # -------- VBR --------
         upper = self.hik_find(video, "vbrUpperCap")
@@ -492,7 +492,7 @@ class HikDetailService:
         if lower is not None:
             lower_val = int(lower.attrib.get("opt", lower.text or 0))
 
-        print(f"✔ VBR upper: {upper_min}-{upper_max}, lower: {lower_val}")
+        #print(f" VBR upper: {upper_min}-{upper_max}, lower: {lower_val}")
 
         return {
             "resolutions": resolutions,

@@ -118,7 +118,7 @@ function renderChannelForm(info, cap, device, channel) {
         </label>
 
         <label class="block">
-            <span>Codec</span>
+            <span>Video encoding</span>
             <select id="codec" class="border p-2 w-full">
                 ${cap.video_codec.map(c => `
                     <option value="${c}" ${c === curCodec ? "selected" : ""}>${c}</option>
