@@ -3,7 +3,7 @@ from logging import root
 import httpx
 import re
 import xml.etree.ElementTree as ET
-from app.features.deps import xml_text, HIK_NS
+from app.features.deps import xml_text,xml_int, HIK_NS
 from app.Models.channel_stream_config import ChannelStreamConfig
 from app.Models.channel_extensions import ChannelExtension
 from app.core.http_client import get_http_client
@@ -85,12 +85,7 @@ class HikDetailService:
             print(f"Error fetching system info from {url}: {ex}")
             return None
 
-    async def fetch_stream_config(
-        self,
-        device,
-        channel,
-        headers,
-    ):
+    async def fetch_stream_config(self, device, channel, headers):
         base_url = f"http://{device.ip_web}"
 
         if channel.connected_type == self.CONNECTED_TYPE_LOCAL:
@@ -98,7 +93,6 @@ class HikDetailService:
         else:
             url = f"{base_url}/ISAPI/ContentMgmt/StreamingProxy/channels/{channel.channel_no}"
 
-        
         resp = await self.client.get(url, headers=headers)
         resp.raise_for_status()
 
@@ -107,21 +101,33 @@ class HikDetailService:
         video = root.find(".//hik:Video", HIK_NS)
         if video is None:
             return None
-        print("----- HIK STREAM CONFIG XML -----")
-        print(resp.text)
-        print("--------------------------------")
 
+        codec = xml_text(video, "hik:videoCodecType")
+
+        smart_codec = video.find("hik:SmartCodec", HIK_NS)
+        smart_enabled = (
+            xml_text(smart_codec, "hik:enabled") == "true"
+            if smart_codec is not None else False
+        )
+
+        h265_plus = (smart_enabled)
 
         return {
-            "resolution_width": int(xml_text(video, "hik:videoResolutionWidth")),
-            "resolution_height": int(xml_text(video, "hik:videoResolutionHeight")),
-            "video_codec": xml_text(video, "hik:videoCodecType"),
-            "max_frame_rate": int(xml_text(video, "hik:maxFrameRate")),
-            "fixed_quality": int(xml_text(video, "hik:fixedQuality"))
-                if xml_text(video, "hik:fixedQuality") else None,
-            "vbr_average_cap": int(xml_text(video, "hik:vbrAverageCap"))
-                if xml_text(video, "hik:vbrAverageCap") else None,
+            "resolution_width": xml_int(video, "hik:videoResolutionWidth"),
+            "resolution_height": xml_int(video, "hik:videoResolutionHeight"),
+
+            "video_codec": codec,
+            "h265_plus": h265_plus,
+
+            "max_frame_rate": xml_int(video, "hik:maxFrameRate"),
+
+            "fixed_quality": xml_int(video, "hik:fixedQuality"),
+
+            "vbr_average_cap": xml_int(video, "hik:vbrAverageCap"),
+            "vbr_upper_cap": xml_int(video, "hik:vbrUpperCap"),
+           
         }
+
 
     def calc_input_channel_index(self,channel_no: int) -> int:
         return (channel_no - 1) // 100
@@ -242,73 +248,78 @@ class HikDetailService:
         put_resp = await self.client.put(url, content=xml, headers=headers)
         put_resp.raise_for_status()
 
+    def build_smart_codec_xml(self, cfg):
+        parts = []
+
+        # SmartCodec luôn gửi enabled
+        parts.append(
+            f"""
+    <SmartCodec>
+        <enabled>{str(cfg.h265_plus).lower()}</enabled>
+    </SmartCodec>
+    """.strip()
+        )
+
+        # vbrAverageCap CHỈ gửi khi h265_plus = true
+        if cfg.h265_plus and cfg.vbr_average_cap is not None:
+            parts.append(f"<vbrAverageCap>{cfg.vbr_average_cap}</vbrAverageCap>")
+
+        return "\n".join(parts)
+
+
     async def put_stream_config_proxy(self, device, channel, cfg, headers):
-        
-        base_url = f"http://{device.ip_web}"
-        url = f"{base_url}/ISAPI/ContentMgmt/StreamingProxy/channels/{channel.channel_no}"
+            base_url = f"http://{device.ip_web}"
+            url = f"{base_url}/ISAPI/ContentMgmt/StreamingProxy/channels/{channel.channel_no}"
 
-        print("\n===== PUT STREAM PROXY =====")
-        print("URL:", url)
+            smart_codec_xml = self.build_smart_codec_xml(cfg)
 
-        payload = f"""<?xml version="1.0" encoding="UTF-8"?>
-    <StreamingChannel xmlns="{HIK_NS}" version="1.0">
-        <id>{channel.channel_no}</id>
-        <channelName>{channel.channel_no}</channelName>
-        <enabled>true</enabled>
-        <Transport>
-            <ControlProtocolList>
-                <ControlProtocol>
-                    <streamingTransport>RTSP</streamingTransport>
-                </ControlProtocol>
-            </ControlProtocolList>
-        </Transport>
-        <Video>
+            payload = f"""<?xml version="1.0" encoding="UTF-8"?>
+        <StreamingChannel xmlns="{HIK_NS}" version="1.0">
+            <id>{channel.channel_no}</id>
+            <channelName>{channel.channel_no}</channelName>
             <enabled>true</enabled>
-            <dynVideoInputChannelID>{(channel.channel_no-1)//100}</dynVideoInputChannelID>
-            <videoCodecType>{cfg.video_codec}</videoCodecType>
-            <videoResolutionWidth>{cfg.resolution_width}</videoResolutionWidth>
-            <videoScanType>progressive</videoScanType>
-            <videoResolutionHeight>{cfg.resolution_height}</videoResolutionHeight>
-            <videoQualityControlType>vbr</videoQualityControlType>
-            <fixedQuality>{cfg.fixed_quality}</fixedQuality>
-            <maxFrameRate>{cfg.max_frame_rate}</maxFrameRate>
-        </Video>
-    </StreamingChannel>
-    """
 
-        print("----- REQUEST XML -----")
-        print(payload)
-        print("-----------------------")
+            <Transport>
+                <ControlProtocolList>
+                    <ControlProtocol>
+                        <streamingTransport>RTSP</streamingTransport>
+                    </ControlProtocol>
+                </ControlProtocolList>
+            </Transport>
 
-        resp = await self.client.put(url, content=payload, headers=headers)
+            <Video>
+                <enabled>true</enabled>
+                <dynVideoInputChannelID>{(channel.channel_no - 1) // 100}</dynVideoInputChannelID>
+                <videoCodecType>{cfg.video_codec}</videoCodecType>
+                <videoResolutionWidth>{cfg.resolution_width}</videoResolutionWidth>
+                <videoScanType>progressive</videoScanType>
+                <videoResolutionHeight>{cfg.resolution_height}</videoResolutionHeight>
+                <videoQualityControlType>vbr</videoQualityControlType>
+                <fixedQuality>{cfg.fixed_quality}</fixedQuality>
 
-        print("----- RESPONSE -----")
-        print("Status:", resp.status_code)
-        print("Body:\n", resp.text)
-        print("--------------------")
+                {smart_codec_xml}
 
-        resp.raise_for_status()
+                <maxFrameRate>{cfg.max_frame_rate}</maxFrameRate>
+            </Video>
+        </StreamingChannel>
+        """
+            resp = await self.client.put(url, content=payload, headers=headers)
+            resp.raise_for_status()
+
+    
 
     async def put_stream_config_local(self, device, channel, cfg, headers):
         base_url = f"http://{device.ip_web}"
         url = f"{base_url}/ISAPI/Streaming/channels/{channel.channel_no}"
 
-        print("\n===== PUT STREAM LOCAL =====")
-        print("URL:", url)
-        print("CFG:",
-            "codec=", cfg.video_codec,
-            "w=", cfg.resolution_width,
-            "h=", cfg.resolution_height,
-            "fps=", cfg.max_frame_rate,
-            "fixedQ=", cfg.fixed_quality,
-            "vbrCap=", cfg.vbr_average_cap,
-        )
+        smart_codec_xml = self.build_smart_codec_xml(cfg)
 
         payload = f"""<?xml version="1.0" encoding="UTF-8"?>
     <StreamingChannel xmlns="{HIK_NS}" version="1.0">
         <id>{channel.channel_no}</id>
         <channelName>{channel.channel_no}</channelName>
         <enabled>true</enabled>
+
         <Transport>
             <ControlProtocolList>
                 <ControlProtocol>
@@ -316,34 +327,26 @@ class HikDetailService:
                 </ControlProtocol>
             </ControlProtocolList>
         </Transport>
+
         <Video>
             <enabled>true</enabled>
-            <videoInputChannelID>{(channel.channel_no-1)//100}</videoInputChannelID>
+            <videoInputChannelID>{(channel.channel_no - 1) // 100}</videoInputChannelID>
             <videoCodecType>{cfg.video_codec}</videoCodecType>
             <videoResolutionWidth>{cfg.resolution_width}</videoResolutionWidth>
             <videoScanType>progressive</videoScanType>
             <videoResolutionHeight>{cfg.resolution_height}</videoResolutionHeight>
             <videoQualityControlType>vbr</videoQualityControlType>
             <fixedQuality>{cfg.fixed_quality}</fixedQuality>
+            <vbrUpperCap>{cfg.vbr_upper_cap}</vbrUpperCap>
+
+            {smart_codec_xml}
+
             <maxFrameRate>{cfg.max_frame_rate}</maxFrameRate>
-            <vbrAverageCap>{cfg.vbr_average_cap}</vbrAverageCap>
         </Video>
     </StreamingChannel>
     """
-
-        print("----- REQUEST XML -----")
-        print(payload)
-        print("-----------------------")
-
         resp = await self.client.put(url, content=payload, headers=headers)
-
-        print("----- RESPONSE -----")
-        print("Status:", resp.status_code)
-        print("Body:\n", resp.text)
-        print("--------------------")
-
         resp.raise_for_status()
-
 
 
 
@@ -507,7 +510,6 @@ class HikDetailService:
             
         }
 
-  
 
     async def get_device_storage(self,device, headers):
         """

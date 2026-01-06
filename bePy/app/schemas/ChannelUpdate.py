@@ -10,3 +10,5 @@ class ChannelUpdateSchema(BaseModel):
     max_frame_rate: int
     fixed_quality: int
     vbr_average_cap: int
+    h265_plus: bool
+    vbr_upper_cap:int

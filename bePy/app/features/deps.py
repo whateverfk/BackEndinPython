@@ -8,6 +8,10 @@ def xml_text(elem, path: str):
     node = elem.find(path, HIK_NS)
     return node.text if node is not None else None
 
+def xml_int(parent, tag):
+    v = xml_text(parent, tag)
+    return int(v) if v and v.isdigit() else None
+
 def build_hik_auth(device):
     
 

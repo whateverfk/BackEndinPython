@@ -52,6 +52,8 @@ async def sync_channel_config(
         cfg.max_frame_rate = stream_data["max_frame_rate"]
         cfg.fixed_quality = stream_data["fixed_quality"]
         cfg.vbr_average_cap = stream_data["vbr_average_cap"]
+        cfg.vbr_upper_cap = stream_data["vbr_upper_cap"]
+        cfg.h265_plus = stream_data["h265_plus"]
 
     # =========================
     # MOTION DETECTION

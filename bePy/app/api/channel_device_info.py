@@ -18,6 +18,7 @@ router = APIRouter(
     tags=["Device_channel_info"]
 )
 
+
 @router.get("")
 async def get_channel_info(
     device_id: int,
@@ -81,6 +82,11 @@ async def get_channel_info(
 
         "vbr_average_cap": channel.stream_config.vbr_average_cap
         if channel.stream_config else None,
+        "vbr_upper_cap": channel.stream_config.vbr_upper_cap
+        if channel.stream_config else None,
+        "h265_plus": channel.stream_config.h265_plus
+        if channel.stream_config else None,
+
     }
 
 @router.put("")
@@ -122,8 +128,11 @@ async def update_channel_info(
     cfg.max_frame_rate = data.max_frame_rate
     cfg.fixed_quality = data.fixed_quality
     cfg.vbr_average_cap = data.vbr_average_cap
+    cfg.h265_plus = data.h265_plus
+    cfg.vbr_upper_cap = data.vbr_upper_cap
 
     #  Commit DB trước
+    
     db.commit()
     db.refresh(channel)
 
@@ -242,19 +251,19 @@ async def sync_channel_from_device(
     # =========================
     # 3. STREAM CONFIG
     # =========================
-    print("▶ Fetch stream config ...")
+    print(" Fetch stream config ...")
     stream_data = await hikservice.fetch_stream_config(
         device=device,
         channel=channel,
         headers=headers
     )
 
-    print("▶ Stream config raw data:")
+    print(" Stream config raw data:")
     print(stream_data)
 
     if stream_data:
         if not channel.stream_config:
-            print("➕ Create ChannelStreamConfig")
+            print(" Create ChannelStreamConfig")
             channel.stream_config = ChannelStreamConfig(
                 channel_id=channel.id
             )
@@ -267,6 +276,8 @@ async def sync_channel_from_device(
         cfg.max_frame_rate = stream_data.get("max_frame_rate")
         cfg.fixed_quality = stream_data.get("fixed_quality")
         cfg.vbr_average_cap = stream_data.get("vbr_average_cap")
+        cfg.vbr_upper_cap = stream_data.get("vbr_upper_cap")
+        cfg.h265_plus = stream_data.get("h265_plus")
 
         print("✔ Stream config mapped to DB:")
         print({
@@ -276,6 +287,8 @@ async def sync_channel_from_device(
             "max_frame_rate": cfg.max_frame_rate,
             "fixed_quality": cfg.fixed_quality,
             "vbr_average_cap": cfg.vbr_average_cap,
+            "vbr_upper_cap"  : cfg.vbr_upper_cap,
+            "h265_plus" : cfg.h265_plus 
         })
     else:
         print("⚠ stream_data is EMPTY")
@@ -298,6 +311,9 @@ async def sync_channel_from_device(
         "max_frame_rate": channel.stream_config.max_frame_rate if channel.stream_config else None,
         "fixed_quality": channel.stream_config.fixed_quality if channel.stream_config else None,
         "vbr_average_cap": channel.stream_config.vbr_average_cap if channel.stream_config else None,
+        "vbr_upper_cap":channel.stream_config.vbr_upper_cap if channel.stream_config else None,
+        "h265_plus":channel.stream_config.h265_plus if channel.stream_config else None,
+
     }
 
     print("▶ Return to frontend:")

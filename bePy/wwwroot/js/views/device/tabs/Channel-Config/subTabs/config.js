@@ -10,7 +10,11 @@ const FIXED_QUALITY_LABELS = {
     30: "Lower",
     20: "Lowest"
 };
+let avgBitrateValue = null;
+let maxBitrateValue = null;
 
+let currentInfo = null;
+let currentCap = null;
 
 export async function renderConfigTab(device) {
     const box = document.getElementById("channelSubContent");
@@ -69,6 +73,7 @@ async function loadChannelForm(device, channel) {
     const info = await apiFetch(
         `${API_URL}/api/device/${device.id}/channel/${channel.id}/infor`
     );
+     console.log("infor TỪ db:", info );
 
     // 2. Capabilities (cache theo channel)
     if (!capabilitiesCache[channel.id]) {
@@ -76,13 +81,24 @@ async function loadChannelForm(device, channel) {
             `${API_URL}/api/device/${device.id}/channel/${channel.id}/infor/capabilities`
         );
     }
+    console.log("Capbilities la:", capabilitiesCache[channel.id] );
 
     form.innerHTML = renderChannelForm(info, capabilitiesCache[channel.id], device, channel);
+    window.onH265PlusChange();
 }
 
 
 
 function renderChannelForm(info, cap, device, channel) {
+
+    currentInfo = info;
+    currentCap = cap;
+
+    avgBitrateValue =
+        info?.vbr_average_cap ?? cap.vbr.upper_cap.min;
+
+    maxBitrateValue =
+        info?.vbr_upper_cap ?? cap.vbr.upper_cap.max;
     const resolutions = cap.resolutions.map(r => `${r.width}x${r.height}`);
 
     // Giá trị hiện tại (fallback)
@@ -92,8 +108,10 @@ function renderChannelForm(info, cap, device, channel) {
 
     const curCodec = info?.video_codec || cap.video_codec[0];
     const curFps = info?.max_frame_rate || cap.max_frame_rates[0];
-    const curVbr = info?.vbr_average_cap ?? cap.vbr.upper_cap.min;
+    const curVbr = info?.vbr_average_cap ?? info?.vbr_upper_cap;
     const curMotion = info?.motion_detect ?? false;
+    const curH265Plus = info?.h265_plus ?? false;
+
     const curQuality =
     info?.fixed_quality ??
     cap.fixed_quality?.current ??
@@ -132,9 +150,15 @@ function renderChannelForm(info, cap, device, channel) {
         <label class="block">
             <span>Max Frame Rate</span>
             <select id="fps" class="border p-2 w-full">
-                ${cap.max_frame_rates.map(f => `
-                    <option value="${f}" ${f === curFps ? "selected" : ""}>${f}</option>
-                `).join("")}
+                ${cap.max_frame_rates.map(f => {
+                     const display = f / 100;
+                     return `
+                        <option value="${f}" ${f === curFps ? "selected" : ""}>
+                            ${display}
+                        </option>
+                    `;
+
+                }).join("")}
             </select>
         </label>
         <label class="block">
@@ -147,16 +171,29 @@ function renderChannelForm(info, cap, device, channel) {
                 `).join("")}
             </select>
         </label>
+        <label class="block">
+            <span>H.265+ Mode</span>
+            <select id="h265_plus" class="border p-2 w-full" onchange="onH265PlusChange()">
+                <option value="true" ${curH265Plus ? "selected" : ""}>On (Average Bitrate)</option>
+                <option value="false" ${!curH265Plus ? "selected" : ""}>Off (Max Bitrate)</option>
+            </select>
+        </label>
+
 
 
         <label class="block">
-            <span>Average Bitrate (${cap.vbr.upper_cap.min} – ${cap.vbr.upper_cap.max})</span>
-            <input id="vbr" type="number"
-                min="${cap.vbr.upper_cap.min}"
-                max="${cap.vbr.upper_cap.max}"
-                value="${curVbr}"
+            <span id="bitrateLabel"></span>
+            <input id="bitrate"
+                type="number"
                 class="border p-2 w-full"/>
+
+            <p id="bitrateWarning"
+            class="text-sm text-red-500 mt-1 hidden">
+                Bitrate must be within allowed range
+            </p>
         </label>
+
+
 
         <label class="block flex items-center gap-2">
             <input type="checkbox" id="motion_detect" ${curMotion ? "checked" : ""}/>
@@ -179,6 +216,70 @@ function renderChannelForm(info, cap, device, channel) {
 }
 
 
+window.onH265PlusChange = function () {
+    const isH265Plus =
+        document.getElementById("h265_plus").value === "true";
+
+    const label = document.getElementById("bitrateLabel");
+    const input = document.getElementById("bitrate");
+
+    const min = currentCap.vbr.upper_cap.min;
+    const max = currentCap.vbr.upper_cap.max;
+
+    input.min = min;
+    input.max = max;
+
+    if (isH265Plus) {
+        label.innerText = `Average Bitrate (${min} – ${max})`;
+        input.value = avgBitrateValue;
+    } else {
+        label.innerText = `Max Bitrate (${min} – ${max})`;
+        input.value = maxBitrateValue;
+    }
+    document.getElementById("bitrateWarning")?.classList.add("hidden");
+    document.getElementById("bitrate")?.classList.remove("border-red-500");
+
+};
+
+document.addEventListener("input", (e) => {
+    if (e.target.id !== "bitrate") return;
+
+    const input = e.target;
+    const warning = document.getElementById("bitrateWarning");
+
+    const v = Number(input.value);
+    const min = Number(input.min);
+    const max = Number(input.max);
+
+    if (Number.isNaN(v)) {
+        warning.classList.add("hidden");
+        input.classList.remove("border-red-500");
+        return;
+    }
+
+    const outOfRange = v < min || v > max;
+
+    if (outOfRange) {
+        warning.textContent = `Allowed range: ${min} – ${max}`;
+        warning.classList.remove("hidden");
+        input.classList.add("border-red-500");
+    } else {
+        warning.classList.add("hidden");
+        input.classList.remove("border-red-500");
+    }
+
+    const isH265Plus =
+        document.getElementById("h265_plus").value === "true";
+
+    if (isH265Plus) {
+        avgBitrateValue = v;
+    } else {
+        maxBitrateValue = v;
+    }
+});
+
+
+
 
 
 window.syncChannel = async function () {
@@ -198,18 +299,38 @@ window.saveChannel = async function () {
 
     const [w, h] = document.getElementById("resolution").value.split("x");
 
+    const isH265Plus = document.getElementById("h265_plus").value === "true";
+    const bitrateValue = Number(document.getElementById("bitrate").value);
+    const bitrateInput = document.getElementById("bitrate");
+    const v = Number(bitrateInput.value);
+    const min = Number(bitrateInput.min);
+    const max = Number(bitrateInput.max);
+
+    if (Number.isNaN(v) || v < min || v > max) {
+        const warning = document.getElementById("bitrateWarning");
+        warning.textContent = `Bitrate must be between ${min} and ${max}`;
+        warning.classList.remove("hidden");
+        bitrateInput.classList.add("border-red-500");
+        return; // 
+    }
+
     const payload = {
         channel_name: document.getElementById("name").value,
         resolution_width: Number(w),
         resolution_height: Number(h),
         video_codec: document.getElementById("codec").value,
-        max_frame_rate: Number(document.getElementById("fps").value),
-        vbr_average_cap: Number(document.getElementById("vbr").value),
-        fixed_quality: Number(
-            document.getElementById("fixed_quality").value
-        ),
-        motion_detect: document.getElementById("motion_detect").checked
+        max_frame_rate: Number(document.getElementById("fps").value) ,
+        fixed_quality: Number(document.getElementById("fixed_quality").value),
+        motion_detect: document.getElementById("motion_detect").checked,
+
+        h265_plus: isH265Plus,
+        vbr_average_cap: avgBitrateValue,
+        vbr_upper_cap: maxBitrateValue,
     };
+
+
+    console.log("Payload sent to API:", payload);
+
 
     await apiFetch(
         `${API_URL}/api/device/${d.id}/channel/${c.id}/infor`,
@@ -218,6 +339,7 @@ window.saveChannel = async function () {
             body: JSON.stringify(payload)
         }
     );
+    
 
     alert("Saved successfully");
 };
