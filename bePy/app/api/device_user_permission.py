@@ -1,10 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.features.RecordInfo.deps import build_hik_auth
+from app.features.deps import build_hik_auth
 from app.db.session import get_db
 from app.Models.device_user import DeviceUser
 from app.Models.user_global_permissions import UserGlobalPermission
-from app.features.GetDevicesDetail.PermissionMap import PERMISSION_LABELS
 from app.Models.user_channel_permissions import UserChannelPermission
 from app.features.GetDevicesDetail.HikDetailService import HikDetailService
 from app.features.GetDevicesDetail.WorkWithDb import save_permissions
@@ -50,10 +49,14 @@ def build_permission_response(db, device_user_id: int):
         UserChannelPermission.device_user_id == device_user_id,
         UserChannelPermission.enabled == True
     ).all()
+    for ch in channels:
+        scope = ch.scope          # local | remote
+        perm = ch.permission      # playback | record | backup | ptz_control
+        result[scope]["channels"].setdefault(perm, []).append(ch.channel_id)
 
-    for c in channels:
-        result[c.scope]["channels"].setdefault(c.permission, []).append(c.channel_id)
 
+   
+    
     return result
 
 
@@ -65,17 +68,17 @@ async def get_device_user_permissions(
    
 ):
     permission_service=  HikDetailService()
-    # 1. Check user
+    
     device_user = db.query(DeviceUser).get(device_user_id)
     if not device_user:
         raise HTTPException(404, "Device user not found")
 
-    # 2. Check permission exists?
+   
     exists = db.query(UserGlobalPermission).filter(
         UserGlobalPermission.device_user_id == device_user_id
     ).first()
 
-    # 3. If NOT exists → fetch from device
+   
     if not exists:
         device = device_user.device
         headers = build_hik_auth(device)
@@ -122,7 +125,6 @@ async def sync_user_permission(
 
     headers = build_hik_auth(device)
     hik = HikDetailService()
-
     permission_data = await hik.fetch_permission_for_1_user(
         device=device,
         headers=headers,

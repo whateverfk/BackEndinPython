@@ -2,13 +2,13 @@ import httpx
 import uuid
 import xml.etree.ElementTree as ET
 from sqlalchemy.exc import SQLAlchemyError
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from typing import List
 from app.schemas.record import (
     ChannelRecordInfo,
     RecordTimeRange
 )
-from app.features.RecordInfo.deps import build_hik_auth
+from app.features.deps import build_hik_auth, to_date
 from app.core.time_provider import TimeProvider
 from sqlalchemy.orm import Session
 from app.Models.device import Device    
@@ -16,9 +16,79 @@ from app.Models.channel import Channel
 from app.Models.channel_record_day import ChannelRecordDay
 from collections import defaultdict
 from app.Models.channel_record_time_range import ChannelRecordTimeRange
-
+from app.core.http_client import get_http_client
 
 class HikRecordService():
+    def __init__(self):
+        self.client = get_http_client()
+
+    async def oldest_record_date(self, device, channel_id: int, headers) -> str | None:
+        time_provider = TimeProvider()
+        now = time_provider.now()
+        year = now.year
+        month = now.month
+
+        base_url = f"http://{device.ip_web}"
+        oldest_date: str | None = None
+
+        while True:
+            payload = f"""<?xml version="1.0" encoding="utf-8"?>
+    <trackDailyParam>
+        <year>{year}</year>
+        <monthOfYear>{month}</monthOfYear>
+    </trackDailyParam>
+    """
+
+            url = (
+                f"{base_url}"
+                f"/ISAPI/ContentMgmt/record/tracks/{channel_id}/dailyDistribution"
+            )
+            print(f"Requesting URL: {url}")
+
+            resp = await self.client.post(
+                url,
+                content=payload,
+                headers=headers
+            )
+
+            print(f"Response Status Code: {resp.status_code}")
+
+            if resp.status_code != 200:
+                print("Error: API returned non-200 status.")
+                break
+
+            root = ET.fromstring(resp.text)
+            days = root.findall(".//{*}day")
+
+            found_in_month = False
+
+            for d in days:
+                record = d.find("{*}record")
+                if record is not None and record.text.lower() == "true":
+                    day_num = int(d.find("{*}dayOfMonth").text)
+
+                    # Lưu lại ngày oldest của tháng này
+                    oldest_date = f"{year}-{month:02d}-{day_num:02d}"
+                    print(f"Found record at: {oldest_date}")
+
+                    found_in_month = True
+                    break  # không cần duyệt tiếp ngày trong tháng
+
+            #  cả tháng không có record → dừng luôn
+            if not found_in_month:
+                print(f"No records found for {year}-{month}, stop searching.")
+                break
+
+            #  có record → lùi tháng
+            month -= 1
+            if month == 0:
+                month = 12
+                year -= 1
+
+        print("Returning oldest record date:", oldest_date)
+        return oldest_date
+
+
 
     async def _get_channels(self, device, headers):
         base_url = f"http://{device.ip_web}"
@@ -29,13 +99,13 @@ class HikRecordService():
 
         channels = []
 
-        async with httpx.AsyncClient() as client:
-            for endpoint, tag_name, ctype in endpoints:
+        
+        for endpoint, tag_name, ctype in endpoints:
                 url = f"{base_url}{endpoint}"
                 print(f"Requesting URL: {repr(url)}")
 
                 try:
-                    resp = await client.get(url, headers=headers, timeout=10)
+                    resp = await self.client.get(url, headers=headers, timeout=10)
                     resp.raise_for_status()
 
                     root = ET.fromstring(resp.text)
@@ -59,78 +129,15 @@ class HikRecordService():
 
         return channels
 
-    async def oldest_record_date(self, device, channel_id: int, headers) -> str | None:
-
-            time_provider = TimeProvider()
-            now = time_provider.now()
-            year = now.year
-            month = now.month
-            base_url = f"http://{device.ip_web}"
-            oldest_date: str | None = None
-            async with httpx.AsyncClient(timeout=15) as client:
-                while True:
-                    payload = f"""<?xml version="1.0" encoding="utf-8"?>
-    <trackDailyParam>
-        <year>{year}</year>
-        <monthOfYear>{month}</monthOfYear>
-    </trackDailyParam>
-    """
-
-                    url = (
-                        f"{base_url}"
-                        f"/ISAPI/ContentMgmt/record/tracks/{channel_id}/dailyDistribution"
-                    )
-                    print(f"Requesting URL: {repr(url)}")
-
-                    resp = await client.post(
-                        url,
-                        content=payload,
-                        headers=headers
-                    )
-
-                    print(f"Response Status Code: {resp.status_code}")
-
-                    if resp.status_code != 200:
-                        print("Error: API returned non-200 status.")
-                        break
-
-                    root = ET.fromstring(resp.text)
-                    days = root.findall(".//{*}day")
-
-                    record_days: list[int] = []
-
-                    for d in days:
-                        record = d.find("{*}record")
-                        if record is not None and record.text.lower() == "true":
-                            day_num = int(d.find("{*}dayOfMonth").text)
-                            record_days.append(day_num)
-
-                    # No records in this month
-                    if not record_days:
-                        print(f"No records found for {year}-{month}. Moving to previous month.")
-                        break
-
-                    # Found records, get the smallest (oldest) day
-                    oldest_day = min(record_days)
-                    oldest_date = f"{year}-{month:02d}-{oldest_day:02d}"
-                    print(f"Oldest record date: {oldest_date}")
-
-                    # Move to the previous month
-                    month -= 1
-                    if month == 0:
-                        month = 12
-                        year -= 1
-            print("ok Returning oldest record date:", oldest_date)
-            return oldest_date
-
     async def get_time_ranges_segment(self, device, channel_id: int, date_str: str, headers) -> list[RecordTimeRange]:
-            day = datetime.strptime(date_str, "%Y-%m-%d")
-            day_start = datetime(day.year, day.month, day.day, 0, 0, 0)
-            day_end = datetime(day.year, day.month, day.day, 23, 59, 59)
+            day = to_date(date_str)
+            day_start = datetime.combine(day, time(0, 0, 0))
+            day_end = datetime.combine(day, time(23, 59, 59))
+
 
             # Expand the search by ±1 day to be sure
             search_start = day_start - timedelta(days=1)
-            search_end = day_end + timedelta(days=1)
+            search_end = day_end + timedelta(days=1) 
 
             # ========================
             # ISAPI SEARCH
@@ -160,8 +167,8 @@ class HikRecordService():
 
             #print(f"Tìm từ ngày {search_start} tới {search_end}.")
             
-            async with httpx.AsyncClient(timeout=20) as client:
-                resp = await client.post(
+           
+            resp = await self.client.post(
                     f"{base_url}/ISAPI/ContentMgmt/search",
                     content=payload,
                     headers=headers
@@ -254,8 +261,8 @@ class HikRecordService():
         base_url = f"http://{device.ip_web}"
         url = f"{base_url}/ISAPI/ContentMgmt/record/tracks/{channel_id}/dailyDistribution"
 
-        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+        start_dt = to_date(start_date)
+        end_dt = to_date(end_date)
 
         # Gom các ngày theo (year, month)
         months = defaultdict(list)
@@ -266,8 +273,8 @@ class HikRecordService():
 
         results = []
 
-        async with httpx.AsyncClient(timeout=15) as client:
-            for (year, month), days_in_month in months.items():
+        
+        for (year, month), days_in_month in months.items():
 
                 payload = f"""<?xml version="1.0" encoding="utf-8"?>
                 <trackDailyParam>
@@ -276,7 +283,7 @@ class HikRecordService():
                 </trackDailyParam>
                 """
 
-                resp = await client.post(url, content=payload, headers=header)
+                resp = await self.client.post(url, content=payload, headers=header)
 
                 if resp.status_code != 200:
                     # Nếu lỗi → đánh false cho toàn bộ ngày trong tháng đó
@@ -308,60 +315,6 @@ class HikRecordService():
                     })
 
         return results
-
-    async def recorded_day_in_month(self, device, channel_id: int, year: int, month: int, header) -> list[dict]:
-
-
-
-            time_provider = TimeProvider()
-            base_url = f"http://{device.ip_web}"
-            month = str(month)
-            year = str(year)
-
-            record_status_list = []
-            
-
-            async with httpx.AsyncClient(timeout=15) as client:
-                payload = f"""<?xml version="1.0" encoding="utf-8"?>
-                <trackDailyParam>
-                    <year>{year}</year>
-                    <monthOfYear>{month}</monthOfYear>
-                </trackDailyParam>
-                """
-                
-                url = f"{base_url}/ISAPI/ContentMgmt/record/tracks/{channel_id}/dailyDistribution"
-                print(f"Requesting URL: {repr(url)}")
-
-                resp = await client.post(
-                    url,
-                    content=payload,
-                    headers=header
-                )
-
-                print(f"Response Status Code: {resp.status_code}")
-                
-                if resp.status_code != 200:
-                    print("Error: API returned non-200 status.")
-                    return []
-                
-                root = ET.fromstring(resp.text)
-                
-                # Tìm tất cả các thẻ <day> trong XML (xử lý namespace)
-                days = root.findall(".//{http://www.hikvision.com/ver20/XMLSchema}day")
-
-                for d in days:
-                    day_of_month = int(d.find("{http://www.hikvision.com/ver20/XMLSchema}dayOfMonth").text)
-                    record = d.find("{http://www.hikvision.com/ver20/XMLSchema}record")
-                    has_record = (record is not None and record.text.lower() == "true")
-                    
-                    # Lưu trạng thái vào danh sách
-                    record_status_list.append({
-                        "date": f"{year}-{int(month):02d}-{day_of_month:02d}",
-                        "has_record": has_record
-                    })
-                    
-            print(f"Returning record status list with {len(record_status_list)} entries.")
-            return record_status_list
 
     async def sync_device_channels_data_core(
         self,
@@ -416,6 +369,8 @@ class HikRecordService():
             # =========================
             # 2. SYNC RECORD DATA
             # =========================
+
+            
             active_channels = db.query(Channel).filter(
                 Channel.device_id == device.id,
                 Channel.is_active == True
@@ -427,9 +382,17 @@ class HikRecordService():
                 else:
                     sync_from = channel.oldest_record_date or today
 
-                # bỏ comment để chỉ lấy dữ liệu 2 ngày gần nhất
-                #sync_from = max(sync_from, today - timedelta(days=2))
                 print("Syncing channel", channel.channel_no, "from", sync_from)
+
+                #  (1) LOAD TRƯỚC record_day CỦA CHANNEL
+                existing_days = {
+                    d.record_date: d
+                    for d in db.query(ChannelRecordDay)
+                    .filter(ChannelRecordDay.channel_id == channel.id)
+                    .all()
+                }
+
+                #  (2) LẤY STATUS RECORD
                 record_days = await hik_service.record_status_of_channel(
                     device,
                     channel.channel_no,
@@ -438,17 +401,12 @@ class HikRecordService():
                     headers
                 )
 
+                
                 for rd in record_days:
                     record_date = datetime.strptime(rd["date"], "%Y-%m-%d").date()
                     has_record = rd["has_record"]
 
-                    
-
-                    record_day = db.query(ChannelRecordDay).filter(
-                        ChannelRecordDay.channel_id == channel.id,
-                        ChannelRecordDay.record_date == record_date
-                    ).first()
-                    
+                    record_day = existing_days.get(record_date)
 
                     if not record_day:
                         record_day = ChannelRecordDay(
@@ -458,18 +416,19 @@ class HikRecordService():
                         )
                         db.add(record_day)
                         db.flush()
+                        existing_days[record_date] = record_day
                     else:
                         record_day.has_record = has_record
-                    if has_record and record_date >= today - timedelta(days=2):
+
+                    #  CHỈ SYNC SEGMENT GẦN HIỆN TẠI thì thêm "and record_date >= today - timedelta(days=2)"" vào if condition
+                    if has_record :
                         segments = await hik_service.get_time_ranges_segment(
                             device,
                             channel.channel_no,
                             record_date.strftime("%Y-%m-%d"),
                             headers
                         )
-                        segments = await hik_service.merge_time_ranges(
-                            segments
-                        )
+                        segments = await hik_service.merge_time_ranges(segments)
 
                         db.query(ChannelRecordTimeRange).filter(
                             ChannelRecordTimeRange.record_day_id == record_day.id
@@ -482,7 +441,7 @@ class HikRecordService():
                                 end_time=seg.end_time
                             ))
 
-                channel.last_sync_at = datetime.utcnow()
+                channel.last_sync_at =  datetime.now().astimezone()
                 channel.latest_record_date = today
 
 
@@ -495,8 +454,8 @@ class HikRecordService():
         hik_service = HikRecordService()
         today = TimeProvider().now().date()
 
-        # ❗ KHÔNG begin / commit ở đây
-
+        # KHÔNG begin / commit ở đây
+        print("Inside init data")
         channels_data = await hik_service._get_channels(device, headers)
         if not channels_data:
             raise Exception("No channels returned from device")
@@ -505,21 +464,45 @@ class HikRecordService():
             Channel.device_id == device.id
         ).delete(synchronize_session=False)
 
-        for ch in channels_data:
-            oldest_date = await hik_service.oldest_record_date(
-                device, ch["id"], headers
-            )
 
+        # =========================
+# BATCH CHANNEL
+# =========================
+
+        channels_to_add = []
+        channel_map = {}  # channel_no -> Channel instance
+
+        for ch in channels_data:
             channel = Channel(
                 device_id=device.id,
                 channel_no=ch["id"],
                 name=ch["name"],
                 connected_type=ch["connected_type"],
-                oldest_record_date=oldest_date,
+                oldest_record_date=None,   # set sau
                 latest_record_date=today
             )
-            db.add(channel)
-            db.flush()
+            channels_to_add.append(channel)
+            channel_map[ch["id"]] = channel
+
+        db.add_all(channels_to_add)
+        db.flush()  #  cần channel.id
+
+        # =========================
+        # BATCH RECORD DAY + TIME RANGE
+        # =========================
+
+        all_record_days = []
+        all_time_ranges = []
+
+        for ch in channels_data:
+            channel = channel_map[ch["id"]]
+
+            # ---- gọi API ----
+            oldest_date = to_date(
+                await hik_service.oldest_record_date(device, ch["id"], headers)
+            )
+            channel.oldest_record_date = oldest_date
+
 
             record_days = await hik_service.record_status_of_channel(
                 device,
@@ -528,32 +511,56 @@ class HikRecordService():
                 end_date=today.strftime("%Y-%m-%d"),
                 header=headers
             )
+ 
+            record_day_map = {}
 
+            # ---- BATCH RECORD DAY ----
             for rd in record_days:
-                record_day = ChannelRecordDay(
+                rd_obj = ChannelRecordDay(
                     channel_id=channel.id,
                     record_date=rd["date"],
                     has_record=rd["has_record"]
                 )
-                db.add(record_day)
-                db.flush()
-                print("add xong record day ")
-                if rd["has_record"]:
-                    segments = await hik_service.get_time_ranges_segment(
-                        device,
-                        ch["id"],
-                        rd["date"],
-                        headers
-                    )
-                    print("Lay xong time segment")
-                    segments = await hik_service.merge_time_ranges(segments)
+                all_record_days.append(rd_obj)
+                record_day_map[rd["date"]] = rd_obj
 
-                    for seg in segments:
-                        db.add(
-                            ChannelRecordTimeRange(
-                                record_day_id=record_day.id,
-                                start_time=seg.start_time,
-                                end_time=seg.end_time
-                            )
+            # ---- TIME RANGE (CHƯA ADD DB) ----
+            for rd in record_days:
+                if not rd["has_record"]:
+                    continue
+
+                segments = await hik_service.get_time_ranges_segment(
+                    device,
+                    ch["id"],
+                    rd["date"],
+                    headers
+                )
+                segments = await hik_service.merge_time_ranges(segments)
+
+                record_day = record_day_map[rd["date"]]
+
+                for seg in segments:
+                    all_time_ranges.append(
+                        ChannelRecordTimeRange(
+                            record_day=record_day,  #  ORM relationship, chưa cần id
+                            start_time=seg.start_time,
+                            end_time=seg.end_time
                         )
-                    print("add xong merge time segment ???")
+                    )
+
+        # =========================
+        # COMMIT DB
+        # =========================
+
+        db.add_all(all_record_days)
+        db.flush()  #  sinh record_day.id
+
+        db.add_all(all_time_ranges)
+        db.flush()
+
+        print(
+            f"Batch done: {len(channels_to_add)} channels | "
+            f"{len(all_record_days)} record days | "
+            f"{len(all_time_ranges)} time ranges"
+        )
+

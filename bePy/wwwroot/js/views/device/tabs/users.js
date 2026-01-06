@@ -47,8 +47,8 @@ const CHANNEL_BASED_PERMISSIONS = [
     "playback",
     "record",
     "backup",
-     "ptz_control",
-    "voice_talk",
+    "ptz_control",
+    
 ];
 
 
@@ -65,7 +65,7 @@ const PERMISSION_LABELS = {
     ptz_control: "PTZ Control",
     preview: "Live View",
     voice_talk: "Two-way Audio",
-    alarm_out_or_upload: "Trigger Alarm Output",
+    alarm_out_or_upload: "Notify Surveillance Center / Trigger Alarm Output",
     control_local_out: "Video Output Control",
     transparent_channel: "Serial Port Control",
 };
@@ -133,7 +133,15 @@ async function loadUsers() {
 /* =========================
    Render user row
 ========================= */
+const ROLE_LABELS = {
+administrator: "Admin",
+    operator: "Operator",
+    viewer: "User", // 👈 viewer hiển thị là user
+};
+
 function renderUserItem(user) {
+    const roleLabel = ROLE_LABELS[user.role] ?? user.role ?? "-";
+
     return `
         <div
             onclick='window.openUserModal(${JSON.stringify(user)})'
@@ -144,11 +152,12 @@ function renderUserItem(user) {
             </div>
 
             <div class="text-sm text-gray-500">
-                ${user.role ?? "-"}
+                ${roleLabel}
             </div>
         </div>
     `;
 }
+
 
 /* =========================
    Modal
@@ -223,6 +232,7 @@ window.syncUserPermission = async function (userId) {
     const perm = await apiFetch(
         `${API_URL}/api/device/${currentDevice.id}/user/${userId}/permissions`
     );
+    console.log(perm);
 
     
 
@@ -276,7 +286,7 @@ function renderPermissionItem(scope, key, enabled) {
             onclick="window.selectPermission('${scope}', '${key}')"
             class="flex items-center justify-between px-3 py-2 border rounded cursor-pointer
                    hover:bg-gray-50
-                   ${isSelected ? "bg-blue-50 border-blue-400" : ""}">
+                   ${isSelected ? "bg-blue-50 border-blue-500 ring-1 ring-blue-300" : ""}">
 
             <span>${permissionLabel(scope, key)}</span>
 
@@ -288,6 +298,7 @@ function renderPermissionItem(scope, key, enabled) {
 }
 
 
+
 function permissionLabel(scope, key) {
     return `${scope.toUpperCase()}: ${PERMISSION_LABELS[key] ?? key}`;
 }
@@ -297,6 +308,10 @@ function permissionLabel(scope, key) {
 ========================= */
 window.selectPermission = function (scope, permission) {
     selectedPermission = { scope, permission };
+
+    // 👉 RENDER LẠI permission list để highlight
+    renderPermissionUI(currentPermissionData);
+
     const panel = document.getElementById("channelPanel");
 
     // ===== Global permission → không có channel =====
@@ -312,12 +327,8 @@ window.selectPermission = function (scope, permission) {
     const scopeData = currentPermissionData?.[scope];
     if (!scopeData) return;
 
-    
     const enabledChannels = scopeData.channels?.[permission] || [];
-
-    const enabledSet = new Set(
-        enabledChannels.map(Number)
-    );
+    const enabledSet = new Set(enabledChannels.map(Number));
 
     panel.innerHTML = `
         <h4 class="font-semibold mb-3">
@@ -334,11 +345,7 @@ window.selectPermission = function (scope, permission) {
             ).join("")}
         </div>
     `;
-    console.log("Enabled channels:", enabledChannels);
-    console.log("Device channels:", deviceChannels);
-
 };
-
 
 
 

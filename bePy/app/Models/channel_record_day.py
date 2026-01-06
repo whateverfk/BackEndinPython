@@ -1,5 +1,6 @@
 # app/models/channel_record_day.py
 from sqlalchemy import Column, Integer, Date, Boolean, ForeignKey, Index
+
 from sqlalchemy.orm import relationship
 from app.db.base import Base
 

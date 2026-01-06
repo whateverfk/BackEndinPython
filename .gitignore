@@ -4,3 +4,6 @@ bePy/test.py
 .env
 
 bePy/app/test.py
+*.pvc
+bePy/test2.py
+

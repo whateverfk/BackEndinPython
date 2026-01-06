@@ -5,6 +5,7 @@ from app.features.resolver import StrategyResolver
 from app.core.time_provider import TimeProvider
 import asyncio
 from ping3 import ping
+import uuid
 
 
 async def ping_ip(ip: str, timeout: int = 2) -> bool:
@@ -29,6 +30,10 @@ class SyncEngine:
         self.resolver = StrategyResolver()
 
     async def sync_by_superadmin(self, db: Session, superadmin_id):
+        # Nếu superadmin_id là UUID object, chuyển sang string
+        if isinstance(superadmin_id, uuid.UUID):
+            superadmin_id = str(superadmin_id)
+
         devices = db.query(Device).filter(
             Device.owner_superadmin_id == superadmin_id,
             Device.is_checked == True

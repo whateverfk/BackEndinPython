@@ -491,11 +491,11 @@ function renderDayTimelineTable(dateStr) {
 
         const tdName = document.createElement("td");
         tdName.className =
-            "border p-2 font-semibold bg-white sticky left-0";
+            "border p-2 font-semibold bg-white sticky left-0 z-20";
         tdName.innerText = item.channel.name;
 
         const tdTimeline = document.createElement("td");
-        tdTimeline.className = "border p-2";
+        tdTimeline.className = "border p-2 relative overflow-hidden ";
 
         tdTimeline.appendChild(build24hTimeline(rd));
 
@@ -537,7 +537,7 @@ function build24hTimeline(rd) {
 
         const bar = document.createElement("div");
         bar.className =
-            "absolute top-0 h-full bg-green-500 hover:bg-green-600 cursor-pointer";
+            "absolute top-0 h-full bg-green-500 hover:bg-green-600 cursor-pointer z-0";
 
         bar.style.left = `${startPercent}%`;
         bar.style.width = `${Math.max(endPercent - startPercent, 0.3)}%`;

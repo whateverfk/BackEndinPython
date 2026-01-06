@@ -4,10 +4,11 @@ from datetime import datetime
 
 from app.features.sync.base import SyncStrategy
 from app.schemas.sync import SyncResult
-
+from app.core.http_client import get_http_client
 
 class HikvisionSync(SyncStrategy):
-
+    def __init__(self):
+        self.client = get_http_client()
     async def sync(self, device, server_time: datetime) -> SyncResult:
         time_now = server_time.strftime("%Y-%m-%dT%H:%M:%S")
 
@@ -31,8 +32,8 @@ class HikvisionSync(SyncStrategy):
         }
 
         try:
-            async with httpx.AsyncClient(timeout=5) as client:
-                res = await client.put(url, content=xml, headers=headers)
+            
+            res = await self.client.put(url, content=xml, headers=headers)
 
             if res.is_success:
                 return SyncResult(

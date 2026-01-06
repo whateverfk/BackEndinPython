@@ -4,9 +4,11 @@ from datetime import datetime
 
 from app.features.sync.base import SyncStrategy
 from app.schemas.sync import SyncResult
-
-
+from app.core.http_client import get_http_client
 class DahuaSync(SyncStrategy):
+    def __init__(self):
+        self.client = get_http_client()
+    
 
     async def sync(self, device, server_time: datetime) -> SyncResult:
         time_str = server_time.strftime("%Y-%m-%d %H:%M:%S")
@@ -22,8 +24,8 @@ class DahuaSync(SyncStrategy):
         headers = {"Authorization": f"Basic {auth}"}
 
         try:
-            async with httpx.AsyncClient(timeout=5) as client:
-                res = await client.get(url, headers=headers)
+            
+            res = await self.client.get(url, headers=headers)
 
             if res.status_code != 200:
                 return SyncResult(

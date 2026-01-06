@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey,Boolean
 from app.db.base import Base
 
 class ChannelStreamConfig(Base):
@@ -15,5 +15,7 @@ class ChannelStreamConfig(Base):
     max_frame_rate = Column(Integer)
 
     vbr_average_cap = Column(Integer)
+    vbr_upper_cap = Column(Integer)
     fixed_quality = Column(Integer)
+    h265_plus = Column(Boolean, default=False)
 

@@ -13,25 +13,19 @@ from app.Models.user_global_permissions import UserGlobalPermission
 from app.Models.channel import Channel
 
 
-async def saveSystemInfo(db, system_info: dict):
-    stmt = select(DeviceSystemInfo).where(
-        DeviceSystemInfo.device_id == system_info["device_id"]
-    )
-    result =  db.execute(stmt)
-    obj = result.scalar_one_or_none()
+def saveSystemInfo(db: Session, system_info: dict):
+    obj = db.execute(
+        select(DeviceSystemInfo)
+        .where(DeviceSystemInfo.device_id == system_info["device_id"])
+    ).scalar_one_or_none()
 
     if obj:
-        # update
-        obj.model = system_info["model"]
-        obj.serial_number = system_info["serial_number"]
-        obj.firmware_version = system_info["firmware_version"]
-        obj.mac_address = system_info["mac_address"]
+        for k, v in system_info.items():
+            setattr(obj, k, v)
     else:
-        # insert
-        obj = DeviceSystemInfo(**system_info)
-        db.add(obj)
+        db.add(DeviceSystemInfo(**system_info))
 
-    await db.commit()
+    db.commit()
 
 
 async def sync_channel_config(
@@ -58,6 +52,8 @@ async def sync_channel_config(
         cfg.max_frame_rate = stream_data["max_frame_rate"]
         cfg.fixed_quality = stream_data["fixed_quality"]
         cfg.vbr_average_cap = stream_data["vbr_average_cap"]
+        cfg.vbr_upper_cap = stream_data["vbr_upper_cap"]
+        cfg.h265_plus = stream_data["h265_plus"]
 
     # =========================
     # MOTION DETECTION
@@ -88,48 +84,50 @@ async def get_device_storage_from_db(db, device_id: int):
 # -------------------------------
 # 2. Upsert thông tin HDD vào DB
 # -------------------------------
-async def upsert_device_storage(db, device_id: int, storage_list: list[dict]):
-    """
-    Lưu hoặc cập nhật thông tin HDD vào DB.
-    
-    Args:
-        db: AsyncSession
-        device_id: ID device
-        storage_list: danh sách dict, mỗi dict có keys tương ứng DeviceStorage
-    """
-    for storage in storage_list:
-        # Kiểm tra xem HDD đã tồn tại chưa
-        result =  db.execute(
-            select(DeviceStorage).where(
-                DeviceStorage.device_id == device_id,
-                DeviceStorage.hdd_id == storage["hdd_id"]
-            )
-        )
-        existing = result.scalars().first()
+def upsert_device_storage(
+    db: Session,
+    device_id: int,
+    storage_list: list[dict]
+):
+    existing = db.execute(
+        select(DeviceStorage)
+        .where(DeviceStorage.device_id == device_id)
+    ).scalars().all()
 
-        if existing:
-            # Update các field
-            existing.hdd_name = storage.get("hdd_name", existing.hdd_name)
-            existing.status = storage.get("status", existing.status)
-            existing.hdd_type = storage.get("hdd_type", existing.hdd_type)
-            existing.capacity = storage.get("capacity", existing.capacity)
-            existing.free_space = storage.get("free_space", existing.free_space)
-            existing.property = storage.get("property", existing.property)
+    existing_map = {
+        h.hdd_id: h for h in existing
+    }
+
+    new_items = []
+
+    for s in storage_list:
+        hdd_id = s["hdd_id"]
+
+        if hdd_id in existing_map:
+            obj = existing_map[hdd_id]
+            obj.hdd_name = s.get("hdd_name")
+            obj.status = s.get("status")
+            obj.hdd_type = s.get("hdd_type")
+            obj.capacity = s.get("capacity")
+            obj.free_space = s.get("free_space")
+            obj.property = s.get("property")
         else:
-            # Insert mới
-            new_hdd = DeviceStorage(
+            new_items.append(DeviceStorage(
                 device_id=device_id,
-                hdd_id=storage.get("hdd_id"),
-                hdd_name=storage.get("hdd_name", ""),
-                status=storage.get("status", ""),
-                hdd_type=storage.get("hdd_type", ""),
-                capacity=storage.get("capacity", 0),
-                free_space=storage.get("free_space", 0),
-                property=storage.get("property", "")
-            )
-            db.add(new_hdd)
+                hdd_id=s["hdd_id"],
+                hdd_name=s.get("hdd_name"),
+                status=s.get("status"),
+                hdd_type=s.get("hdd_type"),
+                capacity=s.get("capacity"),
+                free_space=s.get("free_space"),
+                property=s.get("property"),
+            ))
+
+    if new_items:
+        db.add_all(new_items)
 
     db.commit()
+
 
 
 async def get_device_integration_users_from_db(
@@ -143,79 +141,75 @@ async def get_device_integration_users_from_db(
     )
     return result.scalars().all()
 
-async def upsert_device_integration_users(
+def upsert_device_integration_users(
     db: Session,
     device_id: int,
     users: list[dict]
 ):
-    for u in users:
-        result = db.execute(
-            select(DeviceIntegrationUser).where(
-                DeviceIntegrationUser.device_id == device_id,
-                DeviceIntegrationUser.user_id == u["user_id"]
-            )
-        )
-        existing = result.scalars().first()
+    existing = db.execute(
+        select(DeviceIntegrationUser)
+        .where(DeviceIntegrationUser.device_id == device_id)
+    ).scalars().all()
 
-        if existing:
-            existing.username = u["username"]
-            existing.level = u["level"]
+    existing_map = {u.user_id: u for u in existing}
+    new_items = []
+
+    for u in users:
+        if u["user_id"] in existing_map:
+            obj = existing_map[u["user_id"]]
+            obj.username = u["username"]
+            obj.level = u["level"]
         else:
-            db.add(DeviceIntegrationUser(
+            new_items.append(DeviceIntegrationUser(
                 device_id=device_id,
                 user_id=u["user_id"],
                 username=u["username"],
                 level=u["level"]
             ))
 
+    if new_items:
+        db.add_all(new_items)
+
     db.commit()
 
-
-async def upsert_device_users(
+def upsert_device_users(
     db: Session,
     device_id: int,
     users_data: list[dict]
 ):
-    """
-    Upsert users của device vào DB
-    """
+    existing = db.query(DeviceUser)\
+                 .filter(DeviceUser.device_id == device_id)\
+                 .all()
 
-    existing_users = db.query(DeviceUser).filter(
-        DeviceUser.device_id == device_id
-    ).all()
-
-    existing_map = {
-        u.user_id: u for u in existing_users
-    }
-
+    existing_map = {u.user_id: u for u in existing}
     incoming_ids = set()
+    new_items = []
 
     for u in users_data:
         incoming_ids.add(u["user_id"])
 
         if u["user_id"] in existing_map:
-            # UPDATE
-            db_user = existing_map[u["user_id"]]
-            db_user.user_name = u["user_name"]
-            db_user.role = u["role"]
-            db_user.is_active = True
+            obj = existing_map[u["user_id"]]
+            obj.user_name = u["user_name"]
+            obj.role = u["role"]
+            obj.is_active = True
         else:
-            # INSERT
-            db_user = DeviceUser(
+            new_items.append(DeviceUser(
                 device_id=device_id,
-                user_id=u["user_id"],
-                user_name=u["user_name"],
-                role=u["role"],
-                is_active=True
-            )
-            db.add(db_user)
+                is_active=True,
+                **u
+            ))
 
-    # disable users không còn tồn tại trên device
-    for db_user in existing_users:
-        if db_user.user_id not in incoming_ids:
-            db_user.is_active = False
+    for obj in existing:
+        if obj.user_id not in incoming_ids:
+            obj.is_active = False
+
+    if new_items:
+        db.add_all(new_items)
 
     db.commit()
+
+
 
 async def sync_device_users_from_isapi(
     db: Session,
@@ -290,25 +284,46 @@ GLOBAL_PERMISSION_MAP = {
 }
 
 
-def save_permissions(db: Session, device_user_id: int, permission_data: dict):
+from sqlalchemy.orm import Session
+from sqlalchemy import select, delete
+
+def save_permissions(
+    db: Session,
+    device_user_id: int,
+    permission_data: dict
+):
     try:
-        # ===== RESET CHANNEL PERMISSIONS =====
-        db.query(UserChannelPermission).filter(
-            UserChannelPermission.device_user_id == device_user_id
-            ).delete(synchronize_session=False)
+        # ======================================================
+        # 1. LẤY DEVICE_ID (CHỈ 1 QUERY)
+        # ======================================================
+        device_id = db.execute(
+            select(DeviceUser.device_id)
+            .where(DeviceUser.id == device_user_id)
+        ).scalar_one()
 
-        db.flush()
+        # ======================================================
+        # 2. RESET CHANNEL PERMISSIONS (BULK DELETE)
+        # ======================================================
+        db.execute(
+            delete(UserChannelPermission)
+            .where(UserChannelPermission.device_user_id == device_user_id)
+        )
 
-        # ===== GLOBAL =====
-        for scope in ["local", "remote"]:
+        # ======================================================
+        # 3. GLOBAL PERMISSIONS (UPSERT)
+        # ======================================================
+        for scope in ("local", "remote"):
             global_perm = permission_data.get(scope, {}).get("global")
             if not global_perm:
                 continue
 
-            g = db.query(UserGlobalPermission).filter_by(
-                device_user_id=device_user_id,
-                scope=scope
-            ).first()
+            g = db.execute(
+                select(UserGlobalPermission)
+                .where(
+                    UserGlobalPermission.device_user_id == device_user_id,
+                    UserGlobalPermission.scope == scope
+                )
+            ).scalar_one_or_none()
 
             if not g:
                 g = UserGlobalPermission(
@@ -317,58 +332,64 @@ def save_permissions(db: Session, device_user_id: int, permission_data: dict):
                 )
                 db.add(g)
 
-            # map XML key → DB column
+            # reset toàn bộ field về False
             for field in GLOBAL_PERMISSION_MAP.values():
                 setattr(g, field, False)
 
+            # set theo dữ liệu ISAPI
             for xml_key, db_field in GLOBAL_PERMISSION_MAP.items():
                 if xml_key in global_perm:
-                    setattr(g, db_field, bool(global_perm.get(xml_key)))
-
+                    setattr(g, db_field, bool(global_perm[xml_key]))
 
         db.flush()
 
-        # ===== CHANNEL =====
-        for scope in ["local", "remote"]:
-            channels = permission_data.get(scope, {}).get("channels", {})
+        # ======================================================
+        # 4. CACHE CHANNEL (CHỈ 1 QUERY)
+        # ======================================================
+        channels = db.execute(
+            select(Channel)
+            .where(Channel.device_id == device_id)
+        ).scalars().all()
 
-            for perm, channel_ids in channels.items():
-                for isapi_ch_id in channel_ids:
+        channel_map = {
+            ch.channel_no: ch.id
+            for ch in channels
+        }
 
+        # ======================================================
+        # 5. BUILD CHANNEL PERMISSIONS (BATCH)
+        # ======================================================
+        channel_permissions: list[UserChannelPermission] = []
+
+        for scope in ("local", "remote"):
+            channel_scope = permission_data.get(scope, {}).get("channels", {})
+
+            for perm, isapi_channel_ids in channel_scope.items():
+                for isapi_ch_id in isapi_channel_ids:
                     channel_no = isapi_ch_id * 100 + 1
-                    device_id = db.query(DeviceUser.device_id)\
-                                  .filter_by(id=device_user_id).scalar()
+                    channel_id = channel_map.get(channel_no)
 
-                    channel = db.query(Channel).filter_by(
-                        device_id=device_id,
-                        channel_no=channel_no
-                    ).first()
-
-                    if not channel:
+                    if not channel_id:
                         continue
 
-                    ucp = db.query(UserChannelPermission).filter_by(
-                        device_user_id=device_user_id,
-                        channel_id=channel.id,
-                        scope=scope,
-                        permission=perm
-                    ).first()
-
-                    if not ucp:
-                        ucp = UserChannelPermission(
+                    channel_permissions.append(
+                        UserChannelPermission(
                             device_user_id=device_user_id,
-                            channel_id=channel.id,
+                            channel_id=channel_id,
                             scope=scope,
                             permission=perm,
                             enabled=True
                         )
-                        db.add(ucp)
-                    else:
-                        ucp.enabled = True
+                    )
+
+        # ======================================================
+        # 6. BULK INSERT CHANNEL PERMISSIONS
+        # ======================================================
+        if channel_permissions:
+            db.bulk_save_objects(channel_permissions)
 
         db.commit()
 
     except Exception:
         db.rollback()
         raise
-

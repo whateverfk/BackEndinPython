@@ -8,7 +8,7 @@ from app.features.GetDevicesDetail.WorkWithDb import (
     upsert_device_users,
     get_device_users_from_db
 )
-from app.features.RecordInfo.deps import build_hik_auth
+from app.features.deps import build_hik_auth
 
 
 router = APIRouter(
@@ -41,7 +41,7 @@ async def sync_device_users(
             detail="Cannot fetch users from device"
         )
 
-    await upsert_device_users(
+    upsert_device_users(
         db=db,
         device_id=device.id,
         users_data=users

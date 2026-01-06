@@ -6,7 +6,7 @@ from app.db.session import get_db
 from app.Models.device import Device
 from app.Models.device_system_info import DeviceSystemInfo
 from app.features.GetDevicesDetail.HikDetailService import HikDetailService
-from app.features.RecordInfo.deps import build_hik_auth
+from app.features.deps import build_hik_auth
 from app.features.GetDevicesDetail.WorkWithDb import upsert_device_storage,get_device_storage_from_db,upsert_device_integration_users,get_device_integration_users_from_db
 
 router = APIRouter(
@@ -113,7 +113,7 @@ async def sync_device_storage(
     if not storage_data:
         raise HTTPException(status_code=502, detail="Cannot fetch storage from device")
 
-    await upsert_device_storage(db, device.id, storage_data)
+    upsert_device_storage(db, device.id, storage_data)
 
     return {
         "status": "success",
@@ -156,7 +156,7 @@ async def sync_device_onvif_users(
     if not users:
         raise HTTPException(status_code=502, detail="Cannot fetch ONVIF users")
 
-    await upsert_device_integration_users(db, device.id, users)
+    upsert_device_integration_users(db, device.id, users)
 
     return {
         "status": "success",
@@ -178,3 +178,5 @@ async def get_device_onvif_users(
         }
         for u in data
     ]
+
+

@@ -49,6 +49,7 @@ function renderStorageTable(storages = [], device) {
             <table class="min-w-full border bg-white text-sm">
                 <thead class="bg-gray-100">
                     <tr>
+                        <th class="border px-3 py-2 text-center w-12">STT</th>
                         <th class="border px-3 py-2 text-left">HDD Name</th>
                         <th class="border px-3 py-2">Status</th>
                         <th class="border px-3 py-2">Type</th>
@@ -65,7 +66,8 @@ function renderStorageTable(storages = [], device) {
                                 No storage found
                             </td>
                         </tr>`
-                        : storages.map(s => renderStorageRow(s)).join("")
+                        : storages.map((s, i) => renderStorageRow(s, i)).join("")
+
                     }
                 </tbody>
             </table>
@@ -73,11 +75,15 @@ function renderStorageTable(storages = [], device) {
     </div>
     `;
 }
-function renderStorageRow(s) {
+
+function renderStorageRow(s, index) {
     const toGB = v => (v / 1024).toFixed(1);
 
     return `
     <tr class="hover:bg-gray-50">
+        <td class="border px-3 py-2 text-center text-gray-500">
+            ${index + 1}
+        </td>
         <td class="border px-3 py-2">${s.hdd_name}</td>
         <td class="border px-3 py-2 text-center">
             <span class="${s.status === "ok" ? "text-green-600" : "text-red-500"}">
@@ -91,6 +97,9 @@ function renderStorageRow(s) {
     </tr>
     `;
 }
+
+
+
 window.syncStorage = async function () {
     const d = window.currentDevice;
 
