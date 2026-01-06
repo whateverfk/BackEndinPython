@@ -7,3 +7,4 @@ bePy/app/test.py
 *.pvc
 bePy/test2.py
 
+bePy/app/.env
