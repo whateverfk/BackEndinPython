@@ -151,14 +151,17 @@ function renderChannelForm(info, cap, device, channel) {
             <span>Max Frame Rate</span>
             <select id="fps" class="border p-2 w-full">
                 ${cap.max_frame_rates.map(f => {
-                     const display = f / 100;
-                     return `
+                    const isFull = f === 0;
+                    const display = isFull ? "Full Frame Rate" : (f / 100);
+
+                    return `
                         <option value="${f}" ${f === curFps ? "selected" : ""}>
                             ${display}
                         </option>
                     `;
-
                 }).join("")}
+
+
             </select>
         </label>
         <label class="block">
@@ -332,6 +335,7 @@ window.saveChannel = async function () {
     console.log("Payload sent to API:", payload);
 
 
+    try {
     await apiFetch(
         `${API_URL}/api/device/${d.id}/channel/${c.id}/infor`,
         {
@@ -339,7 +343,44 @@ window.saveChannel = async function () {
             body: JSON.stringify(payload)
         }
     );
-    
 
-    alert("Saved successfully");
+    showToast("Saved successfully", "success");
+
+} catch (err) {
+    console.error(err);
+    showToast("Save failed", "error");
+}
+
+};
+window.showToast = function (message, type = "success", duration = 3000) {
+    const toast = document.createElement("div");
+
+    const colors = {
+        success: "bg-green-600",
+        error: "bg-red-600",
+        warning: "bg-yellow-500",
+        info: "bg-blue-500"
+    };
+
+    toast.className = `
+        fixed bottom-4 right-4 z-50
+        px-4 py-2 rounded shadow-lg text-white
+        transition-all duration-300
+        ${colors[type] || colors.success}
+    `;
+
+    toast.textContent = message;
+
+    document.body.appendChild(toast);
+
+    // fade in
+    requestAnimationFrame(() => {
+        toast.classList.add("opacity-100");
+    });
+
+    // auto remove
+    setTimeout(() => {
+        toast.classList.add("opacity-0", "translate-y-2");
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
 };

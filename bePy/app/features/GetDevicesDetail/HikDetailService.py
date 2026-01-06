@@ -296,6 +296,7 @@ class HikDetailService:
                 <videoResolutionHeight>{cfg.resolution_height}</videoResolutionHeight>
                 <videoQualityControlType>vbr</videoQualityControlType>
                 <fixedQuality>{cfg.fixed_quality}</fixedQuality>
+                <vbrUpperCap>{cfg.vbr_upper_cap}</vbrUpperCap>
 
                 {smart_codec_xml}
 
@@ -303,7 +304,9 @@ class HikDetailService:
             </Video>
         </StreamingChannel>
         """
+            print("paload xml:" + payload)
             resp = await self.client.put(url, content=payload, headers=headers)
+            print(resp)
             resp.raise_for_status()
 
     
@@ -345,7 +348,9 @@ class HikDetailService:
         </Video>
     </StreamingChannel>
     """
+        print("paload xml:" + payload)
         resp = await self.client.put(url, content=payload, headers=headers)
+        print(resp)
         resp.raise_for_status()
 
 
