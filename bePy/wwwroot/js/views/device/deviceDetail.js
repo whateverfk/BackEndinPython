@@ -1,6 +1,7 @@
 import { API_URL } from "../../config.js";
 import { renderSystemInfo } from "./tabs/system-Info.js";
-import { renderChannelConfig } from "./tabs/Channel-Config.js";
+//import { renderChannelConfig } from "./tabs/Channel-Config/Channel-Config.js";
+import { renderChannelConfig } from "./tabs/Channel-Config/Channel-hub.js";
 import { renderUsers } from "./tabs/users.js";
 import { renderIntegration } from "./tabs/integration.js";
 import { renderStorage } from "./tabs/storage.js";

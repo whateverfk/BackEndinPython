@@ -1,4 +1,4 @@
-import { API_URL } from "../../../config.js";
+import { API_URL } from "../../../../../config.js";
 let capabilitiesCache = {}; // key: channelId, value: capabilities
 
 let currentChannel = null;
@@ -12,8 +12,8 @@ const FIXED_QUALITY_LABELS = {
 };
 
 
-export async function renderChannelConfig(device) {
-    const box = document.getElementById("detailContent");
+export async function renderConfigTab(device) {
+    const box = document.getElementById("channelSubContent");
 
     box.innerHTML = `<div class="text-gray-500">Loading channels...</div>`;
 
@@ -37,6 +37,9 @@ export async function renderChannelConfig(device) {
 
     await loadChannelForm(device, currentChannel);
 }
+
+
+
 function renderChannelSelector(channels) {
     return `
         <select id="channelSelect"
