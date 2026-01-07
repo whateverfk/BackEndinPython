@@ -24,7 +24,7 @@ async def start_live(
     user_id = user.user_id
     try:
         print("start lấy hls and shit")
-        result = await live_manager.acquire_channel_stream(db, user_id, device_id, channel_id)
+        result = await live_manager.acquire_channel_stream(db, device_id, channel_id)
         print( result["hls_url"] )
         return {"status": "ok", "hls_url": result["hls_url"]}
     except Exception as e:

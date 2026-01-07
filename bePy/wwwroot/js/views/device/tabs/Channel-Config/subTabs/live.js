@@ -1,9 +1,7 @@
-
-
-
 import { API_URL } from "../../../../../config.js";
 const liveContainerId = "channelSubContent";
 let currentHls = null;
+
 export async function renderLiveViewTab(device) {
     const box = document.getElementById(liveContainerId);
     if (!box) return;
@@ -44,17 +42,29 @@ export async function renderLiveViewTab(device) {
         channelSelect.appendChild(option);
     });
 
-    // Hàm fetch HLS URL
-    async function fetchLiveHls(channelId) {
-        const resp = await apiFetch(`${API_URL}/api/device/${device.id}/channel/${channelId}/live`);
-        const data = await resp;
-        console.log(data.hls_url)
-        const fullUrl = `${API_URL}${data.hls_url}`;
-        console.log(fullUrl)
-        return fullUrl;
+    // ===============================
+    // Fetch HLS URL với retry khi chưa sẵn sàng
+    // ===============================
+    async function fetchLiveHlsWithRetry(channelId, retries = 10, delayMs = 1000) {
+        for (let i = 0; i < retries; i++) {
+            try {
+                const resp = await apiFetch(`${API_URL}/api/device/${device.id}/channel/${channelId}/live`);
+                if (resp && resp.hls_url) {
+                    const fullUrl = `${API_URL}${resp.hls_url}`;
+                    return fullUrl;
+                }
+            } catch (err) {
+                // ignore lỗi network
+            }
+            console.log(`HLS not ready, retrying in ${delayMs}ms... (${i+1}/${retries})`);
+            await new Promise(res => setTimeout(res, delayMs));
+        }
+        throw new Error("HLS URL not ready after retries");
     }
 
-    // Hàm play HLS
+    // ===============================
+    // Play HLS và tự retry playlist khi chưa có segment
+    // ===============================
     function playHls(url) {
         if (currentHls) {
             currentHls.destroy();
@@ -62,9 +72,19 @@ export async function renderLiveViewTab(device) {
         }
 
         if (Hls.isSupported()) {
-            const hls = new Hls();
+            const hls = new Hls({
+                liveSyncDurationCount: 3,
+                maxBufferLength: 10,
+                maxMaxBufferLength: 20
+            });
             hls.loadSource(url);
             hls.attachMedia(videoEl);
+            hls.on(Hls.Events.ERROR, function (event, data) {
+                if (data.type === Hls.ErrorTypes.NETWORK_ERROR && data.response && data.response.code === 404) {
+                    console.log("Playlist not ready, retrying...");
+                    setTimeout(() => hls.loadSource(url), 1000);
+                }
+            });
             currentHls = hls;
         } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
             videoEl.src = url;
@@ -73,11 +93,19 @@ export async function renderLiveViewTab(device) {
 
     channelSelect.addEventListener("change", async () => {
         const channelId = channelSelect.value;
-        const url = await fetchLiveHls(channelId);
-        playHls(url);
+        try {
+            const url = await fetchLiveHlsWithRetry(channelId);
+            playHls(url);
+        } catch (err) {
+            console.error("Cannot play HLS:", err);
+        }
     });
 
     // auto play first channel
-    const firstUrl = await fetchLiveHls(channels[0].id);
-    playHls(firstUrl);
+    try {
+        const firstUrl = await fetchLiveHlsWithRetry(channels[0].id);
+        playHls(firstUrl);
+    } catch (err) {
+        console.error("Cannot play first HLS channel:", err);
+    }
 }
