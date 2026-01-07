@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from app.routers import api_router
 from app.db.session import engine
 from app.db.base import Base
@@ -22,8 +23,8 @@ async def lifespan(app: FastAPI):
     # để test nên tạm bỏ sync time 
     
     # tự chạy sync new data luôn khi mở 1 lần
-    await auto_sync_all_devices()
-    await daily_refresh_oldest()
+    #await auto_sync_all_devices()
+    #await daily_refresh_oldest()
     #chạy theo lịch mỗi 5p 1 lần
     start_scheduler()
     print("AUTO SYNC (  data ) STARTED")
@@ -40,6 +41,7 @@ async def lifespan(app: FastAPI):
 #app = FastAPI()
 
 app = FastAPI(lifespan=lifespan)
+app.mount("/hls", StaticFiles(directory=r"D:\Hls"), name="hls")
 
 app.add_middleware(
     CORSMiddleware,

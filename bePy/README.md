@@ -13,3 +13,5 @@ Styles dùng tailwind online == cần có mạng
 tìm cách tải về cũng đc . It possible ( and not that hard maybe )
 
 be độc lập 
+
+Cái live view bắt rtsp và decode == ffmpeg, ffmpeg-python lib chỉ là ffmpeg wapper giúp sinh script thôi, muốn chạy vẫn cần cài ffmpeg vào Path của máy 

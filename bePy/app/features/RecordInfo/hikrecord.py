@@ -106,6 +106,7 @@ class HikRecordService():
 
                 try:
                     resp = await self.client.get(url, headers=headers, timeout=10)
+                    print("Stop here if you sck")
                     resp.raise_for_status()
 
                     root = ET.fromstring(resp.text)
