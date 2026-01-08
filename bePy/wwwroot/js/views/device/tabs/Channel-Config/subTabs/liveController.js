@@ -4,6 +4,29 @@ let currentHls = null;
 let currentDeviceId = null;
 let currentChannelId = null;
 let stopTimer = null;
+let heartbeatTimer = null;
+
+export function startHeartbeat(deviceId, channelId) {
+    stopHeartbeat();
+
+    heartbeatTimer = setInterval(async () => {
+        try {
+            await apiFetch(
+                `${API_URL}/api/device/${deviceId}/channel/${channelId}/heartbeat`,
+                { method: "POST" }
+            );
+        } catch (e) {
+            console.warn("[LIVE] heartbeat failed");
+        }
+    }, 5000); // 5s
+}
+
+export function stopHeartbeat() {
+    if (heartbeatTimer) {
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+    }
+}
 
 export function setLiveContext({ hls, deviceId, channelId }) {
     currentHls = hls;
@@ -16,6 +39,7 @@ export function hasLive() {
 }
 
 export async function stopLiveAndCleanup(delayMs = 5000) {
+    stopHeartbeat()
     if (!hasLive()) return;
 
     // capture context TẠI THỜI ĐIỂM STOP ĐƯỢC LÊN LỊCH

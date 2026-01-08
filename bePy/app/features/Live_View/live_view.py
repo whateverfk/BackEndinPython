@@ -22,6 +22,7 @@ class LiveView:
     def __init__(self):
         self.client = get_http_client()
         self.running_streams = {}
+        self.start_cleanup_loop()
 
 
     async def get_rtsp_port(self, device, headers) -> int:
@@ -216,6 +217,9 @@ class LiveView:
                 "proc": proc,
                 "users": {user_id},
                 "refcount": 1,
+                 "last_seen": {
+                 user_id: time.time()
+        }
             }
             print(f"[ACQUIRE] FFmpeg started for {rtsp_url}, user {user_id}, refcount = 1")
 
@@ -239,6 +243,7 @@ class LiveView:
         return {"hls_url": hls_url}
 
     async def release_channel_stream(self, db, device_id: int, channel_id: int, user_id: int, delay: int = 7):
+
         """
         Giảm refcount stream cho user. Terminate FFmpeg nếu không còn user nào xem.
         """
@@ -292,3 +297,34 @@ class LiveView:
 
             t = threading.Timer(delay, terminate_stream)
             t.start()
+
+    def heartbeat(self, device_id: int, channel_id: int, user_id: int):
+        for info in self.running_streams.values():
+            if user_id in info["users"]:
+                info["last_seen"][user_id] = time.time()
+                return
+
+    def start_cleanup_loop(self, timeout=15):
+        def loop():
+            while True:
+                now = time.time()
+                for rtsp_url, info in list(self.running_streams.items()):
+                    dead_users = [
+                        uid for uid, ts in info["last_seen"].items()
+                        if now - ts > timeout
+                    ]
+
+                    for uid in dead_users:
+                        print(f"[CLEANUP] user {uid} timeout")
+                        info["users"].remove(uid)
+                        info["last_seen"].pop(uid, None)
+                        info["refcount"] -= 1
+
+                    if info["refcount"] <= 0:
+                        print("[CLEANUP] killing ffmpeg", rtsp_url)
+                        info["proc"].terminate()
+                        del self.running_streams[rtsp_url]
+
+                time.sleep(5)
+
+        threading.Thread(target=loop, daemon=True).start()

@@ -48,3 +48,12 @@ async def stop_live(
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/heartbeat")
+async def heartbeat(
+    device_id: int,
+    channel_id: int,
+    user: CurrentUser = Depends(get_current_user),
+):
+    live_manager.heartbeat(device_id, channel_id, user.user_id)
+    return {"status": "ok"}

@@ -1,5 +1,7 @@
 import { API_URL } from "../../../../../config.js";
-import { setLiveContext, stopLiveAndCleanup } from "./liveController.js";
+
+import { setLiveContext, stopLiveAndCleanup, startHeartbeat, stopHeartbeat } from "./liveController.js";
+
 
 const liveContainerId = "channelSubContent";
 
@@ -32,33 +34,29 @@ export async function renderLiveViewTab(device) {
         channelSelect.appendChild(opt);
     });
 
-    async function startLive(channelId) {
-        // stop live cũ (nếu có)
-        await stopLiveAndCleanup();
+    
+async function startLive(channelId) {
+    await stopLiveAndCleanup();
 
-        const resp = await apiFetch(
-            `${API_URL}/api/device/${device.id}/channel/${channelId}/live`
-        );
+    const resp = await apiFetch(
+        `${API_URL}/api/device/${device.id}/channel/${channelId}/live`
+    );
 
-        const hlsUrl = `${API_URL}${resp.hls_url}`;
+    const hlsUrl = `${API_URL}${resp.hls_url}`;
 
-        let hls = null;
-
-        if (Hls.isSupported()) {
-            hls = new Hls({ liveSyncDurationCount: 3 });
-            hls.loadSource(`${hlsUrl}?v=${Date.now()}`);
-
-            hls.attachMedia(videoEl);
-        } else {
-            videoEl.src = hlsUrl;
-        }
-
-        setLiveContext({
-            hls,
-            deviceId: device.id,
-            channelId
-        });
+    let hls = null;
+    if (Hls.isSupported()) {
+        hls = new Hls({ liveSyncDurationCount: 3 });
+        hls.loadSource(`${hlsUrl}?v=${Date.now()}`);
+        hls.attachMedia(videoEl);
+    } else {
+        videoEl.src = hlsUrl;
     }
+
+    setLiveContext({ hls, deviceId: device.id, channelId });
+    startHeartbeat(device.id, channelId);
+}
+
 
     channelSelect.onchange = async () => {
         await startLive(channelSelect.value);

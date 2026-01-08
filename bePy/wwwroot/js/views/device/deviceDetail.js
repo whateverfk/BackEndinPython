@@ -48,7 +48,7 @@ export async function renderDeviceDetail(container, id) {
 
         <div class="flex gap-4 border-b mb-4">
             ${tabBtn("info", "System Info", true)}
-            ${tabBtn("channel", "Channel Config")}
+            ${tabBtn("channel", "Channel")}
             ${tabBtn("users", "User & Permission")}
             ${tabBtn("integration", "Integration User")}
             ${tabBtn("storage", "Storage")}

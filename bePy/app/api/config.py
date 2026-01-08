@@ -48,7 +48,7 @@ def upsert_monitor_setting(
     if dto.start_day > dto.end_day:
         raise HTTPException(
             status_code=400,
-            detail="start_day must be <= end_day"
+            detail="start_day <= end_day pls "
         )
 
     setting = db.query(MonitorSetting).filter(
