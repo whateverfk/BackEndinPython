@@ -36,6 +36,21 @@ class Channel(Base):
         uselist=False,
         cascade="all, delete-orphan"
     )
+    recording = relationship(
+        "ChannelRecordingMode",
+        uselist=False,
+        back_populates="channel",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
+
+    recording_timeline = relationship(
+        "ChannelRecordingModeTimeline",
+        back_populates="channel",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="ChannelRecordingModeTimeline.start_time"
+    )
 
     
 

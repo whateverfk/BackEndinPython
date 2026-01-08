@@ -9,6 +9,9 @@ SECRET_KEY = "Cái này thì ghi gì cũng được"
 ~
 Thay url domain để Fetch API tại file config.js
 
+nếu thêm model mới thì import vào env.py của alembic thì mới autogenerate đc 
+
+
 Styles dùng tailwind online == cần có mạng
 tìm cách tải về cũng đc . It possible ( and not that hard maybe )
 

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.Models.device import Device
 from app.Models.channel import Channel
+from app.api.deps import get_current_user, CurrentUser
 from app.Models.device_system_info import DeviceSystemInfo
 from app.features.GetDevicesDetail.HikDetailService import HikDetailService
 from app.features.deps import build_hik_auth
@@ -12,6 +13,7 @@ from app.schemas.ChannelUpdate import ChannelUpdateSchema
 from app.Models.channel_extensions import ChannelExtension
 from app.Models.channel_stream_config import ChannelStreamConfig
 from app.features.GetDevicesDetail.WorkWithDb import sync_channel_config
+from app.features.Schedule_Racord_Mode.work_with_db import get_channel_recording_mode_from_db, sync_channel_recording_mode
 import logging
 router = APIRouter(
     prefix="/api/device/{device_id}/channel/{channel_id}/infor",
@@ -321,3 +323,102 @@ async def sync_channel_from_device(
     print("========== SYNC DONE ==========")
 
     return result
+
+
+@router.get("/recording-mode")
+async def get_channel_recording_mode(
+    device_id: int,
+    channel_id: int,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    # ===============================
+    # 1. Validate channel thuộc device
+    # ===============================
+    channel = db.query(Channel).filter(
+        Channel.id == channel_id,
+        Channel.device_id == device_id
+    ).first()
+
+    if not channel:
+        raise HTTPException(
+            status_code=404,
+            detail="Channel not found for this device"
+        )
+
+    # ===============================
+    # 2. Lấy recording mode từ DB
+    # ===============================
+
+    data = get_channel_recording_mode_from_db(
+        db=db,
+        channel_id=channel_id
+    )
+
+    if not data:
+        return {
+            "channel_id": channel_id,
+            "default_mode": None,
+            "timeline": []
+        }
+
+    # ==========
+    return {
+        "device_id": device_id,
+        "channel_id": channel_id,
+        "channel_no": channel.channel_no,
+        "default_mode": data["default_mode"],
+        "timeline": data["timeline"]
+    }
+
+@router.post("/recording-mode/sync")
+async def sync_recording_mode(
+    device_id: int,
+    channel_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    # ===============================
+    # 1. Load device + channel
+    # ===============================
+    device = db.query(Device).filter(
+        Device.id == device_id
+    ).first()
+
+    if not device:
+        raise HTTPException(404, "Device not found")
+
+    channel = db.query(Channel).filter(
+        Channel.id == channel_id,
+        Channel.device_id == device_id
+    ).first()
+
+    if not channel:
+        raise HTTPException(404, "Channel not found")
+
+    # ===============================
+    # 2. Build ISAPI auth header
+    # ===============================
+    headers = build_hik_auth(device)
+
+    # ===============================
+    # 3. Sync from NVR → DB
+    # ===============================
+    data = await sync_channel_recording_mode(
+        db=db,
+        device=device,
+        channel=channel,
+        headers=headers
+    )
+
+    if not data:
+        raise HTTPException(502, "Failed to sync from NVR")
+
+    # ===============================
+    # 4. Return latest DB data
+    # ===============================
+    return {
+        "success": True,
+        "data": get_channel_recording_mode_from_db(db, channel_id)
+    }
+
