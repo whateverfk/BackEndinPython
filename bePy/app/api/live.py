@@ -24,7 +24,7 @@ async def start_live(
     user_id = user.user_id
     try:
         print("start lấy hls and shit")
-        result = await live_manager.acquire_channel_stream(db, device_id, channel_id)
+        result = await live_manager.acquire_channel_stream(db, device_id, channel_id,user_id)
         print( result["hls_url"] )
         return {"status": "ok", "hls_url": result["hls_url"]}
     except Exception as e:
@@ -35,14 +35,16 @@ async def start_live(
 async def stop_live(
     device_id: int,
     channel_id: int,
-    user_id: str,
+    user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    Release live stream, terminate ffmpeg nếu không còn user nào xem
+    Release live stream, loai bo ffmpeg nếu không còn user nào xem
     """
     try:
-        live_manager.release_channel_stream(db, user_id, device_id, channel_id)
+        user_id = user.user_id
+        print("im gonna stop")
+        await live_manager.release_channel_stream(db, device_id, channel_id,user_id)
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

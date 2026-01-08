@@ -1,6 +1,7 @@
 import ffmpeg
 import xml.etree.ElementTree as ET
 import urllib.parse
+import threading
 import subprocess
 from sqlalchemy.orm import Session
 from app.core.http_client import get_http_client
@@ -158,16 +159,53 @@ class LiveView:
     # =========================
     # ACQUIRE STREAM
     # =========================
-    async def acquire_channel_stream(self, db: Session, device_id: int, channel_id: int) -> dict:
-        stream, rtsp_url, ip, channel_no = await self.build_ffmpeg_hls_process(db, device_id, channel_id)
+    async def acquire_channel_stream(self, db, device_id: int, channel_id: int, user_id: int) -> dict:
+        """
+        Bắt đầu stream cho user. Nếu stream đang chạy, chỉ tăng refcount/user set.
+        """
+        # Xây RTSP URL
+        print("aubot to FFmpeg")
+        device = db.query(Device).filter(Device.id == device_id).first()
+        if not device:
+            raise Exception("Device not found")
 
-        if rtsp_url in self.running_streams:
-            self.running_streams[rtsp_url]["refcount"] += 1
+        channel = db.query(Channel).filter(
+            Channel.id == channel_id,
+            Channel.device_id == device.id,
+        ).first()
+        if not channel:
+            raise Exception("Channel not found")
+
+        ip = device.ip_nvr or device.ip_web
+        username = urllib.parse.quote(device.username)
+        password = urllib.parse.quote(device.password)
+        rtsp_port = await self.get_rtsp_port(device, build_hik_auth(device))
+        rtsp_url = f"rtsp://{username}:{password}@{ip}:{rtsp_port}/ISAPI/Streaming/channels/{channel.channel_no}"
+        print(f"rtsp {rtsp_url}")
+        info = self.running_streams.get(rtsp_url)
+        print(f"infor {info}")
+        if info:
+            # Nếu user chưa có trong set, thêm vào
+            if user_id not in info["users"]:
+                info["users"].add(user_id)
+                info["refcount"] += 1
+                print(f"[ACQUIRE] User {user_id} joined stream {rtsp_url}, refcount = {info['refcount']}")
         else:
+            # Tạo process FFmpeg
+            print("fk error in build_ffmpeg_hls_process ")
+            stream, rtsp_url, ip, channel_no = await self.build_ffmpeg_hls_process(db, device_id, channel_id)
+            print("fk error in complie ")
             cmd = stream.compile()
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            self.running_streams[rtsp_url] = {"proc": proc, "refcount": 1}
 
+            self.running_streams[rtsp_url] = {
+                "proc": proc,
+                "users": {user_id},
+                "refcount": 1,
+            }
+            print(f"[ACQUIRE] FFmpeg started for {rtsp_url}, user {user_id}, refcount = 1")
+
+            # Log FFmpeg output
             def log_ffmpeg(p):
                 for line in p.stderr:
                     print("[FFMPEG]", line.decode(errors="ignore"))
@@ -175,6 +213,60 @@ class LiveView:
             threading.Thread(target=log_ffmpeg, args=(proc,), daemon=True).start()
             time.sleep(0.5)
 
-        hls_url = self.build_hls_url(ip, channel_no)
+        hls_url = self.build_hls_url(ip, channel.channel_no)
         return {"hls_url": hls_url}
 
+    async def release_channel_stream(self, db, device_id: int, channel_id: int, user_id: int, delay: int = 7):
+        """
+        Giảm refcount stream cho user. Terminate FFmpeg nếu không còn user nào xem.
+        """
+        device = db.query(Device).filter(Device.id == device_id).first()
+        if not device:
+            print("Device not found")
+            return
+
+        channel = db.query(Channel).filter(
+            Channel.id == channel_id,
+            Channel.device_id == device.id,
+        ).first()
+        if not channel:
+            print("Channel not found")
+            return
+
+        ip = device.ip_nvr or device.ip_web
+        username = urllib.parse.quote(device.username)
+        password = urllib.parse.quote(device.password)
+        rtsp_port = await self.get_rtsp_port(device, build_hik_auth(device))
+        rtsp_url = f"rtsp://{username}:{password}@{ip}:{rtsp_port}/ISAPI/Streaming/channels/{channel.channel_no}"
+
+        info = self.running_streams.get(rtsp_url)
+        if not info:
+            print(f"[RELEASE] Stream {rtsp_url} chưa chạy hoặc đã release")
+            return
+
+        if user_id in info["users"]:
+            info["users"].remove(user_id)
+            info["refcount"] -= 1
+            print(f"[RELEASE] User {user_id} left stream {rtsp_url}, refcount = {info['refcount']}")
+        else:
+            print(f"[RELEASE] User {user_id} không có trong stream {rtsp_url}")
+            return
+
+        if info["refcount"] <= 0:
+            # Timer delayed terminate FFmpeg
+            def terminate_stream():
+                current = self.running_streams.get(rtsp_url)
+                if current and current["refcount"] <= 0:
+                    proc = current["proc"]
+                    print(f"[TERMINATE] Killing FFmpeg for {rtsp_url}")
+                    proc.terminate()
+                    try:
+                        proc.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        proc.kill()
+                        print(f"[TERMINATE] FFmpeg killed for {rtsp_url}")
+                    del self.running_streams[rtsp_url]
+                    print(f"[TERMINATE] FFmpeg terminated for {rtsp_url} after {delay}s delay")
+
+            t = threading.Timer(delay, terminate_stream)
+            t.start()
