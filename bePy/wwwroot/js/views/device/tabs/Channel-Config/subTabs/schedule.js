@@ -31,7 +31,7 @@ export async function renderScheduleTab(device) {
     const channelsResp = await apiFetch(
         `${API_URL}/api/devices/${device.id}/channels`
     );
-    const channels =  channelsResp;
+    const channels = channelsResp;
 
     if (!channels.length) {
         box.innerHTML = `<div>No channel</div>`;
@@ -44,9 +44,7 @@ export async function renderScheduleTab(device) {
                 <select id="scheduleChannelSelect"
                     class="border rounded px-3 py-1">
                     ${channels.map(ch =>
-                        `<option value="${ch.id}">
-                            ${ch.name}
-                        </option>`
+                        `<option value="${ch.id}">${ch.name}</option>`
                     ).join("")}
                 </select>
 
@@ -54,7 +52,6 @@ export async function renderScheduleTab(device) {
                     <input type="checkbox" id="scheduleEnableCheckbox" disabled />
                     Enable Schedule
                 </label>
-
 
                 <div class="text-sm">
                     Default Mode:
@@ -78,14 +75,11 @@ export async function renderScheduleTab(device) {
                         <span class="w-4 h-4 rounded"
                             style="background:${color}"></span>
                         ${MODE_LABEL_MAP[mode] || mode}
-                    </div>`
-                ).join("")}
-
+                    </div>`).join("")}
             </div>
         </div>
     `;
 
-    //  DOM ĐÃ TỒN TẠI → an toàn
     const select = document.getElementById("scheduleChannelSelect");
     const syncBtn = document.getElementById("syncScheduleBtn");
 
@@ -99,8 +93,31 @@ export async function renderScheduleTab(device) {
     });
 
     // load mặc định
-    await loadChannelSchedule(device.id, channels[0].id);
+    const firstChannelId = channels[0].id;
+    let data = await apiFetch(
+        `${API_URL}/api/device/${device.id}/channel/${firstChannelId}/infor/recording-mode`
+    );
+
+    // Nếu chưa có timeline hoặc rỗng → tự sync 1 lần
+    if (!data || !data.timeline || data.timeline.length === 0) {
+        await syncFromNvr(device.id);
+        data = await apiFetch(
+            `${API_URL}/api/device/${device.id}/channel/${firstChannelId}/infor/recording-mode`
+        );
+    }
+
+    // Cập nhật UI
+    document.getElementById("defaultMode").textContent =
+        MODE_LABEL_MAP[data.default_mode] || "-";
+
+    const checkbox = document.getElementById("scheduleEnableCheckbox");
+    if (checkbox) {
+        checkbox.checked = !!data.schedule_enable;
+    }
+
+    renderTimeline(data.timeline);
 }
+
 
 
 async function loadChannelSchedule(deviceId, channelId) {

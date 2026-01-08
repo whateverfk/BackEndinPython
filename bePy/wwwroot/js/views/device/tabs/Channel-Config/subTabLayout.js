@@ -25,7 +25,7 @@ function subTabBtn(id, label, active = false) {
     return `
         <button
             data-subtab="${id}"
-            class="pb-2 font-semibold ${
+            class="flex-1 text-center pb-2 font-semibold ${
                 active
                     ? "border-b-2 border-blue-500 text-blue-600"
                     : "text-gray-500 hover:text-blue-600"
@@ -36,9 +36,10 @@ function subTabBtn(id, label, active = false) {
     `;
 }
 
+
 export function renderSubTabLayout() {
     return `
-        <div class="flex gap-4 border-b mb-4">
+        <div class="flex border-b mb-4">
             ${subTabBtn("config", "Config", true)}
             ${subTabBtn("schedule", "Schedule")}
             ${subTabBtn("live", "Live View")}
