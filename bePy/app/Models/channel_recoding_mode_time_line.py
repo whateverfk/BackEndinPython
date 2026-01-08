@@ -16,7 +16,7 @@ class ChannelRecordingModeTimeline(Base):
 
     # 0 = Monday ... 6 = Sunday
     day_of_week = Column(SmallInteger, nullable=False)
-
+    day_end_of_week = Column(SmallInteger, nullable=False)
     start_time = Column(Time, nullable=False)
     end_time = Column(Time, nullable=False)
 

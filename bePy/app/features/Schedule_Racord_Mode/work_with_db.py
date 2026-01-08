@@ -37,6 +37,7 @@ def upsert_channel_recording_mode(
             {
                 "day_start": "Sunday",
                 "time_start": "06:02:00",
+
                 "day_end": "Sunday",
                 "time_end": "10:45:00",
                 "mode": "MOTION"
@@ -89,6 +90,7 @@ def upsert_channel_recording_mode(
                 day_of_week=DAY_MAP[t["day_start"]],
                 start_time=time.fromisoformat(t["time_start"]),
                 end_time=time.fromisoformat(t["time_end"]),
+                day_end_of_week= DAY_MAP[t["day_end"]],
                 mode=RecordingMode(t["mode"])
             )
         )
@@ -157,7 +159,7 @@ def get_channel_recording_mode_from_db(
             {
                 "day_start": DAY_REVERSE_MAP[t.day_of_week],
                 "time_start": t.start_time.strftime("%H:%M:%S"),
-                "day_end": DAY_REVERSE_MAP[t.day_of_week],
+                "day_end": DAY_REVERSE_MAP[t.day_end_of_week],
                 "time_end": t.end_time.strftime("%H:%M:%S"),
                 "mode": t.mode.value
             }

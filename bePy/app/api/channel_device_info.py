@@ -367,6 +367,8 @@ async def get_channel_recording_mode(
         "device_id": device_id,
         "channel_id": channel_id,
         "channel_no": channel.channel_no,
+        "channel_name": channel.name,
+        "schedule_enable":data["schedule_enabled"],
         "default_mode": data["default_mode"],
         "timeline": data["timeline"]
     }

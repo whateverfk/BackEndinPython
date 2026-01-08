@@ -59,11 +59,15 @@ class HikRecordingModeService:
                 ),
                 "mode": mode
             })
-
-        return {
+        result = {
             "channel_id": channel.id,
             "default_mode": default_mode,
             "timeline": timeline
         }
+
+        # 5 Final result
+        print(" Final result:", result)
+
+        return result
 
     
