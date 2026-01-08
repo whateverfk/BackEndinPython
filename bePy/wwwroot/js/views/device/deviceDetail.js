@@ -6,6 +6,33 @@ import { renderUsers } from "./tabs/users.js";
 import { renderIntegration } from "./tabs/integration.js";
 import { renderStorage } from "./tabs/storage.js";
 
+
+import { hasLive, stopLiveAndCleanup } from
+    "./tabs/Channel-Config/subTabs/liveController.js";
+
+function bindTabs(device) {
+    document.querySelectorAll("[data-tab]").forEach(btn => {
+        btn.onclick = async () => {
+
+            if (hasLive()) {
+                await stopLiveAndCleanup();
+            }
+
+            setActiveTab(btn.dataset.tab);
+
+            const map = {
+                info: () => renderSystemInfo(device),
+                channel: () => renderChannelConfig(device),
+                users: () => renderUsers(device),
+                integration: () => renderIntegration(device),
+                storage: () => renderStorage(device)
+            };
+
+            map[btn.dataset.tab]?.();
+        };
+    });
+}
+
 export async function renderDeviceDetail(container, id) {
 
     const d = await apiFetch(`${API_URL}/api/devices/${id}`);
@@ -52,23 +79,6 @@ function tabBtn(id, label, active = false) {
     `;
 }
 
-function bindTabs(device) {
-    document.querySelectorAll("[data-tab]").forEach(btn => {
-        btn.onclick = () => {
-            setActiveTab(btn.dataset.tab);
-
-            const map = {
-                info: () => renderSystemInfo(device),
-                channel: () => renderChannelConfig(device), //
-                users: () => renderUsers(device),
-                integration: () => renderIntegration(device),
-                storage: () => renderStorage(device)
-            };
-
-            map[btn.dataset.tab]?.();
-        };
-    });
-}
 
 function setActiveTab(tab) {
     document.querySelectorAll("[data-tab]").forEach(b => {

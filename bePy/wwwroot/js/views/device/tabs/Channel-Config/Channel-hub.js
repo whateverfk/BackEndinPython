@@ -6,9 +6,7 @@ import { renderLiveViewTab } from "./subTabs/live.js";
 export async function renderChannelConfig(device) {
     const box = document.getElementById("detailContent");
 
-    box.innerHTML = `
-        ${renderSubTabLayout()}
-    `;
+    box.innerHTML = renderSubTabLayout();
 
     bindSubTabs(device, {
         config: renderConfigTab,
@@ -16,6 +14,6 @@ export async function renderChannelConfig(device) {
         live: renderLiveViewTab
     });
 
-    // default
+    // default sub-tab
     await renderConfigTab(device);
 }

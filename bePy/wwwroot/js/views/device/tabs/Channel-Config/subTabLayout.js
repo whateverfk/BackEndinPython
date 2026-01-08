@@ -1,3 +1,26 @@
+import { hasLive, stopLiveAndCleanup } from "./subTabs/liveController.js";
+
+export function bindSubTabs(device, map) {
+    let currentSubTab = Object.keys(map)[0];
+
+    document.querySelectorAll("[data-subtab]").forEach(btn => {
+        btn.onclick = async () => {
+            const next = btn.dataset.subtab;
+
+            if (currentSubTab === "live" && hasLive()) {
+                await stopLiveAndCleanup();
+            }
+
+            setActive(next);
+            document.getElementById("channelSubContent").innerHTML = "";
+
+            currentSubTab = next;
+            await map[next]?.(device);
+        };
+    });
+}
+
+
 function subTabBtn(id, label, active = false) {
     return `
         <button
@@ -25,14 +48,7 @@ export function renderSubTabLayout() {
     `;
 }
 
-export function bindSubTabs(device, tabMap) {
-    document.querySelectorAll("[data-subtab]").forEach(btn => {
-        btn.onclick = async () => {
-            setActive(btn.dataset.subtab);
-            await tabMap[btn.dataset.subtab]?.(device);
-        };
-    });
-}
+
 
 function setActive(tab) {
     document.querySelectorAll("[data-subtab]").forEach(b => {

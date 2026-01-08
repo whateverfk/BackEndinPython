@@ -10,6 +10,7 @@ from app.Models.user import User
 from app.Models.device import Device
 from app.Models.channel import Channel
 import psutil
+import shutil
 import threading
 import time
 import os
@@ -66,12 +67,6 @@ class LiveView:
         output_file = os.path.join(dir_path, "index.m3u8")
 
         # Nếu file chưa tồn tại → tạo placeholder
-        if not os.path.exists(output_file):
-            try:
-                with open(output_file, "w", encoding="utf-8") as f:
-                    f.write("#EXTM3U\n")
-            except Exception as e:
-                print(f"Không thể tạo placeholder HLS: {e}")
 
         return output_file
 
@@ -154,7 +149,19 @@ class LiveView:
             )
         )
 
-        return stream, rtsp_url, ip, channel.channel_no
+        return stream, rtsp_url, channel.channel_no,ip
+
+    def is_hls_ready(self, m3u8_path: str) -> bool:
+        if not os.path.exists(m3u8_path):
+            return False
+
+        try:
+            with open(m3u8_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            return "#EXTINF" in content
+        except Exception:
+            return False
+
 
     # =========================
     # ACQUIRE STREAM
@@ -193,7 +200,14 @@ class LiveView:
         else:
             # Tạo process FFmpeg
             print("fk error in build_ffmpeg_hls_process ")
-            stream, rtsp_url, ip, channel_no = await self.build_ffmpeg_hls_process(db, device_id, channel_id)
+            safe_ip = ip.replace(":", "_")
+            hls_dir = os.path.join(self.HLS_ROOT, safe_ip, f"channel_{channel.channel_no}")
+
+            if os.path.exists(hls_dir):
+                shutil.rmtree(hls_dir)
+
+            os.makedirs(hls_dir, exist_ok=True)
+            stream, rtsp_url, channel_no ,ip= await self.build_ffmpeg_hls_process(db, device_id, channel_id)
             print("fk error in complie ")
             cmd = stream.compile()
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -211,6 +225,14 @@ class LiveView:
                     print("[FFMPEG]", line.decode(errors="ignore"))
 
             threading.Thread(target=log_ffmpeg, args=(proc,), daemon=True).start()
+            m3u8_path = self.build_hls_output_path(ip, channel_no)
+            for _ in range(20):  # ~10s
+                if self.is_hls_ready(m3u8_path):
+                    break
+                time.sleep(0.5)
+            else:
+                raise Exception("HLS not ready")
+
             time.sleep(0.5)
 
         hls_url = self.build_hls_url(ip, channel.channel_no)
