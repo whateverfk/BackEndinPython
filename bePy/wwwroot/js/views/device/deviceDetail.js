@@ -6,7 +6,6 @@ import { renderUsers } from "./tabs/users.js";
 import { renderIntegration } from "./tabs/integration.js";
 import { renderStorage } from "./tabs/storage.js";
 
-
 import { hasLive, stopLiveAndCleanup } from
     "./tabs/Channel-Config/subTabs/liveController.js";
 
@@ -20,6 +19,12 @@ function bindTabs(device) {
 
             setActiveTab(btn.dataset.tab);
 
+            // Lưu tab vào URL
+            const url = new URL(window.location);
+            url.searchParams.set("tab", btn.dataset.tab);
+            url.searchParams.delete("subtab"); // reset subtab nếu đổi main tab
+            window.history.replaceState(null, "", url);
+
             const map = {
                 info: () => renderSystemInfo(device),
                 channel: () => renderChannelConfig(device),
@@ -28,23 +33,19 @@ function bindTabs(device) {
                 storage: () => renderStorage(device)
             };
 
-            map[btn.dataset.tab]?.();
+            await map[btn.dataset.tab]?.();
         };
     });
 }
 
 export async function renderDeviceDetail(container, id) {
-
     const d = await apiFetch(`${API_URL}/api/devices/${id}`);
     window.currentDevice = d;
 
     container.innerHTML = `
-        <button class="mb-4 text-blue-600 hover:underline"
-            id="btnBack">← Back</button>
+        <button class="mb-4 text-blue-600 hover:underline" id="btnBack">← Back</button>
 
-        <h2 class="text-xl font-bold mb-4">
-            Device ${d.ip_web}
-        </h2>
+        <h2 class="text-xl font-bold mb-4">Device ${d.ip_web}</h2>
 
         <div class="flex gap-4 border-b mb-4">
             ${tabBtn("info", "System Info", true)}
@@ -57,11 +58,40 @@ export async function renderDeviceDetail(container, id) {
         <div id="detailContent" class="pt-4"></div>
     `;
 
-    document.getElementById("btnBack").onclick =
-        () => location.hash = "#/devices";
+    document.getElementById("btnBack").onclick = () => location.hash = "#/devices";
 
     bindTabs(d);
-    renderSystemInfo(d);
+
+    // --- Restore tab / subtab từ URL ---
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab") || "info";
+    const subtab = params.get("subtab") || null;
+
+    setActiveTab(tab);
+
+    const map = {
+        info: () => renderSystemInfo(d),
+        channel: async () => {
+            await renderChannelConfig(d);
+
+            if (subtab) {
+                // Chọn sub-tab
+                const subMap = {
+                    config: () => import("./tabs/Channel-Config/subTabs/config.js").then(m => m.renderConfigTab(d)),
+                    schedule: () => import("./tabs/Channel-Config/subTabs/schedule.js").then(m => m.renderScheduleTab(d)),
+                    live: () => import("./tabs/Channel-Config/subTabs/live.js").then(m => m.renderLiveViewTab(d)),
+                };
+                await subMap[subtab]?.();
+                // Cập nhật giao diện subtab
+                document.querySelector(`[data-subtab="${subtab}"]`)?.classList.add("border-b-2", "border-blue-500", "text-blue-600");
+            }
+        },
+        users: () => renderUsers(d),
+        integration: () => renderIntegration(d),
+        storage: () => renderStorage(d)
+    };
+
+    await map[tab]?.();
 }
 
 function tabBtn(id, label, active = false) {
@@ -79,7 +109,6 @@ function tabBtn(id, label, active = false) {
     `;
 }
 
-
 function setActiveTab(tab) {
     document.querySelectorAll("[data-tab]").forEach(b => {
         b.classList.remove("border-b-2", "border-teal-500", "text-teal-600");
@@ -87,5 +116,5 @@ function setActiveTab(tab) {
     });
 
     const active = document.querySelector(`[data-tab="${tab}"]`);
-    active.classList.add("border-b-2", "border-teal-500", "text-teal-600");
+    if (active) active.classList.add("border-b-2", "border-teal-500", "text-teal-600");
 }

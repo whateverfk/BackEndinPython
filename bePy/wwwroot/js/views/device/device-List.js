@@ -93,22 +93,32 @@ function bindEvents() {
 
     // CHANGE: Active + Delete
     list.addEventListener("change", e => {
-        const row = e.target.closest("li");
-        if (!row) return;
+    const row = e.target.closest("li");
+    if (!row) return;
 
-        if (e.target.classList.contains("chk-active")) {
-            if (!e.target.checked) return;
-            const del = row.querySelector(".chk-delete");
-            if (del) del.checked = false;
+    // --- Active checkbox ---
+    if (e.target.classList.contains("chk-active")) {
+        if (!e.target.checked) return;
+
+        const del = row.querySelector(".chk-delete");
+        if (del) del.checked = false;        // Bỏ check Delete
+        row.classList.remove("mark-delete"); // Xóa highlight
+    }
+
+    // --- Delete checkbox ---
+    if (e.target.classList.contains("chk-delete")) {
+        if (e.target.checked) {
+            row.classList.add("mark-delete");
+
+            // Nếu đang check Active → bỏ check Active
+            const activeChk = row.querySelector(".chk-active");
+            if (activeChk) activeChk.checked = false;
+        } else {
             row.classList.remove("mark-delete");
         }
+    }
+});
 
-        if (e.target.classList.contains("chk-delete")) {
-            e.target.checked
-                ? row.classList.add("mark-delete")
-                : row.classList.remove("mark-delete");
-        }
-    });
 
     document.getElementById("btnConfirm")
         .addEventListener("click", confirmChanges);

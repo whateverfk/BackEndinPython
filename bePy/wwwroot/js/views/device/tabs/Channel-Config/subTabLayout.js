@@ -1,26 +1,38 @@
 import { hasLive, stopLiveAndCleanup } from "./subTabs/liveController.js";
 
+// --- Bind sub-tabs với device ---
 export function bindSubTabs(device, map) {
-    let currentSubTab = Object.keys(map)[0];
+    let currentSubTab = Object.keys(map)[0]; // mặc định sub-tab đầu tiên
 
     document.querySelectorAll("[data-subtab]").forEach(btn => {
         btn.onclick = async () => {
             const next = btn.dataset.subtab;
 
+            // Nếu đang ở live tab, dừng live trước khi đổi
             if (currentSubTab === "live" && hasLive()) {
                 await stopLiveAndCleanup();
             }
 
+            // Chuyển giao diện sub-tab
             setActive(next);
+
+            // Xóa nội dung cũ
             document.getElementById("channelSubContent").innerHTML = "";
 
             currentSubTab = next;
+
+            // Render nội dung sub-tab
             await map[next]?.(device);
+
+            // Cập nhật subtab vào URL
+            const url = new URL(window.location);
+            url.searchParams.set("subtab", next);
+            window.history.replaceState(null, "", url);
         };
     });
 }
 
-
+// --- Render nút sub-tab ---
 function subTabBtn(id, label, active = false) {
     return `
         <button
@@ -36,11 +48,11 @@ function subTabBtn(id, label, active = false) {
     `;
 }
 
-
+// --- Render layout sub-tab ---
 export function renderSubTabLayout() {
     return `
         <div class="flex border-b mb-4">
-            ${subTabBtn("config", "Config", true)}
+            ${subTabBtn("config", "Config")}
             ${subTabBtn("schedule", "Schedule")}
             ${subTabBtn("live", "Live View")}
         </div>
@@ -49,15 +61,18 @@ export function renderSubTabLayout() {
     `;
 }
 
-
-
-function setActive(tab) {
+// --- Chọn active sub-tab ---
+export function setActive(tab) {
+    // Xóa class active từ tất cả sub-tab
     document.querySelectorAll("[data-subtab]").forEach(b => {
         b.classList.remove("border-b-2", "border-blue-500", "text-blue-600");
         b.classList.add("text-gray-500");
     });
 
-    document
-        .querySelector(`[data-subtab="${tab}"]`)
-        .classList.add("border-b-2", "border-blue-500", "text-blue-600");
+    // Thêm class active cho sub-tab đang chọn
+    document.querySelector(`[data-subtab="${tab}"]`)?.classList.add(
+        "border-b-2",
+        "border-blue-500",
+        "text-blue-600"
+    );
 }

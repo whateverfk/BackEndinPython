@@ -20,12 +20,47 @@ document.addEventListener("DOMContentLoaded", () => {
 
     addBtn.addEventListener("click", addDevice);
 
-    // nếu có ?id= → edit
+    // Nếu có ?id= → edit
     const params = new URLSearchParams(window.location.search);
     if (params.has("id")) {
         loadDeviceForEdit(params.get("id"));
         addBtn.innerText = "Update";
     }
+
+    // =======================
+    // ENTER → focus sang field tiếp theo
+    // =======================
+    const formFields = [ipNvr, ipWeb, userName, password, brand];
+
+    formFields.forEach((field, idx) => {
+        field.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault(); // tránh submit form
+                const nextField = formFields[idx + 1];
+                if (nextField) {
+                    nextField.focus();
+                } else {
+                    addBtn.focus(); // nếu là field cuối → focus nút Add
+                }
+            }
+        });
+    });
+
+    // =======================
+    // Toggle show/hide password
+    // =======================
+    const togglePassword = document.getElementById("togglePassword");
+    const eyeOpen = document.getElementById("eyeOpen");
+    const eyeClosed = document.getElementById("eyeClosed");
+
+    togglePassword.addEventListener("click", () => {
+        const type = password.type === "password" ? "text" : "password";
+        password.type = type;
+
+        // đổi icon
+        eyeOpen.classList.toggle("hidden");
+        eyeClosed.classList.toggle("hidden");
+    });
 });
 
 // =======================
@@ -95,16 +130,3 @@ function clearForm() {
     brand.selectedIndex = 0;
     editingId = null;
 }
-const togglePassword = document.getElementById("togglePassword");
-const passwordInput = document.getElementById("password");
-const eyeOpen = document.getElementById("eyeOpen");
-const eyeClosed = document.getElementById("eyeClosed");
-
-togglePassword.addEventListener("click", () => {
-    const type = passwordInput.type === "password" ? "text" : "password";
-    passwordInput.type = type;
-
-    // đổi icon
-    eyeOpen.classList.toggle("hidden");
-    eyeClosed.classList.toggle("hidden");
-});
