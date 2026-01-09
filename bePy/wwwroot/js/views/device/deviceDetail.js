@@ -77,7 +77,7 @@ export async function renderDeviceDetail(container, id) {
 
         <h2 class="text-xl font-bold mb-4">Device ${d.ip_web}</h2>
 
-        <div class="flex gap-4 border-b mb-4">
+        <div class="flex border-b mb-4">
             ${tabBtn("info", "System Info", true)}
             ${tabBtn("channel", "Channel")}
             ${tabBtn("users", "User & Permission")}
@@ -130,16 +130,23 @@ function tabBtn(id, label, active = false) {
     return `
         <button
             data-tab="${id}"
-            class="pb-2 font-semibold ${
-                active
-                    ? "border-b-2 border-teal-500 text-teal-600"
-                    : "text-gray-500 hover:text-teal-600"
-            }"
+            class="
+                flex-1
+                pb-2
+                font-semibold
+                text-center
+                ${
+                    active
+                        ? "border-b-2 border-teal-500 text-teal-600"
+                        : "text-gray-500 hover:text-teal-600"
+                }
+            "
         >
             ${label}
         </button>
     `;
 }
+
 
 function setActiveTab(tab) {
     document.querySelectorAll("[data-tab]").forEach(b => {

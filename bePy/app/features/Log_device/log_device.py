@@ -24,6 +24,12 @@ MINOR_DISPLAY_MAP = {
     "lineDetectionStop": "Line Crossing Detection Stopped",
     #information
     "runStatusInfo":"System Running State",
+
+    #exception
+    "ipcDisconnect":"IP Camera Disconnect",
+    "videoLost":"Video Signal Loss",
+    "illlegealAccess":"Illegal Login",
+    
 }
 
 
