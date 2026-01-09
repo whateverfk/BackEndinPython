@@ -5,6 +5,7 @@ import { renderChannelConfig } from "./tabs/Channel-Config/Channel-hub.js";
 import { renderUsers } from "./tabs/users.js";
 import { renderIntegration } from "./tabs/integration.js";
 import { renderStorage } from "./tabs/storage.js";
+import { renderLog } from "./tabs/log.js";
 
 import { hasLive, stopLiveAndCleanup } from
     "./tabs/Channel-Config/subTabs/liveController.js";
@@ -30,7 +31,8 @@ function bindTabs(device) {
                 channel: () => renderChannelConfig(device),
                 users: () => renderUsers(device),
                 integration: () => renderIntegration(device),
-                storage: () => renderStorage(device)
+                storage: () => renderStorage(device),
+                log:() => renderLog(device)
             };
 
             await map[btn.dataset.tab]?.();
@@ -53,6 +55,7 @@ export async function renderDeviceDetail(container, id) {
             ${tabBtn("users", "User & Permission")}
             ${tabBtn("integration", "Integration User")}
             ${tabBtn("storage", "Storage")}
+            ${tabBtn("log", "Log")}
         </div>
 
         <div id="detailContent" class="pt-4"></div>
@@ -79,7 +82,7 @@ export async function renderDeviceDetail(container, id) {
                 const subMap = {
                     config: () => import("./tabs/Channel-Config/subTabs/config.js").then(m => m.renderConfigTab(d)),
                     schedule: () => import("./tabs/Channel-Config/subTabs/schedule.js").then(m => m.renderScheduleTab(d)),
-                    live: () => import("./tabs/Channel-Config/subTabs/live.js").then(m => m.renderLiveViewTab(d)),
+                    //live: () => import("./tabs/Channel-Config/subTabs/live.js").then(m => m.renderLiveViewTab(d)),
                 };
                 await subMap[subtab]?.();
                 // Cập nhật giao diện subtab
@@ -88,7 +91,8 @@ export async function renderDeviceDetail(container, id) {
         },
         users: () => renderUsers(d),
         integration: () => renderIntegration(d),
-        storage: () => renderStorage(d)
+        storage: () => renderStorage(d),
+        log: () => renderLog(d) 
     };
 
     await map[tab]?.();

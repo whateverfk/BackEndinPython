@@ -304,7 +304,7 @@ class LiveView:
                 info["last_seen"][user_id] = time.time()
                 return
 
-    def start_cleanup_loop(self, timeout=15):
+    def start_cleanup_loop(self, timeout=8):
         def loop():
             while True:
                 now = time.time()

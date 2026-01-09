@@ -9,9 +9,11 @@ export function bindSubTabs(device, map) {
             const next = btn.dataset.subtab;
 
             // Nếu đang ở live tab, dừng live trước khi đổi
-            if (currentSubTab === "live" && hasLive()) {
+            // Nếu đang có live và rời khỏi config → stop
+            if (hasLive() && currentSubTab === "config" && next !== "config") {
                 await stopLiveAndCleanup();
             }
+
 
             // Chuyển giao diện sub-tab
             setActive(next);
@@ -54,7 +56,7 @@ export function renderSubTabLayout() {
         <div class="flex border-b mb-4">
             ${subTabBtn("config", "Config")}
             ${subTabBtn("schedule", "Schedule")}
-            ${subTabBtn("live", "Live View")}
+            
         </div>
 
         <div id="channelSubContent"></div>

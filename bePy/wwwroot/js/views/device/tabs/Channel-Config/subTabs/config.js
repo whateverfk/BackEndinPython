@@ -1,7 +1,14 @@
 import { API_URL } from "../../../../../config.js";
 let capabilitiesCache = {}; // key: channelId, value: capabilities
+let currentChannelId = null;
 
 let currentChannel = null;
+import {
+  setLiveContext,
+  stopLiveAndCleanup,
+  startHeartbeat
+} from "./liveController.js";
+
 const FIXED_QUALITY_LABELS = {
     90: "Highest",
     75: "Higher",
@@ -31,16 +38,26 @@ export async function renderConfigTab(device) {
     }
 
     currentChannel = channels[0];
+    currentChannelId = currentChannel.id;
 
     box.innerHTML = `
         <div class="space-y-4">
             ${renderChannelSelector(channels)}
-            <div id="channelForm"></div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div id="liveBox"
+                     class="bg-gray-50 border rounded p-2"></div>
+
+                <div id="channelForm"></div>
+            </div>
         </div>
     `;
 
+    // ⚠️ CHỈ render live + form SAU KHI DOM ĐÃ CÓ liveBox
+    await renderLiveInConfig(device, currentChannelId);
     await loadChannelForm(device, currentChannel);
 }
+
 
 
 
@@ -59,9 +76,16 @@ function renderChannelSelector(channels) {
 }
 
 window.__onChannelChange = async function (channelId) {
-    currentChannel = { id: Number(channelId) };
-    await loadChannelForm(window.currentDevice, currentChannel);
+  if (currentChannelId === channelId) return;
+
+  await stopLiveAndCleanup();
+
+  currentChannelId = Number(channelId);
+
+  await renderLiveInConfig(window.currentDevice, currentChannelId);
+  await loadChannelForm(window.currentDevice, { id: currentChannelId });
 };
+
 
 
 async function loadChannelForm(device, channel) {
@@ -384,3 +408,35 @@ window.showToast = function (message, type = "success", duration = 3000) {
         setTimeout(() => toast.remove(), 300);
     }, duration);
 };
+
+async function renderLiveInConfig(device, channelId) {
+  const box = document.getElementById("liveBox");
+  if (!box) return;
+
+  box.innerHTML = `
+    <video id="liveVideo"
+      autoplay controls
+      class="w-full rounded border"
+      style="height:360px"></video>
+  `;
+
+  const videoEl = document.getElementById("liveVideo");
+
+  const resp = await apiFetch(
+    `${API_URL}/api/device/${device.id}/channel/${channelId}/live`
+  );
+
+  const hlsUrl = `${API_URL}${resp.hls_url}`;
+
+  let hls = null;
+  if (Hls.isSupported()) {
+    hls = new Hls({ liveSyncDurationCount: 3 });
+    hls.loadSource(`${hlsUrl}?v=${Date.now()}`);
+    hls.attachMedia(videoEl);
+  } else {
+    videoEl.src = hlsUrl;
+  }
+
+  setLiveContext({ hls, deviceId: device.id, channelId });
+  startHeartbeat(device.id, channelId);
+}
