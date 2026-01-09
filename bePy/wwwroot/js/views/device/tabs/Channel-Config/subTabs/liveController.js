@@ -38,19 +38,14 @@ export function hasLive() {
     return !!(currentHls && currentChannelId && currentDeviceId);
 }
 
-export async function stopLiveAndCleanup(delayMs = 2000) {
-    stopHeartbeat()
+export async function stopLiveAndCleanup(delayMs = 0) {
+    stopHeartbeat();
+
     if (!hasLive()) return;
 
-    // capture context TẠI THỜI ĐIỂM STOP ĐƯỢC LÊN LỊCH
     const deviceId = currentDeviceId;
     const channelId = currentChannelId;
     const hls = currentHls;
-
-    if (stopTimer) {
-        clearTimeout(stopTimer);
-        stopTimer = null;
-    }
 
     const doStop = async () => {
         try {
@@ -67,7 +62,13 @@ export async function stopLiveAndCleanup(delayMs = 2000) {
             hls?.destroy?.();
         } catch {}
 
-        // chỉ clear global state nếu nó VẪN là channel đó
+        const video = document.getElementById("liveVideo");
+        if (video) {
+            video.pause();
+            video.src = "";
+            video.load();
+        }
+
         if (
             currentDeviceId === deviceId &&
             currentChannelId === channelId
@@ -79,8 +80,9 @@ export async function stopLiveAndCleanup(delayMs = 2000) {
     };
 
     if (delayMs > 0) {
-        stopTimer = setTimeout(doStop, delayMs);
+        setTimeout(doStop, delayMs);
     } else {
         await doStop();
     }
 }
+
