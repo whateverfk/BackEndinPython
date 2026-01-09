@@ -62,7 +62,7 @@ export async function renderScheduleTab(device) {
                     class="ml-auto px-3 py-1 border rounded
                         bg-blue-600 text-white text-sm
                         hover:bg-blue-700">
-                    Sync from NVR
+                    Sync from Device
                 </button>
             </div>
 

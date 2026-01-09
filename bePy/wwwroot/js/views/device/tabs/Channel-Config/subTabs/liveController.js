@@ -38,7 +38,7 @@ export function hasLive() {
     return !!(currentHls && currentChannelId && currentDeviceId);
 }
 
-export async function stopLiveAndCleanup(delayMs = 5000) {
+export async function stopLiveAndCleanup(delayMs = 2000) {
     stopHeartbeat()
     if (!hasLive()) return;
 

@@ -361,12 +361,6 @@ class HikDetailService:
             "channel=", channel.channel_no,
             "type=", channel.connected_type)
 
-        print(" MOTION")
-        await self.put_motion_detection(
-            device, channel, channel.extension.motion_detect_enabled, headers
-        )
-        print(" MOTION OK")
-
         print(" NAME")
         if channel.connected_type == "local":
             await self.put_channel_name_local(device, channel, channel.name, headers)
@@ -380,7 +374,11 @@ class HikDetailService:
                 
             else:
                 await self.put_stream_config_proxy(device, channel, channel.stream_config, headers)
-                
+        print(" MOTION")
+        await self.put_motion_detection(
+            device, channel, channel.extension.motion_detect_enabled, headers
+        )
+        print(" MOTION OK")
 
         print(" PUSH DONE")
 
