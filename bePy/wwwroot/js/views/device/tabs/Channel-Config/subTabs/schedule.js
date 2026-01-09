@@ -210,6 +210,6 @@ async function syncFromNvr(deviceId) {
         console.error(err);
     } finally {
         btn.disabled = false;
-        btn.textContent = "Sync from NVR";
+        btn.textContent = "Sync from device";
     }
 }

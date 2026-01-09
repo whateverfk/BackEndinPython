@@ -530,7 +530,7 @@ class HikDetailService:
         base_url = f"http://{device.ip_web}"
         url = f"{base_url}/ISAPI/ContentMgmt/Storage"
 
-        print(f"Requesting URL: {repr(url)}")
+        print(f" from storage: {repr(url)}")
 
         try:
             

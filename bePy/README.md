@@ -15,6 +15,8 @@ nếu thêm model mới thì import vào env.py của alembic thì mới autogen
 Styles dùng tailwind online == cần có mạng
 tìm cách tải về cũng đc . It possible ( and not that hard maybe )
 
-be độc lập 
+be độc lập  
+"D:\PostGreSql\bin\pg_dump.exe" -U postgres -h localhost -p 5432 -d ForBackEnd -F c -b -v -f D:\BackUpDb\backup.dump
+
 
 Cái live view bắt rtsp và decode == ffmpeg, ffmpeg-python lib chỉ là ffmpeg wapper giúp sinh script thôi, muốn chạy vẫn cần cài ffmpeg vào Path của máy 

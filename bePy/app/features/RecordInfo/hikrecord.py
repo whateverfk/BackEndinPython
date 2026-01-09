@@ -105,7 +105,7 @@ class HikRecordService():
                 print(f"Requesting URL: {repr(url)}")
 
                 try:
-                    resp = await self.client.get(url, headers=headers, timeout=10)
+                    resp = await self.client.get(url, headers=headers, timeout=5)
                     print("Stop here if you sck")
                     resp.raise_for_status()
 
