@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
-
+from app.features.deps import build_hik_auth
 from app.api.deps import get_db, get_current_user, CurrentUser
 from app.Models.sync_log import SyncLog
 from app.schemas.sync_log import SyncLogOut
+from app.schemas.log_search import DeviceLogRequest
+from app.Models.device import Device
+from app.features.Log_device.log_device import fetch_isapi_logs
 
 router = APIRouter(
     prefix="/api/logs",
@@ -37,3 +40,49 @@ def cleanup_old_logs(db: Session):
         SyncLog.sync_time < cutoff
     ).delete(synchronize_session=False)
     db.commit()
+
+@router.post("/device/{device_id}")
+async def get_device_logs(
+    device_id: int,
+    body: DeviceLogRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Fetch device logs via Hikvision ISAPI
+    """
+
+    # ---- get device ----
+    device = db.query(Device).filter(Device.id == device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    # ---- build auth headers ----
+    try:
+        headers = build_hik_auth(device)
+    except Exception as ex:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to build device auth headers: {ex}"
+        )
+
+    # ---- validate input ----
+    if body.maxResults < 1 or body.maxResults > 2000:
+        body.maxResults = 2000
+
+    # ---- call ISAPI ----
+    data = await fetch_isapi_logs(
+        device=device,
+        headers=headers,
+        from_time=body.from_,
+        to_time=body.to,
+        max_results=body.maxResults,
+        major_type=body.majorType
+    )
+
+    if data is None:
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to fetch logs from device"
+        )
+
+    return data

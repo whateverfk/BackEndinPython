@@ -18,27 +18,55 @@ function bindTabs(device) {
                 await stopLiveAndCleanup();
             }
 
-            setActiveTab(btn.dataset.tab);
+            const tab = btn.dataset.tab;
+            setActiveTab(tab);
 
-            // Lưu tab vào URL
+            // ===== URL =====
             const url = new URL(window.location);
-            url.searchParams.set("tab", btn.dataset.tab);
-            url.searchParams.delete("subtab"); // reset subtab nếu đổi main tab
+            url.searchParams.set("tab", tab);
+
+            if (tab === "channel") {
+                url.searchParams.set("subtab", "config");
+            } else {
+                url.searchParams.delete("subtab");
+            }
             window.history.replaceState(null, "", url);
+
+            // ===== RENDER =====
+            if (tab === "channel") {
+                await renderChannelConfig(device);
+
+                // 🔥 QUAN TRỌNG: gọi subtab config
+                const m = await import(
+                    "./tabs/Channel-Config/subTabs/config.js"
+                );
+                await m.renderConfigTab(device);
+
+                // active UI
+                document
+                    .querySelector('[data-subtab="config"]')
+                    ?.classList.add(
+                        "border-b-2",
+                        "border-blue-500",
+                        "text-blue-600"
+                    );
+
+                return;
+            }
 
             const map = {
                 info: () => renderSystemInfo(device),
-                channel: () => renderChannelConfig(device),
                 users: () => renderUsers(device),
                 integration: () => renderIntegration(device),
                 storage: () => renderStorage(device),
-                log:() => renderLog(device)
+                log: () => renderLog(device)
             };
 
-            await map[btn.dataset.tab]?.();
+            await map[tab]?.();
         };
     });
 }
+
 
 export async function renderDeviceDetail(container, id) {
     const d = await apiFetch(`${API_URL}/api/devices/${id}`);
