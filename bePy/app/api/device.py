@@ -11,9 +11,10 @@ from app.schemas.device import (
     DeviceUpdate,
     DeviceOut,
 )
+from app.schemas.test_connect import DeviceConnectionTest,DeviceConnectionTestResult
 from app.schemas.channel_record import ChannelRecordDayOut
 from app.core.time_provider import TimeProvider
-from app.features.deps import build_hik_auth
+from app.features.deps import build_hik_auth,check_hikvision_auth,check_ip_reachable
 from app.features.RecordInfo.hikrecord import HikRecordService
 from app.Models.channel_record_day import ChannelRecordDay
 from fastapi import BackgroundTasks
@@ -24,6 +25,48 @@ router = APIRouter(
     prefix="/api/devices",
     tags=["Devices"]
 )
+
+
+@router.post(
+    "/test-connection",
+    response_model=DeviceConnectionTestResult
+)
+def test_device_connection(
+    dto: DeviceConnectionTest,
+    user: CurrentUser = Depends(get_current_user)
+):
+    # 1. Check IP
+    ip_ok = check_ip_reachable(dto.ip_web)
+
+    if not ip_ok:
+        return {
+            "ip_reachable": False,
+            "auth_ok": False,
+            "message": "Cannot reach device IP"
+        }
+
+    # 2. Check auth theo brand
+    auth_ok = False
+
+    if dto.brand.lower() == "hikvision":
+        auth_ok = check_hikvision_auth(
+            dto.ip_web,
+            dto.username,
+            dto.password
+        )
+    else:
+        return {
+            "ip_reachable": True,
+            "auth_ok": False,
+            "message": "Unsupported brand"
+        }
+
+    return {
+        "ip_reachable": True,
+        "auth_ok": auth_ok,
+        "message": "OK" if auth_ok else "Authentication failed"
+    }
+
 
 # =========================
 # GET: /api/devices

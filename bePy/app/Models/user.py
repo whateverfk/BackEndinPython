@@ -3,6 +3,7 @@ from sqlalchemy import Column, String, Boolean, DateTime, Integer, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+from app.Models.AlarmMessege import AlarmMessage
 
 from app.db.base import Base
 
@@ -41,4 +42,11 @@ class User(Base):
         "MonitorSetting",
         back_populates="owner",
         cascade="all, delete-orphan"
+    )
+
+    alarm_messages = relationship(
+        "AlarmMessage",
+        back_populates="owner",
+        cascade="all, delete-orphan",
+        passive_deletes=True
     )

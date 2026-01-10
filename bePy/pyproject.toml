@@ -7,6 +7,7 @@ requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.17.2",
     "apscheduler>=3.11.2",
+    "asyncpg>=0.31.0",
     "bcrypt==3.2.2",
     "fastapi[standard]>=0.124.4",
     "ffmpeg-python>=0.2.0",

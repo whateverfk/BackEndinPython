@@ -245,7 +245,7 @@ function renderLogTable(container) {
                             <th class="border px-1 py-1 w-40">Time</th>
                             <th class="border px-1 py-1 w-28">Major</th>
                             <th class="border px-1 py-1 w-48">Minor</th>
-                            <th class="border px-1 py-1 w-24 text-center">Channel</th>
+                            <th class="border px-1 py-1 w-24 text-center">Channel no</th>
                             <th class="border px-1 py-1 w-32">User</th>
                             <th class="border px-1 py-1 w-36">Remote IP</th>
                         </tr>

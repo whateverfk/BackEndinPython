@@ -11,12 +11,16 @@ import asyncio
 from contextlib import asynccontextmanager
 from app.features.background.scheduler import start_scheduler, stop_scheduler
 from app.core.http_client import close_http_client
+from app.features.background.save_alarm import AlarmSupervisor
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    supervisor = AlarmSupervisor()
+
     
-    #task = asyncio.create_task(sync_background_worker())
+    task = asyncio.create_task(sync_background_worker())
+    asyncio.create_task(supervisor.run())
     
     # print("AUTO SYNC ( time and data ) STARTED")
 
@@ -35,11 +39,11 @@ async def lifespan(app: FastAPI):
     yield
     stop_scheduler()
     await close_http_client()
-    #task.cancel()
-    # try:
-    #     await task
-    # except asyncio.CancelledError:
-    #     print(" AUTO SYNC CANCELLED")
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        print(" AUTO SYNC CANCELLED")
 
 #app = FastAPI()
 

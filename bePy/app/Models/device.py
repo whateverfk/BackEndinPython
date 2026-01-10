@@ -19,7 +19,7 @@ class Device(Base):
     password = Column(String(100))
 
     brand = Column(String(50))
-    is_checked = Column(Boolean, default=False)
+    is_checked = Column(Boolean, default=True)
 
     #  OWNER – GÁN TỪ TOKEN
     

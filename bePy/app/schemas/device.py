@@ -7,7 +7,7 @@ class DeviceBase(BaseModel):
     username: Optional[str] = None
     password: Optional[str] = None
     brand: Optional[str] = None
-    is_checked: bool = False
+    is_checked: bool = True
 
 
 class DeviceCreate(DeviceBase):

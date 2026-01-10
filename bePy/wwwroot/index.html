@@ -48,9 +48,17 @@
                 <option value="Dahua">Sorry, Mấy brand khác không có gì test để xây tính năng nên ko làm</option>
             </select>
 
-            <button id="addBtn" class="w-full px-3 py-3 bg-teal-500 text-white font-medium rounded-md text-base hover:bg-teal-700">Add</button>
+                <button id="addBtn" class="w-full px-3 py-3 bg-teal-500 text-white font-medium rounded-md text-base hover:bg-teal-700 disabled:bg-gray-400
+    disabled:text-gray-700
+    disabled:cursor-not-allowed
+    disabled:hover:bg-gray-400">Add</button>
         </div>
     </div>
+    <div
+    id="toastContainer"
+    class="fixed top-5 right-5 z-50 flex flex-col gap-2"
+    ></div>
+
 
 
     <script src="./js/auth.js"></script>

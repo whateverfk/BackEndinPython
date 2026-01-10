@@ -29,7 +29,7 @@ if config.config_file_name is not None:
 # Đưa metadata vào context để Alembic có thể auto-generate các migration
 from app.db.base import Base
 from app.Models import device, sync_log, sync_setting, user, channel, channel_record_day, channel_record_time_range, monitor_setting
-from app.Models import device_user, device_integration_users, device_system_info, device_storage,channel_recording_mode
+from app.Models import device_user, device_integration_users, device_system_info, device_storage,channel_recording_mode,AlarmMessege
 from app.Models import channel_extensions, channel_stream_config,user_channel_permissions,user_global_permissions,channel_recoding_mode_time_line
 
 target_metadata = Base.metadata
