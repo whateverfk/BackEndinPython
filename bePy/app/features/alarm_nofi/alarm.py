@@ -1,25 +1,77 @@
-import asyncio
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
 from app.core.http_client import get_http_client
 from app.Models.AlarmMessege import AlarmMessage
-from sqlalchemy.orm import Session
-from app.db.session import AsyncSessionLocal
+from app.Models.channel import Channel
+from app.db.session import AsyncSessionLocal, SessionLocal
+
+
+
+#Chưa rõ network disconnect là gì nên viết 2 cái có khả năng vào. device
+
 
 ALLOWED_EVENT_TYPES = {
     "videoloss",
-    "deviceOffline",
     "networkDisconnected",
     "netBroken",
 }
+EVENT_TYPE_LABEL_MAP = {
+    "videoloss": "Video Signal Loss",
+    "networkDisconnected": "Network Disconnected",
+    "netBroken": "Network Disconnected",
+}
+
 
 XML_NS = {"ns": "http://www.hikvision.com/ver20/XMLSchema"}
 
+# =========================
+# CHANNEL NAME CACHE
+# key = (ip_web, device_id)
+# value = { channel_no: channel_name }
+# =========================
 
-async def get_alarm(
-    device,
-    headers,
-):
+CHANNEL_NAME_CACHE: dict[tuple[str, int], dict[int, str]] = {}
+
+
+# =========================
+# CACHE HELPERS
+# =========================
+
+def _cache_key(device) -> tuple[str, int]:
+    return (device.ip_web, device.id)
+
+
+def load_channel_name_map(device) -> dict[int, str]:
+    """
+    Load channel_no -> channel_name from DB
+    """
+    with SessionLocal() as db:
+        rows = (
+            db.query(Channel.channel_no, Channel.name)
+            .filter(Channel.device_id == device.id)
+            .all()
+        )
+
+    return {row.channel_no: row.name for row in rows}
+
+
+def get_channel_name_map(device) -> dict[int, str]:
+    key = _cache_key(device)
+
+    if key not in CHANNEL_NAME_CACHE:
+        CHANNEL_NAME_CACHE[key] = load_channel_name_map(device)
+
+    return CHANNEL_NAME_CACHE[key]
+
+
+def invalidate_channel_cache(device):
+    CHANNEL_NAME_CACHE.pop(_cache_key(device), None)
+
+
+# =========================
+# ALARM STREAM LISTENER
+# =========================
+
+async def get_alarm(device, headers):
     """
     Listen Hikvision alertStream (LONG-LIVED HTTP CONNECTION)
     """
@@ -31,8 +83,9 @@ async def get_alarm(
     active_events: dict[tuple[str, str], bool] = {}
 
     buffer = ""
-
     client = get_http_client()
+
+    channel_name_map = get_channel_name_map(device)
 
     async with client.stream("GET", url, headers=headers, timeout=None) as resp:
         resp.raise_for_status()
@@ -43,7 +96,6 @@ async def get_alarm(
 
             buffer += chunk
 
-            # xử lý khi buffer có đủ 1 XML hoàn chỉnh
             while True:
                 start = buffer.find("<EventNotificationAlert")
                 end = buffer.find("</EventNotificationAlert>")
@@ -67,9 +119,12 @@ async def get_alarm(
                     if not event_type or event_type not in ALLOWED_EVENT_TYPES:
                         continue
 
+                    if not channel_id:
+                        continue
+
                     key = (event_type, channel_id)
 
-                    # debounce logic
+                    # debounce
                     if event_state == "active":
                         if key in active_events:
                             continue
@@ -78,38 +133,58 @@ async def get_alarm(
                     elif event_state == "inactive":
                         active_events.pop(key, None)
 
+                    # convert channelID -> channel_no
+                    channel_no = int(channel_id) * 100 + 1
+                    channel_name = channel_name_map.get(channel_no)
+
                     yield {
                         "device_id": device.id,
+                        "ip_web": device.ip_web,
                         "eventType": event_type,
                         "eventState": event_state,
                         "channelID": channel_id,
+                        "channelName": channel_name,
                         "time": event_time,
                         "ipAddress": ip_address,
                     }
 
                 except ET.ParseError:
-                    # XML chưa đủ → bỏ qua
                     continue
-
                 except Exception as ex:
                     print(f"[ALERT_STREAM] Error: {ex}")
 
-def build_alarm_message(alarm: dict, device_name: str | None = None) -> str:
-    event_type = alarm["eventType"]
-    channel = alarm["channelID"]
-    time = alarm["time"]
-    ip = alarm["ipAddress"]
 
-    device_label = f"[{device_name}] " if device_name else ""
+# =========================
+# MESSAGE BUILDER
+# =========================
+
+def build_alarm_message(alarm: dict) -> str:
+    raw_event_type = alarm["eventType"]
+    event_type = EVENT_TYPE_LABEL_MAP.get(raw_event_type, raw_event_type)
+    channel_id = alarm["channelID"]
+    channel_name = alarm.get("channelName")
+    time = alarm["time"]
+
+    ip_web = alarm.get("ip_web")
+
+    ip_label = f"({ip_web}) " if ip_web else ""
+
+    
 
     return (
-        f"{device_label}"
-        f"Event: {event_type} | "
-        f"Channel: {channel} | "
-        f"Time: {time} | "
+        f"{ip_label}"
+        f" Event: {event_type} | "
+        f"Channel Id: {channel_id} |"
+        f" Channel name: {channel_name} | "
+        f"Time: {time}"
     )
 
-async def save_alarm_message_async(user_id, device_id, message):
+
+# =========================
+# SAVE MESSAGE
+# =========================
+
+async def save_alarm_message_async(user_id, device_id, message: str):
     async with AsyncSessionLocal() as session:
         async with session.begin():
             session.add(
@@ -119,4 +194,3 @@ async def save_alarm_message_async(user_id, device_id, message):
                     message=message,
                 )
             )
-

@@ -16,7 +16,7 @@ async def sync_for_superadmin(owner_id: int, interval_minutes: int):
         try:
 
             await engine.sync_by_superadmin(db, owner_id)
-            print(f"Auto sync completed for owner_superadmin_id: {owner_id}")
+            print(f"Auto sync completed time for owner_superadmin_id: {owner_id}")
         finally:
             db.close()
 
@@ -43,7 +43,7 @@ async def sync_background_worker():
                             setting.interval_minutes or 10
                         )
                     )
-                    print(f"Started auto sync for owner_superadmin_id: {owner_id}")
+                    print(f"Started auto sync time for owner_superadmin_id: {owner_id}")
 
             # cancel worker bị disable aka dừng worker của admin bị xóa khỏi db 
             for owner_id in list(running_tasks.keys()):

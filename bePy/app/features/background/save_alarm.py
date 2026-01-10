@@ -22,7 +22,7 @@ class AlarmSupervisor:
                 async for alarm in get_alarm(device, headers):
                     message = build_alarm_message(
                         alarm,
-                        device_name=device.ip_web,
+                       
                     )
 
                     await save_alarm_message_async(

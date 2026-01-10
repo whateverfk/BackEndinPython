@@ -29,7 +29,7 @@ MINOR_DISPLAY_MAP = {
     "ipcDisconnect":"IP Camera Disconnect",
     "videoLost":"Video Signal Loss",
     "illlegealAccess":"Illegal Login",
-    "netBroken":"Network Dis"
+    "netBroken":"Network Disconnected"
 
 }
 
