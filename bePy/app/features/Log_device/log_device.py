@@ -22,14 +22,30 @@ MINOR_DISPLAY_MAP = {
 
     "lineDetectionStart": "Line Crossing Detection Started",
     "lineDetectionStop": "Line Crossing Detection Stopped",
+    "fieldDetectionStart": "Intrusion Detection Started",
+    "fieldDetectionStop": "Intrusion Detection Stop",
+    "audioInputExceptionStart":"Audio Input Exception Started",
+    "audioInputExceptionStop":"Audio Input Exception Stop",
+    "soundIntensityMutationStart":"Sudden change of Sound Intensity Detection Started",
+    "soundIntensityMutationStop":"Sudden change of Sound Intensity Detection Stop",
+
+
     #information
     "runStatusInfo":"System Running State",
+    "hddInfo":"HDD information",
 
     #exception
     "ipcDisconnect":"IP Camera Disconnect",
     "videoLost":"Video Signal Loss",
     "illlegealAccess":"Illegal Login",
-    "netBroken":"Network Disconnected"
+    "netBroken":"Network Disconnected",
+    "recordError":"Record/Capture Error",
+    "hdFull":"HDD Full",
+    "hdError":"HDD Error",
+    "ipConflict":"IP Address Conflicted",
+    "videoException":"Video Signal Exception",
+    "videoFormatMismatch":"Input/Output Video Standard Mismatch",
+    "ipcIpConfilict":"Ip Address of IPC Conflict"
 
 }
 

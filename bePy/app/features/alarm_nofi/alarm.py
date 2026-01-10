@@ -131,7 +131,7 @@ async def get_alarm(device, headers):
                         active_events[key] = True
 
                     elif event_state == "inactive":
-                        active_events.pop(key, None)
+                       active_events.pop(key, None)
 
                     # convert channelID -> channel_no
                     channel_no = int(channel_id) * 100 + 1
