@@ -124,12 +124,10 @@ class LiveView:
             .input(
                 rtsp_url,
                 rtsp_transport="tcp",
-                fflags="nobuffer",
+                fflags="genpts",
                 flags="low_delay",
-                analyzeduration=0,
-                probesize=32,
-                max_delay=0,
-                stimeout=5000000,
+                analyzeduration=2000000,
+                probesize=500000,
             )
             .output(
                 output_path,
@@ -138,19 +136,17 @@ class LiveView:
                 preset="ultrafast",
                 tune="zerolatency",
                 pix_fmt="yuv420p",
-
-                g=gop,                # GOP nhỏ
-                keyint_min=25,
+                g=gop,
+                keyint_min=gop,
                 sc_threshold=0,
-                force_key_frames="expr:gte(t,n_forced*1)",
-
-                hls_time=0.5,
-                hls_list_size=2,
-                hls_flags="delete_segments+independent_segments+append_list",
+                profile="baseline",
+                level="4.1",
+                hls_time=1,
+                hls_list_size=3,
+                hls_flags="delete_segments+independent_segments",
                 hls_allow_cache=0,
-
                 map="0:v:0",
-                err_detect="ignore_err",
+                err_detect="ignore_err"  # bỏ qua NALU lỗi
             )
         )
 
