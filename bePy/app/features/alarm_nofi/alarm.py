@@ -6,18 +6,23 @@ from app.db.session import AsyncSessionLocal, SessionLocal
 
 
 
-#Chưa rõ network disconnect là gì nên viết 2 cái có khả năng vào. device
+#Chưa rõ network disconnect là gì nên viết 2 cái có khả năng vào
 
 
 ALLOWED_EVENT_TYPES = {
     "videoloss",
     "networkDisconnected",
     "netBroken",
+    "hdFull",
+    "hdError"
+
 }
 EVENT_TYPE_LABEL_MAP = {
     "videoloss": "Video Signal Loss",
     "networkDisconnected": "Network Disconnected",
     "netBroken": "Network Disconnected",
+    "hdFull":"HDD Full",
+    "hdError":"HDD Error"
 }
 
 
@@ -73,7 +78,7 @@ def invalidate_channel_cache(device):
 
 async def get_alarm(device, headers):
     """
-    Listen Hikvision alertStream (LONG-LIVED HTTP CONNECTION)
+    Hikvision alertStream (LONG-LIVED HTTP CONNECTION)
     """
 
     base_url = f"http://{device.ip_web}"
@@ -127,7 +132,7 @@ async def get_alarm(device, headers):
                     # debounce
                     if event_state == "active":
                         if key in active_events:
-                            continue
+                            continue          
                         active_events[key] = True
 
                     elif event_state == "inactive":

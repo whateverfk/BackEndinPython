@@ -124,10 +124,12 @@ class LiveView:
             .input(
                 rtsp_url,
                 rtsp_transport="tcp",
-                fflags="genpts",
+                fflags="nobuffer",
                 flags="low_delay",
-                analyzeduration=2000000,
-                probesize=500000,
+                analyzeduration=0,
+                probesize=32,
+                max_delay=0,
+                stimeout=5000000,
             )
             .output(
                 output_path,
@@ -136,19 +138,22 @@ class LiveView:
                 preset="ultrafast",
                 tune="zerolatency",
                 pix_fmt="yuv420p",
-                g=gop,
-                keyint_min=gop,
+
+                g=gop,                # GOP nhỏ
+                keyint_min=25,
                 sc_threshold=0,
-                profile="baseline",
-                level="4.1",
-                hls_time=1,
-                hls_list_size=3,
-                hls_flags="delete_segments+independent_segments",
+                force_key_frames="expr:gte(t,n_forced*1)",
+
+                hls_time=0.5,
+                hls_list_size=2,
+                hls_flags="delete_segments+independent_segments+append_list",
                 hls_allow_cache=0,
+
                 map="0:v:0",
-                err_detect="ignore_err"  # bỏ qua NALU lỗi
+                err_detect="ignore_err",
             )
         )
+
 
         return stream, rtsp_url, channel.channel_no,ip
 
@@ -165,7 +170,7 @@ class LiveView:
 
 
     # =========================
-    # ACQUIRE STREAM
+    # Lấy STREAM Rồi decode các thứ
     # =========================
     async def acquire_channel_stream(self, db, device_id: int, channel_id: int, user_id: int) -> dict:
         """
@@ -242,7 +247,7 @@ class LiveView:
         hls_url = self.build_hls_url(ip, channel.channel_no)
         return {"hls_url": hls_url}
 
-    async def release_channel_stream(self, db, device_id: int, channel_id: int, user_id: int, delay: int = 7):
+    async def release_channel_stream(self, db, device_id: int, channel_id: int, user_id: int, delay: int = 4):
 
         """
         Giảm refcount stream cho user. Terminate FFmpeg nếu không còn user nào xem.
