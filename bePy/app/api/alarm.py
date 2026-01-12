@@ -44,13 +44,13 @@ def get_alarm_messages(
 def delete_alarm_message(
     alarm_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_user)
 ):
     alarm = (
         db.query(AlarmMessage)
         .filter(
             AlarmMessage.id == alarm_id,
-            AlarmMessage.user_id == current_user.id
+            AlarmMessage.user_id == current_user.superadmin_id
         )
         .first()
     )
@@ -67,11 +67,11 @@ def delete_alarm_message(
 @router.delete("")
 def delete_all_alarm_messages(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_user)
 ):
     deleted = (
         db.query(AlarmMessage)
-        .filter(AlarmMessage.user_id == current_user.id)
+        .filter(AlarmMessage.user_id == current_user.superadmin_id)
         .delete(synchronize_session=False)
     )
 
