@@ -131,7 +131,7 @@ async function addDevice() {
 
     } catch (err) {
         console.error(err);
-        showToast("Unexpected error while saving device", "error");
+        showToast("Unexpected error while saving device "+ `${err}` );
     } finally {
         addBtn.disabled = false;
     }

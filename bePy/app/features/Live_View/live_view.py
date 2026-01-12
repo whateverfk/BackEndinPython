@@ -310,8 +310,7 @@ class LiveView:
             print("[CLEANUP] cleanup loop started, timeout =", timeout)
             while True:
                 now = time.time()
-                print("\n[CLEANUP] tick", time.strftime("%H:%M:%S"))
-
+                
                 for rtsp_url, info in list(self.running_streams.items()):
                     print(f"[CLEANUP] checking stream {rtsp_url}")
                     print(f"  users      = {info['users']}")

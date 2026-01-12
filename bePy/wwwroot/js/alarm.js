@@ -102,7 +102,6 @@ function renderAlarms(alarms) {
     });
 }
 
-
 // =======================
 // DELETE ONE
 // =======================
