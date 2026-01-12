@@ -58,14 +58,18 @@ export async function stopLiveAndCleanup(delayMs = 0) {
             console.warn("[LIVE] stop failed", err);
         }
 
-        try {
+        try { 
+            hls?.stopLoad?.(); 
+            hls?.detachMedia?.();
             hls?.destroy?.();
+
         } catch {}
 
         const video = document.getElementById("liveVideo");
         if (video) {
             video.pause();
             video.src = "";
+            //video.removeAttribute("src"); 
             video.load();
         }
 

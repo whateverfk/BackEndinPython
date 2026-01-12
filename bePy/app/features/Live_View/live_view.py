@@ -305,26 +305,44 @@ class LiveView:
                 info["last_seen"][user_id] = time.time()
                 return
 
-    def start_cleanup_loop(self, timeout=8):
+    def start_cleanup_loop(self, timeout=12):
         def loop():
+            print("[CLEANUP] cleanup loop started, timeout =", timeout)
             while True:
                 now = time.time()
+                print("\n[CLEANUP] tick", time.strftime("%H:%M:%S"))
+
                 for rtsp_url, info in list(self.running_streams.items()):
-                    dead_users = [
-                        uid for uid, ts in info["last_seen"].items()
-                        if now - ts > timeout
-                    ]
+                    print(f"[CLEANUP] checking stream {rtsp_url}")
+                    print(f"  users      = {info['users']}")
+                    print(f"  last_seen  = {info['last_seen']}")
+                    print(f"  refcount   = {info['refcount']}")
+
+                    dead_users = []
+                    for uid, ts in info["last_seen"].items():
+                        delta = now - ts
+                        print(f"    user {uid}: last_seen {delta:.1f}s ago")
+                        if delta > timeout:
+                            dead_users.append(uid)
 
                     for uid in dead_users:
-                        print(f"[CLEANUP] user {uid} timeout")
-                        info["users"].remove(uid)
+                        print(f"[CLEANUP] user {uid} TIMEOUT → remove")
+                        info["users"].discard(uid)
                         info["last_seen"].pop(uid, None)
                         info["refcount"] -= 1
 
                     if info["refcount"] <= 0:
-                        print("[CLEANUP] killing ffmpeg", rtsp_url)
-                        info["proc"].terminate()
+                        print(f"[CLEANUP] refcount <= 0 → kill ffmpeg {rtsp_url}")
+                        proc = info["proc"]
+                        proc.terminate()
+                        try:
+                            proc.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            proc.kill()
+                            print("[CLEANUP] ffmpeg force killed")
+
                         del self.running_streams[rtsp_url]
+                        print("[CLEANUP] stream removed")
 
                 time.sleep(5)
 
