@@ -71,7 +71,6 @@ def get_channel_name_map(device) -> dict[int, str]:
 def invalidate_channel_cache(device):
     CHANNEL_NAME_CACHE.pop(_cache_key(device), None)
 
-
 # =========================
 # ALARM STREAM LISTENER
 # =========================
@@ -157,8 +156,6 @@ async def get_alarm(device, headers):
                     continue
                 except Exception as ex:
                     print(f"[ALERT_STREAM] Error: {ex}")
-
-
 # =========================
 # MESSAGE BUILDER
 # =========================
@@ -183,7 +180,6 @@ def build_alarm_message(alarm: dict) -> str:
         f" Channel name: {channel_name} | "
         f"Time: {time}"
     )
-
 
 # =========================
 # SAVE MESSAGE

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <title>Alarm Messages</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="./css/style.css" />
+</head>
+
+<body class="bg-gray-100 text-gray-800 font-sans">
+
+<!-- NAVBAR -->
+<div id="nav-placeholder"></div>
+
+<!-- HEADER -->
+<div class="flex justify-center mb-3">
+    <div class="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-lg shadow-sm">
+        <span class="font-semibold text-center">
+             Alarm Messages
+        </span>
+
+        <button id="deleteAllBtn"
+                class="ml-3 px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700">
+            Xóa tất cả
+        </button>
+    </div>
+</div>
+
+<!-- MAIN -->
+<div class="min-h-screen p-6">
+    <div class="max-w-[95vw] mx-auto">
+
+        <div class="bg-white p-4 rounded-lg shadow-lg">
+
+            <h3 class="text-lg font-bold mb-3"> Alarm Messages</h3>
+
+            <!-- ALARM LIST -->
+            <div id="alarmList"
+                 class="divide-y border rounded max-h-[70vh] overflow-auto">
+                <!-- alarm items render here -->
+            </div>
+
+        </div>
+
+    </div>
+</div>
+
+<script src="./js/nav.js"></script>
+<script src="./js/auth.js"></script>
+<script>
+    requireAuth();
+</script>
+
+<script type="module" src="./js/alarm.js"></script>
+
+</body>
+</html>

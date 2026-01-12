@@ -308,3 +308,15 @@ td:first-child {
 .animate-slide-out {
     animation: slide-out 0.25s ease-in forwards;
 }
+.nav-item {
+    color: white;
+    font-weight: 700;
+}
+
+.nav-item:hover {
+    border-bottom: 4px solid #14b8a6;
+}
+
+.nav-item.active {
+    border-bottom: 4px solid #14b8a6;
+}

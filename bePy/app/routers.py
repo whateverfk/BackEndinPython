@@ -10,6 +10,8 @@ from app.api.device_user import router as whatever
 from app.api.device_user_permission import router as permission
 from app.api.live import router as live
 from app.api.channels import router as channels
+from app.api.alarm import router as alarm
+
 api_router = APIRouter()
 api_router.include_router(auth_router)
 api_router.include_router(device_router)
@@ -22,3 +24,4 @@ api_router.include_router(whatever)
 api_router.include_router(permission)
 api_router.include_router(live)
 api_router.include_router(channels)
+api_router.include_router(alarm)
