@@ -1,64 +1,96 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from app.routers import api_router
-from app.db.session import engine
-from app.db.base import Base
 from fastapi.middleware.cors import CORSMiddleware
-from app.features.sync.auto_sync import sync_background_worker 
+from contextlib import asynccontextmanager
+import asyncio
+import os
+from dotenv import load_dotenv
+
+from app.routers import api_router
+from app.features.sync.auto_sync import sync_background_worker
 from app.features.background.update_data_record import auto_sync_all_devices
 from app.features.background.daily_refresh_oldest import daily_refresh_oldest
-import asyncio
-from contextlib import asynccontextmanager
 from app.features.background.scheduler import start_scheduler, stop_scheduler
-from app.core.http_client import close_http_client
 from app.features.background.save_alarm import AlarmSupervisor
+from app.core.http_client import close_http_client
 
+# =========================
+# LOAD ENV
+# =========================
+load_dotenv()
 
+HLS_DIR = os.getenv("HLS_DIR")
+if not HLS_DIR:
+    raise RuntimeError("HLS_DIR is not set in .env")
+
+# =========================
+# LIFESPAN
+# =========================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     supervisor = AlarmSupervisor()
 
-    
-    task = asyncio.create_task(sync_background_worker())
+    sync_task = asyncio.create_task(sync_background_worker())
     asyncio.create_task(supervisor.run())
-    
-    # print("AUTO SYNC ( time and data ) STARTED")
 
-    # để test nên tạm bỏ sync time 
-    
-    # tự chạy sync new data luôn khi mở 1 lần
+    # chạy sync ngay khi start
     await auto_sync_all_devices()
-
-    #refesh oldest 1 lần luôn 
     await daily_refresh_oldest()
 
-    #chạy theo lịch 
+    # scheduler
     start_scheduler()
-    print("AUTO SYNC (  data ) STARTED")
+    print("AUTO SYNC (data) STARTED")
 
     yield
+
+    # shutdown
     stop_scheduler()
     await close_http_client()
-    task.cancel()
+
+    sync_task.cancel()
     try:
-        await task
+        await sync_task
     except asyncio.CancelledError:
-        print(" AUTO SYNC CANCELLED")
+        print("AUTO SYNC CANCELLED")
 
-#app = FastAPI()
-
+# =========================
+# APP
+# =========================
 app = FastAPI(lifespan=lifespan)
-app.mount("/hls", StaticFiles(directory=r"D:\Hls"), name="hls")
 
+# =========================
+# MIDDLEWARE
+# =========================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # hoặc ["http://localhost:5500"] 
+    allow_origins=["*"],  # production nên giới hạn domain
     allow_credentials=True,
-    allow_methods=["*"],  # Cho phép OPTIONS
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
-
-
+# =========================
+# API ROUTERS (PHẢI ĐẶT TRƯỚC STATIC "/")
+# =========================
 app.include_router(api_router)
+
+# =========================
+# HLS STATIC
+# =========================
+app.mount(
+    "/hls",
+    StaticFiles(directory=HLS_DIR),
+    name="hls",
+)
+
+# =========================
+# FRONTEND STATIC (SAU CÙNG)
+# =========================
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+WWWROOT_DIR = os.path.join(BASE_DIR, "wwwroot")
+
+app.mount(
+    "/",
+    StaticFiles(directory=WWWROOT_DIR, html=True),
+    name="frontend",
+)

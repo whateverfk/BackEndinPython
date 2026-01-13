@@ -67,7 +67,7 @@ export async function stopLiveAndCleanup(delayMs = 0) {
 
         const video = document.getElementById("liveVideo");
         if (video) {
-            video.pause();
+            
             video.src = "";
             //video.removeAttribute("src"); 
             video.load();

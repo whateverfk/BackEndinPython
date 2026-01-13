@@ -14,9 +14,15 @@ import shutil
 import threading
 import time
 import os
+from dotenv import load_dotenv
+
+load_dotenv()  # load .env
+
+HLS_DIR = os.getenv("HLS_DIR")
+
 
 class LiveView:
-    HLS_ROOT = r"D:\Hls"
+    HLS_ROOT = HLS_DIR
     HLS_URL_PREFIX = "/hls"
 
     def __init__(self):
