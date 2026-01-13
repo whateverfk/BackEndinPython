@@ -28,23 +28,53 @@
 </div>
 
 <!-- MAIN -->
+<!-- MAIN -->
 <div class="min-h-screen p-6">
-    <div class="max-w-[95vw] mx-auto">
+  <div class="max-w-[95vw] mx-auto">
 
-        <div class="bg-white p-4 rounded-lg shadow-lg">
+    <div class="bg-white p-4 rounded-lg shadow-lg">
 
-            <h3 class="text-lg font-bold mb-3"> Alarm Messages</h3>
+      <h3 class="text-lg font-bold mb-3">Alarm Messages</h3>
 
-            <!-- ALARM LIST -->
-            <div id="alarmList"
-                 class="divide-y border rounded max-h-[70vh] overflow-auto">
-                <!-- alarm items render here -->
-            </div>
+      <!-- ALARM LIST -->
+      <div id="alarmList"
+           class="divide-y border rounded max-h-[70vh] overflow-auto">
+        <!-- alarm items render here -->
+      </div>
 
-        </div>
+      <!-- PAGING BUTTONS -->
+      <!-- PAGING + LOAD MORE -->
+<div class="flex justify-center items-center mt-4 gap-3 flex-wrap">
+  <button id="prevBtn"
+          class="px-4 py-2 text-sm bg-gray-200 rounded hover:bg-gray-300 hidden">
+    ◀ Trang trước
+  </button>
+
+  <button id="loadMoreBtn"
+          class="px-4 py-2 text-sm bg-yellow-400 text-white rounded hover:bg-yellow-500 hidden">
+    Tải thêm
+  </button>
+
+  <button id="nextBtn"
+          class="px-4 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 hidden">
+    Trang sau ▶
+  </button>
+</div>
+
+
+      <!-- LOAD MORE BUTTON (optional) -->
+      <div class="flex justify-center mt-3">
+        <button id="loadMoreBtn"
+                class="px-4 py-2 text-sm rounded bg-gray-200 hover:bg-gray-300 hidden">
+          Tải thêm
+        </button>
+      </div>
 
     </div>
+
+  </div>
 </div>
+
 <!-- CONFIRM DELETE ALL MODAL -->
 <div
   id="confirmDeleteAllModal"

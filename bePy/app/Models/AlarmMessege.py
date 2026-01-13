@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Text, ForeignKey,Integer
+from sqlalchemy import Column, String, DateTime, Text, ForeignKey,Integer, Index
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
@@ -34,3 +34,11 @@ class AlarmMessage(Base):
 
     # relationships
     owner = relationship("User", back_populates="alarm_messages")
+
+    __table_args__ = (
+        Index(
+            "idx_alarm_user_created_at",
+            "user_id",
+            created_at.desc()
+        ),
+    )

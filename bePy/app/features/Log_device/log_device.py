@@ -45,7 +45,16 @@ MINOR_DISPLAY_MAP = {
     "ipConflict":"IP Address Conflicted",
     "videoException":"Video Signal Exception",
     "videoFormatMismatch":"Input/Output Video Standard Mismatch",
-    "ipcIpConfilict":"Ip Address of IPC Conflict"
+    "ipcIpConfilict":"Ip Address of IPC Conflict",
+    "viAndResMismatch":"Video resolution Mismatch",
+    "spareException":"Hot Spare Exception",
+    "startIpcMasException": "IPC Motion Analysis Exception",
+    "anrRecordException": "ANR Record Exception",
+    "recordOverFLow": "Record Buffer Overflow",
+    "ipcmCrash": "IPCM Abnormal Reboot",
+    "poePowerException": "POE Power Exception",
+    "uploadDataCsException":"Data Upload Exception",
+    "dialException":"Wireless Dial-Up Exception"
 
 }
 
