@@ -141,19 +141,22 @@ class LiveView:
                 vcodec="libx264",
                 preset="ultrafast",
                 tune="zerolatency",
+                profile="baseline",
+                level="3.1",
                 pix_fmt="yuv420p",
                 g=gop,
                 keyint_min=gop,
                 sc_threshold=0,
-                profile="baseline",
-                level="4.1",
+                bf=0,
+                refs=1,
+                coder="cavlc",
+                threads=0,
+                map="0:v:0",
                 hls_time=1,
                 hls_list_size=3,
                 hls_flags="delete_segments+independent_segments",
-                hls_allow_cache=0,
-                map="0:v:0",
-                err_detect="ignore_err"  # bỏ qua NALU lỗi
             )
+
         )
 
 

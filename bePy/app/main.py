@@ -63,14 +63,14 @@ app = FastAPI(lifespan=lifespan)
 # =========================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # production nên giới hạn domain
+    allow_origins=["http://128.1.7.201:8000"],  #  giới hạn domain, khoogn cần thì thay = * 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # =========================
-# API ROUTERS (PHẢI ĐẶT TRƯỚC STATIC "/")
+# API ROUTERS 
 # =========================
 app.include_router(api_router)
 
@@ -84,7 +84,7 @@ app.mount(
 )
 
 # =========================
-# FRONTEND STATIC (SAU CÙNG)
+# FRONTEND STATIC
 # =========================
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 WWWROOT_DIR = os.path.join(BASE_DIR, "wwwroot")
