@@ -13,6 +13,17 @@ from app.features.background.daily_refresh_oldest import daily_refresh_oldest
 from app.features.background.scheduler import start_scheduler, stop_scheduler
 from app.features.background.save_alarm import AlarmSupervisor
 from app.core.http_client import close_http_client
+from fastapi.staticfiles import StaticFiles
+from starlette.responses import Response
+
+class NoCacheStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope):
+        response: Response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+
+
 
 # =========================
 # LOAD ENV
@@ -91,6 +102,7 @@ WWWROOT_DIR = os.path.join(BASE_DIR, "wwwroot")
 
 app.mount(
     "/",
-    StaticFiles(directory=WWWROOT_DIR, html=True),
+    #StaticFiles(directory=WWWROOT_DIR, html=True),
+    NoCacheStaticFiles(directory=WWWROOT_DIR, html=True),
     name="frontend",
 )
