@@ -7,7 +7,8 @@ from app.features.deps import xml_text,xml_int, HIK_NS
 from app.Models.channel_stream_config import ChannelStreamConfig
 from app.Models.channel_extensions import ChannelExtension
 from app.core.http_client import get_http_client
-
+from app.features.GetDevicesDetail.Change_permission import create_user_permission_xml
+from sqlalchemy.orm import Session
 
 class HikDetailService:
     def __init__(self):
@@ -734,5 +735,65 @@ class HikDetailService:
         except Exception as ex:
             print(f"[ISAPI][USER_PERMISSION] Error fetching from {url}: {ex}")
             return None
-        
-        
+
+    def parse_hik_response_status(self,xml_text: str) -> dict:
+        root = ET.fromstring(xml_text)
+
+        ns = {"psia": "urn:psialliance-org"}
+
+        return {
+            "status_code": int(root.findtext("psia:statusCode", default="0", namespaces=ns)),
+            "status_string": root.findtext("psia:statusString", default="", namespaces=ns),
+            "sub_status": root.findtext("psia:subStatusCode", default="", namespaces=ns),
+            "request_url": root.findtext("psia:requestURL", default="", namespaces=ns),
+        }
+  
+    async def put_permission(
+    self,
+    db: Session,
+    device,
+    headers,
+    payload: dict
+):
+        device_id = payload.get("device_id")
+        device_user_id = payload.get("device_user_id")
+
+        if not device_id or not device_user_id:
+            raise ValueError("payload must contain device_id and device_user_id")
+
+        xml_body = create_user_permission_xml(
+            db=db,
+            device_id=device_id,
+            device_user_id=device_user_id,
+            payload=payload
+        )
+
+        url = f"http://{device.ip_web}/ISAPI/Security/UserPermission/{device_user_id}"
+
+        resp = await self.client.put(url, content=xml_body, headers=headers)
+       
+
+        result = self.parse_hik_response_status(resp.text)
+
+        # ===== LOGIC XỬ LÝ =====
+        if result["sub_status"] == "ok":
+            return {
+                "success": True,
+                "message": "Permission updated successfully",
+                "device_user_id": device_user_id
+            }
+
+        if result["sub_status"] == "lowPrivilege":
+            return {
+                "success": False,
+                "error": "LOW_PRIVILEGE",
+                "message": "Tài khoản hiện tại không đủ quyền để thay đổi quyền hạn"
+            }
+
+        # fallback
+        return {
+            "success": False,
+            "error": "INVALID_OPERATION",
+            "message": result["status_string"] or "Invalid operation",
+            "raw": result
+        }

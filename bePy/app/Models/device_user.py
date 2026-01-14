@@ -16,7 +16,7 @@ class DeviceUser(Base):
 
     user_id = Column(Integer)  # ID từ thiết bị (ISAPI)
     user_name = Column(String(50))
-    role = Column(String(20))
+    role = Column(String(20)) #adminsta
     is_active = Column(Boolean, default=True)
     device = relationship(
         "Device",

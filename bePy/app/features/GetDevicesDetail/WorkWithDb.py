@@ -210,7 +210,6 @@ def upsert_device_users(
     db.commit()
 
 
-
 async def sync_device_users_from_isapi(
     db: Session,
     device,
