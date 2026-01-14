@@ -96,7 +96,6 @@ async def sync_device_system_info(
     }
 
 
-
 @router.post("/storage")
 async def sync_device_storage(
     id: int,

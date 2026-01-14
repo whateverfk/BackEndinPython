@@ -185,6 +185,41 @@ def build_alarm_message(alarm: dict) -> str:
 # SAVE MESSAGE
 # =========================
 
+
+
+#N8N_WEBHOOK_URL = "http://n8n.srtech.com.vn/webhook-test/alarm"
+from dotenv import load_dotenv
+import os
+
+async def send_alarm_to_n8n_webhook(
+    *,
+    user_id: int,
+    device_id: int,
+   
+    message: str,
+):
+    load_dotenv("./app/.env")
+    N8N_WEBHOOK_URL=os.getenv("N8N_WEBHOOK_URL")
+    payload = {
+        "user_id": user_id,
+        "device_id": device_id,
+
+        # message đã build để hiển thị
+        "message": message
+    }
+    client = get_http_client()
+    try:
+        resp = await client.post(
+            N8N_WEBHOOK_URL,
+            json=payload,
+            timeout=10,
+        )
+        resp.raise_for_status()
+
+    except Exception as ex:
+        print(f"[N8N WEBHOOK] Send failed: {ex}")
+
+
 async def save_alarm_message_async(user_id, device_id, message: str):
     async with AsyncSessionLocal() as session:
         async with session.begin():

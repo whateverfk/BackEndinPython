@@ -10,7 +10,6 @@ from app.Models.channel_stream_config import ChannelStreamConfig
 from app.Models.device_integration_users import DeviceIntegrationUser
 from app.Models.device_storage import DeviceStorage
 from app.Models.device_system_info import DeviceSystemInfo
-from app.Models.device_user import DeviceUser
 from app.Models.device import Device
 from app.Models.monitor_setting import MonitorSetting
 from app.Models.recording_mode_enum_class import RecordingMode

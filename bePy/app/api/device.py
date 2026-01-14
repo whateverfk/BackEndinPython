@@ -64,7 +64,7 @@ def test_device_connection(
     return {
         "ip_reachable": True,
         "auth_ok": auth_ok,
-        "message": "OK" if auth_ok else "Authentication failed"
+        "message": "OK" if auth_ok else "Authentication failed, Xem Lại username , password"
     }
 
 
@@ -111,7 +111,7 @@ def create_device(
         Device.ip_web == dto.ip_web,
         Device.owner_superadmin_id == user.superadmin_id
     ).first()
-    print("DTO RECEIVED:", dto.model_dump())
+    
 
     if exists:
         raise HTTPException(status_code=409, detail="Device already exists")
@@ -273,8 +273,7 @@ def get_all_channels_data_in_month(
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
-    """ Return all channels for a device along with their record days/time ranges limited to
-      the specified month.
+    """ trả về channel với record day - time range tại tháng tương ứng.
         date_str format: "YYYY-MM" (e.g., "2025-12")
           Response shape:
             [ { channel: {id,name,channel_no,oldest_record_date,latest_record_date},

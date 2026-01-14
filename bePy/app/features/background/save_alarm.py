@@ -1,6 +1,6 @@
 import asyncio
 from sqlalchemy import select
-from app.features.alarm_nofi.alarm import get_alarm,save_alarm_message_async,build_alarm_message
+from app.features.alarm_nofi.alarm import get_alarm,save_alarm_message_async,build_alarm_message,send_alarm_to_n8n_webhook
 from app.Models.device import Device
 from app.features.deps import build_hik_auth
 from app.db.session import AsyncSessionLocal
@@ -15,21 +15,28 @@ class AlarmSupervisor:
         """
         Worker cho 1 device duy nhất
         """
-        headers = build_hik_auth(device)
+        
 
         while True:
             try:
+                headers = build_hik_auth(device)
                 async for alarm in get_alarm(device, headers):
                     message = build_alarm_message(
                         alarm,
                        
                     )
 
-                    await save_alarm_message_async(
+
+                    await send_alarm_to_n8n_webhook(
                         user_id=device.owner_superadmin_id,
                         device_id=device.id,
                         message=message,
                     )
+                    # await save_alarm_message_async(
+                    #     user_id=device.owner_superadmin_id,
+                    #     device_id=device.id,
+                    #     message=message,
+                    # )
 
             except asyncio.CancelledError:
                 # task bị supervisor cancel

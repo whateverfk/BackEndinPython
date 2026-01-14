@@ -61,7 +61,6 @@ def get_channels_list_from_device(db: Session, device_id: int) -> list:
 
 
 
-
 def create_video_channel_permission_list_xml(
     scope: str,  # "local" hoặc "remote"
     channels_data: dict,  # {"playback": [1, 3], "record": [1], "backup": [1, 2, 3]}
@@ -171,7 +170,7 @@ def create_user_permission_xml(
         }
         
     Returns:
-        str: XML string formatted
+        str: XML string 
     """
     # Lấy thông tin device_user
     device_user = db.query(DeviceUser).filter(
@@ -272,7 +271,7 @@ def create_user_permission_xml(
     lines = [line for line in pretty_xml.split('\n') if line.strip()]
     return '\n'.join(lines[1:])  # Skip XML declaration
 
-pay_load={
+pay_load_vi_du={
   "device_id": 44,
   "device_user_id": 175,
   "permissions": {

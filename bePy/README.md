@@ -8,6 +8,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 DATABASE_URL = "Db string"
 SECRET_KEY = "Cái này thì ghi gì cũng được"
 ASYNC_DATABASE_URL = "postgresql+asyncpg://......."
+N8N_WEBHOOK_URL = "....."
 HLS_DIR=D:/Hls
 ~
 HLS_DIR = Chỗ để lưu m3u8 + ts file tạm cho live view 
