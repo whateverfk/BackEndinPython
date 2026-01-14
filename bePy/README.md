@@ -26,6 +26,6 @@ be độc lập
 
 Cái live view bắt rtsp và decode == ffmpeg, ffmpeg-python lib chỉ là ffmpeg wapper giúp sinh script thôi, muốn chạy vẫn cần cài ffmpeg vào Path của máy 
 
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8000  --reload
 
 

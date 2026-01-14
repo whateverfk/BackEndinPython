@@ -167,7 +167,7 @@ async function deleteAllAlarms() {
     try {
         await apiFetch(`${API_URL}/api/user/alarm`, { method: "DELETE" });
         lastCursorTime = null;
-        lastCursorId = null;
+        lastCursorId = null;                
         hasMore = false;
         cursorStack = [];
         alarmListEl.innerHTML = `<div class="p-4 text-gray-500 text-sm">Không có alarm</div>`;

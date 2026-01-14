@@ -98,7 +98,7 @@ async def get_device_user_permissions(
             permission_data=permission_data
         )
 
-    # 4. Build response from DB (bạn đã có sẵn)
+    # 4. Build response from DB 
     return build_permission_response(db, device_user_id)
 
 @router.post("/sync")

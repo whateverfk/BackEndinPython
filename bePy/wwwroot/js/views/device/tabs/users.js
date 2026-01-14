@@ -48,7 +48,6 @@ const CHANNEL_BASED_PERMISSIONS = [
     "record",
     "backup",
     "ptz_control",
-    
 ];
 
 
@@ -309,7 +308,7 @@ function permissionLabel(scope, key) {
 window.selectPermission = function (scope, permission) {
     selectedPermission = { scope, permission };
 
-    // 👉 RENDER LẠI permission list để highlight
+    //  RENDER LẠI permission list để highlight
     renderPermissionUI(currentPermissionData);
 
     const panel = document.getElementById("channelPanel");
