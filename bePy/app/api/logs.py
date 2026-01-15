@@ -1,13 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
-from app.features.deps import build_hik_auth
+
 from app.api.deps import get_db, get_current_user, CurrentUser
 from app.Models.sync_log import SyncLog
 from app.schemas.sync_log import SyncLogOut
 from app.schemas.log_search import DeviceLogRequest
 from app.Models.device import Device
 from app.features.Log_device.log_device import fetch_isapi_logs
+from app.features.deps import build_hik_auth
+from app.services.device_service import get_device_or_404
+from app.core.constants import ERROR_MSG_DEVICE_NOT_FOUND
 
 router = APIRouter(
     prefix="/api/logs",
@@ -52,9 +55,7 @@ async def get_device_logs(
     """
 
     # ---- get device ----
-    device = db.query(Device).filter(Device.id == device_id).first()
-    if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
+    device = get_device_or_404(db, device_id)
 
     # ---- build auth headers ----
     try:

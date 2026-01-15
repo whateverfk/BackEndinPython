@@ -1,25 +1,37 @@
-from datetime import datetime, timedelta , date   
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime, timedelta, date
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
+
 from app.api.deps import get_db, get_current_user, CurrentUser
 from app.Models.device import Device
 from app.Models.channel import Channel
 from app.Models.channel_record_time_range import ChannelRecordTimeRange
-from app.schemas.device import (
-    DeviceCreate,
-    DeviceUpdate,
-    DeviceOut,
-)
-from app.schemas.test_connect import DeviceConnectionTest,DeviceConnectionTestResult
+from app.schemas.device import DeviceCreate, DeviceUpdate, DeviceOut
+from app.schemas.test_connect import DeviceConnectionTest, DeviceConnectionTestResult
 from app.schemas.channel_record import ChannelRecordDayOut
 from app.core.time_provider import TimeProvider
-from app.features.deps import build_hik_auth,check_hikvision_auth,check_ip_reachable
+from app.features.deps import build_hik_auth, check_hikvision_auth, check_ip_reachable
 from app.features.RecordInfo.hikrecord import HikRecordService
 from app.Models.channel_record_day import ChannelRecordDay
-from fastapi import BackgroundTasks
-
 from app.features.background.trigger_init_record_data import trigger_device_init_data
+from app.services.device_service import (
+    get_device_or_404,
+    get_all_devices,
+    get_active_devices,
+    device_exists
+)
+from app.core.constants import (
+    ERROR_MSG_DEVICE_NOT_FOUND,
+    ERROR_MSG_DEVICE_EXISTS,
+    ERROR_MSG_CANNOT_REACH_DEVICE,
+    ERROR_MSG_UNSUPPORTED_BRAND,
+    ERROR_MSG_AUTH_FAILED,
+    ERROR_MSG_INVALID_DATE_FORMAT
+)
+from app.core.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 router = APIRouter(
     prefix="/api/devices",
@@ -42,7 +54,7 @@ def test_device_connection(
         return {
             "ip_reachable": False,
             "auth_ok": False,
-            "message": "Cannot reach device IP"
+            "message": ERROR_MSG_CANNOT_REACH_DEVICE
         }
 
     # 2. Check auth theo brand
@@ -58,13 +70,13 @@ def test_device_connection(
         return {
             "ip_reachable": True,
             "auth_ok": False,
-            "message": "Unsupported brand"
+            "message": ERROR_MSG_UNSUPPORTED_BRAND
         }
 
     return {
         "ip_reachable": True,
         "auth_ok": auth_ok,
-        "message": "OK" if auth_ok else "Authentication failed, Xem Lại username , password"
+        "message": "OK" if auth_ok else ERROR_MSG_AUTH_FAILED
     }
 
 
@@ -76,9 +88,8 @@ def get_devices(
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
-    return db.query(Device).filter(
-        Device.owner_superadmin_id == user.superadmin_id
-    ).all()
+    """Get all devices for current user"""
+    return get_all_devices(db, user.superadmin_id)
 
 
 
@@ -87,14 +98,12 @@ def get_devices(
 # GET: /api/ active devices
 # =========================
 @router.get("/active", response_model=list[DeviceOut])
-def get_active_devices(
+def get_active_devices_endpoint(
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
-    return db.query(Device).filter(
-        Device.owner_superadmin_id == user.superadmin_id,
-        Device.is_checked == True
-    ).all()
+    """Get active (checked) devices for current user"""
+    return get_active_devices(db, user.superadmin_id)
 
 
 # =========================
@@ -103,18 +112,13 @@ def get_active_devices(
 @router.post("", response_model=DeviceOut, status_code=status.HTTP_201_CREATED)
 def create_device(
     dto: DeviceCreate,
-    bgTask: BackgroundTasks,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
-    exists = db.query(Device).filter(
-        Device.ip_web == dto.ip_web,
-        Device.owner_superadmin_id == user.superadmin_id
-    ).first()
-    
-
-    if exists:
-        raise HTTPException(status_code=409, detail="Device already exists")
+    """Create a new device"""
+    if device_exists(db, dto.ip_web, user.superadmin_id):
+        raise HTTPException(status_code=409, detail=ERROR_MSG_DEVICE_EXISTS)
 
     device = Device(
         ip_web=dto.ip_web,
@@ -128,9 +132,10 @@ def create_device(
 
     db.add(device)
     db.commit()
-
     db.refresh(device)
-    bgTask.add_task(trigger_device_init_data, device.id)
+    
+    # Trigger background initialization
+    background_tasks.add_task(trigger_device_init_data, device.id)
     
     return device
 
@@ -142,20 +147,17 @@ def create_device(
 def update_device(
     id: int,
     dto: DeviceUpdate,
-    bgTask: BackgroundTasks,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
-    device = db.query(Device).filter(
-        Device.id == id,
-        Device.owner_superadmin_id == user.superadmin_id
-    ).first()
-
-    if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
-    gonna_update = False
-    if(device.ip_web != dto.ip_web):
-        gonna_update = True
+    """Update device configuration"""
+    device = get_device_or_404(db, id, user.superadmin_id)
+    
+    # Check if IP changed (requires re-initialization)
+    should_reinitialize = device.ip_web != dto.ip_web
+    
+    # Update device fields
     device.ip_web = dto.ip_web
     device.ip_nvr = dto.ip_nvr
     device.username = dto.username
@@ -164,8 +166,10 @@ def update_device(
     device.is_checked = dto.is_checked
     
     db.commit()
-    if(gonna_update):
-     bgTask.add_task(trigger_device_init_data, device.id)
+    
+    # Re-initialize if IP changed
+    if should_reinitialize:
+        background_tasks.add_task(trigger_device_init_data, device.id)
 
     return
 
@@ -179,14 +183,9 @@ def delete_device(
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
-    device = db.query(Device).filter(
-        Device.id == id,
-        Device.owner_superadmin_id == user.superadmin_id
-    ).first()
-
-    if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
-
+    """Delete a device"""
+    device = get_device_or_404(db, id, user.superadmin_id)
+    
     db.delete(device)
     db.commit()
     return
@@ -197,15 +196,8 @@ def get_device(
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
-    device = db.query(Device).filter(
-        Device.id == id,
-        Device.owner_superadmin_id == user.superadmin_id
-    ).first()
-
-    if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
-
-    return device
+    """Get a single device by ID"""
+    return get_device_or_404(db, id, user.superadmin_id)
 
 @router.get("/{id}/channels")
 def get_device_channels(
@@ -242,13 +234,8 @@ async def update_channels_record_info(
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
-    device = db.query(Device).filter(
-        Device.id == id,
-        Device.owner_superadmin_id == user.superadmin_id
-    ).first()
+    device = get_device_or_404(db, id, user.superadmin_id)
     hikservice = HikRecordService()
-    if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
 
     try:
         await hikservice.device_channels_init_data(
@@ -259,7 +246,7 @@ async def update_channels_record_info(
 
     except Exception as e:
         db.rollback()
-        print("[SYNC ERROR]", e)
+        logger.error(f"[SYNC ERROR] Device {id}: {e}")
         raise HTTPException(
             status_code=500,
             detail=str(e)
@@ -279,13 +266,7 @@ def get_all_channels_data_in_month(
             [ { channel: {id,name,channel_no,oldest_record_date,latest_record_date},
               record_days: [ {record_date, has_record,
                 time_ranges: [{start_time,end_time}, ...] } ] }, ... ] """
-    device = db.query(Device).filter(
-        Device.id == id,
-        Device.owner_superadmin_id == user.superadmin_id
-    ).first()
-
-    if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
+    device = get_device_or_404(db, id, user.superadmin_id)
 
     try:
         parsed_date = datetime.strptime(date_str, "%Y-%m")
@@ -293,7 +274,7 @@ def get_all_channels_data_in_month(
     except ValueError:
         raise HTTPException(
             status_code=400,
-            detail="Invalid date format. Use YYYY-MM"
+            detail=ERROR_MSG_INVALID_DATE_FORMAT
         )
 
     first_day = date(year, month, 1)
@@ -374,13 +355,7 @@ async def sync_device_channels_data(
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
-    device = db.query(Device).filter(
-        Device.id == id,
-        Device.owner_superadmin_id == user.superadmin_id
-    ).first()
-
-    if not device:
-        raise HTTPException(status_code=404)
+    device = get_device_or_404(db, id, user.superadmin_id)
 
     hikservice = HikRecordService()
     await hikservice.sync_device_channels_data_core(

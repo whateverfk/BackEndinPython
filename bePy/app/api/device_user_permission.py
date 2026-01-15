@@ -1,67 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
-from app.features.deps import build_hik_auth
+
 from app.db.session import get_db
+from app.api.deps import get_current_user, CurrentUser
+from app.Models.device import Device
 from app.Models.device_user import DeviceUser
-from app.Models.user_global_permissions import UserGlobalPermission
-from app.Models.user_channel_permissions import UserChannelPermission
+from app.features.deps import build_hik_auth
 from app.features.GetDevicesDetail.HikDetailService import HikDetailService
 from app.features.GetDevicesDetail.WorkWithDb import save_permissions
-from app.Models.device import Device
-from fastapi import Body
-from app.features.GetDevicesDetail.Change_permission import (
-    create_user_permission_xml
+from app.utils.response_builders import build_permission_response
+from app.services.device_service import get_device_or_404, get_device_user_or_404
+from app.core.constants import ERROR_MSG_LOW_PRIVILEGE, ERROR_MSG_INVALID_OPERATION
+
+router = APIRouter(
+    prefix="/api/device/{id}/user/{device_user_id}/permissions",
+    tags=["Devices_user_info"]
 )
-
-router = APIRouter(  prefix="/api/device/{id}/user/{device_user_id}/permissions",
-    tags=["Devices_user_info"])
-
-
-
-def build_permission_response(db, device_user_id: int):
-    result = {
-        "local": {"global": {}, "channels": {}},
-        "remote": {"global": {}, "channels": {}},
-    }
-
-    # GLOBAL
-    globals_ = db.query(UserGlobalPermission).filter(
-        UserGlobalPermission.device_user_id == device_user_id
-    ).all()
-
-    for g in globals_:
-        result[g.scope]["global"] = {
-            "upgrade": g.upgrade,
-            "parameter_config": g.parameter_config,
-            "restart_or_shutdown": g.restart_or_shutdown,
-            "log_or_state_check": g.log_or_state_check,
-            "manage_channel": g.manage_channel,
-
-            "playback": g.playback,
-            "record": g.record,
-            "backup": g.backup,
-
-            "preview": g.preview,
-            "voice_talk": g.voice_talk,
-            "alarm_out_or_upload": g.alarm_out_or_upload,
-            "control_local_out": g.control_local_out,
-            "transparent_channel": g.transparent_channel,
-        }
-
-    # CHANNEL
-    channels = db.query(UserChannelPermission).filter(
-        UserChannelPermission.device_user_id == device_user_id,
-        UserChannelPermission.enabled == True
-    ).all()
-    for ch in channels:
-        scope = ch.scope          # local | remote
-        perm = ch.permission      # playback | record | backup | ptz_control
-        result[scope]["channels"].setdefault(perm, []).append(ch.channel_id)
-
-
-   
-    
-    return result
 
 
 @router.get("")
@@ -69,22 +23,22 @@ async def get_device_user_permissions(
     id: int,
     device_user_id: int,
     db: Session = Depends(get_db),
-   
 ):
-    permission_service=  HikDetailService()
-    
-    device_user = db.query(DeviceUser).get(device_user_id)
-    if not device_user:
-        raise HTTPException(404, "Device user not found")
+    """
+    Get permissions for a specific device user.
+    If permissions don't exist in DB, fetch from device.
+    """
+    device_user = get_device_user_or_404(db, device_user_id, id)
+    device = device_user.device
 
-   
+    # Check if we already have permissions in DB (checking just one global permission record as proxy)
+    from app.Models.user_global_permissions import UserGlobalPermission
     exists = db.query(UserGlobalPermission).filter(
         UserGlobalPermission.device_user_id == device_user_id
     ).first()
 
-   
     if not exists:
-        device = device_user.device
+        permission_service = HikDetailService()
         headers = build_hik_auth(device)
 
         permission_data = await permission_service.fetch_permission_for_1_user(
@@ -94,7 +48,7 @@ async def get_device_user_permissions(
         )
 
         if not permission_data:
-            raise HTTPException(500, "Failed to fetch permission from device")
+            raise HTTPException(502, "Failed to fetch permission from device")
 
         save_permissions(
             db=db,
@@ -102,8 +56,8 @@ async def get_device_user_permissions(
             permission_data=permission_data
         )
 
-    # 4. Build response from DB 
     return build_permission_response(db, device_user_id)
+
 
 @router.post("/sync")
 async def sync_user_permission(
@@ -112,27 +66,18 @@ async def sync_user_permission(
     db: Session = Depends(get_db),
 ):
     """
-    Fetch permission từ device cho 1 user
-    và upsert vào DB
+    Fetch and update permissions from device for a user.
     """
-    device = db.get(Device, id)
-    if not device:
-        raise HTTPException(404, "Device not found")
-
-    device_user = db.query(DeviceUser).filter_by(
-        id=device_user_id,
-        device_id=id
-    ).first()
-
-    if not device_user:
-        raise HTTPException(404, "User not found")
+    device = get_device_or_404(db, id)
+    device_user = get_device_user_or_404(db, device_user_id, id)
 
     headers = build_hik_auth(device)
     hik = HikDetailService()
+    
     permission_data = await hik.fetch_permission_for_1_user(
         device=device,
         headers=headers,
-        user_id=device_user.user_id  # ISAPI user id
+        user_id=device_user.user_id
     )
 
     if not permission_data:
@@ -146,6 +91,7 @@ async def sync_user_permission(
 
     return {"status": "success"}
 
+
 @router.put("")
 async def update_device_user_permissions(
     id: int,
@@ -154,45 +100,27 @@ async def update_device_user_permissions(
     db: Session = Depends(get_db),
 ):
     """
-    Update permission cho device user
+    Update permissions for a device user on both the device and DB.
     """
+    device = get_device_or_404(db, id)
+    device_user = get_device_user_or_404(db, device_user_id, id)
 
-    # ===== 1. Validate device =====
-    device = db.get(Device, id)
-    if not device:
-        raise HTTPException(404, "Device not found")
-
-    # ===== 2. Validate device_user =====
-    device_user = db.query(DeviceUser).filter_by(
-        id=device_user_id,
-        device_id=id
-    ).first()
-
-    if not device_user:
-        raise HTTPException(404, "Device user not found")
-
-    # ===== 3. Inject required IDs vào payload =====
+    # Inject required IDs into payload for the service
     payload["device_id"] = id
     payload["device_user_id"] = device_user_id
 
-    # ===== 4. Push permission lên thiết bị =====
     headers = build_hik_auth(device)
     hik = HikDetailService()
 
-    
     result = await hik.put_permission(
-            db=db,
-            device=device,
-            headers=headers,
-            payload=payload
-        )
-    
+        db=db,
+        device=device,
+        headers=headers,
+        payload=payload
+    )
 
-    # ===== 5. Xử lý kết quả =====
-
-    #  Thành công
     if result.get("success"):
-        # sync lại DB nếu push OK
+        # Sync back from device to ensure DB matches device state
         permission_data = await hik.fetch_permission_for_1_user(
             device=device,
             headers=headers,
@@ -212,20 +140,17 @@ async def update_device_user_permissions(
             "message": "Permission updated successfully"
         }
 
-
-    #  Không đủ quyền
     if result.get("error") == "LOW_PRIVILEGE":
         return {
             "success": False,
             "code": "LOW_PRIVILEGE",
-            "message": "Không đủ quyền để thay đổi permission trên thiết bị"
+            "message": ERROR_MSG_LOW_PRIVILEGE
         }
 
-
-    #  Thao tác không hợp lệ
     return {
         "success": False,
         "code": "INVALID_OPERATION",
-        "message": "Thao tác không hợp lệ"
+        "message": ERROR_MSG_INVALID_OPERATION
     }
+
 

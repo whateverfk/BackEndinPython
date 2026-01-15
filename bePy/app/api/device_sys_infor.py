@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from app.db.session import get_db
@@ -7,7 +7,14 @@ from app.Models.device import Device
 from app.Models.device_system_info import DeviceSystemInfo
 from app.features.GetDevicesDetail.HikDetailService import HikDetailService
 from app.features.deps import build_hik_auth
-from app.features.GetDevicesDetail.WorkWithDb import upsert_device_storage,get_device_storage_from_db,upsert_device_integration_users,get_device_integration_users_from_db
+from app.features.GetDevicesDetail.WorkWithDb import (
+    upsert_device_storage,
+    get_device_storage_from_db,
+    upsert_device_integration_users,
+    get_device_integration_users_from_db
+)
+from app.services.device_service import get_device_or_404
+from app.core.constants import ERROR_MSG_DEVICE_NOT_FOUND
 
 router = APIRouter(
     prefix="/api/device/{id}/infor",
@@ -19,7 +26,7 @@ router = APIRouter(
 @router.get("")
 async def get_device_system_info(
     id: int,
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     stmt = select(DeviceSystemInfo).where(
         DeviceSystemInfo.device_id == id
@@ -45,15 +52,10 @@ async def get_device_system_info(
 @router.post("/sync")
 async def sync_device_system_info(
     id: int,
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)  # Corrected to Session
 ):
     # 1. Lấy device
-    stmt = select(Device).where(Device.id == id)
-    result =  db.execute(stmt)
-    device = result.scalar_one_or_none()
-
-    if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
+    device = get_device_or_404(db, id)
 
     # 2. Build auth header
     headers = build_hik_auth(device)
@@ -99,13 +101,11 @@ async def sync_device_system_info(
 @router.post("/storage")
 async def sync_device_storage(
     id: int,
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ):
-    device = db.get(Device,id)
+    device = get_device_or_404(db, id)
     headers = build_hik_auth(device)
     hikservice = HikDetailService()
-    if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
 
     storage_data = await hikservice.get_device_storage(device, headers)
 
@@ -122,7 +122,7 @@ async def sync_device_storage(
 @router.get("/storage")
 async def get_device_storage(
     id: int,
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ):
     data = await get_device_storage_from_db(db, id)
 
@@ -142,11 +142,9 @@ async def get_device_storage(
 @router.post("/onvif-users")
 async def sync_device_onvif_users(
     id: int,
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ):
-    device = db.get(Device, id)
-    if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
+    device = get_device_or_404(db, id)
 
     headers = build_hik_auth(device)
     service = HikDetailService()
@@ -165,7 +163,7 @@ async def sync_device_onvif_users(
 @router.get("/onvif-users")
 async def get_device_onvif_users(
     id: int,
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ):
     data = await get_device_integration_users_from_db(db, id)
 

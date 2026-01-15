@@ -4,19 +4,43 @@ import httpx
 import socket
 import requests
 from requests.auth import HTTPDigestAuth
-HIK_NS = {"hik": "http://www.hikvision.com/ver20/XMLSchema"}
+
+from app.core.constants import (
+    HIK_XML_NAMESPACE,
+    DEFAULT_IP_PORT,
+    DEFAULT_CONNECTION_TIMEOUT,
+    DEFAULT_AUTH_TIMEOUT
+)
+from app.utils.date_helpers import to_date, to_date_str
+
+# Hikvision XML namespace for use with ElementTree
+HIK_NS = HIK_XML_NAMESPACE
+
 
 def xml_text(elem, path: str):
+    """Extract text from XML element using Hikvision namespace"""
     node = elem.find(path, HIK_NS)
     return node.text if node is not None else None
 
+
 def xml_int(parent, tag):
+    """Extract integer value from XML element"""
     v = xml_text(parent, tag)
     return int(v) if v and v.isdigit() else None
 
-def build_hik_auth(device):
-    
 
+def build_hik_auth(device):
+    """
+    Build HTTP Basic Authentication header for Hikvision ISAPI.
+    
+    Args:
+        device: Device model instance with username and password
+    
+    Returns:
+        Dict with Authorization and Content-Type headers
+    
+    Business Logic: UNCHANGED - same encoding
+    """
     auth = base64.b64encode(
         f"{device.username}:{device.password}".encode()
     ).decode()
@@ -26,29 +50,25 @@ def build_hik_auth(device):
         "Content-Type": "application/xml"
     }
 
-from datetime import datetime, date
-
-def to_date(value) -> date | None:
-    if value is None:
-        return None
-    if isinstance(value, date) and not isinstance(value, datetime):
-        return value
-    if isinstance(value, datetime):
-        return value.date()
-    if isinstance(value, str):
-        return datetime.strptime(value, "%Y-%m-%d").date()
-    raise TypeError(f"Invalid date type: {type(value)}")
-
-def to_date_str(value) -> str | None:
-    d = to_date(value)
-    return d.strftime("%Y-%m-%d") if d else None
-
 
 def check_ip_reachable(
     ip: str,
-    default_port: int = 80,
-    timeout: int = 3
+    default_port: int = DEFAULT_IP_PORT,
+    timeout: int = DEFAULT_CONNECTION_TIMEOUT
 ) -> bool:
+    """
+    Check if an IP address (with optional port) is reachable.
+    
+    Args:
+        ip: IP address, optionally with port (e.g., "192.168.1.1:80")
+        default_port: Port to use if not specified in ip
+        timeout: Connection timeout in seconds
+    
+    Returns:
+        True if reachable, False otherwise
+    
+    Business Logic: UNCHANGED
+    """
     try:
         if ":" in ip:
             host, port = ip.rsplit(":", 1)
@@ -63,16 +83,28 @@ def check_ip_reachable(
         return False
 
 
-
-
 def check_hikvision_auth(ip: str, username: str, password: str) -> bool:
+    """
+    Test Hikvision device authentication.
+    
+    Args:
+        ip: Device IP address
+        username: Device username
+        password: Device password
+    
+    Returns:
+        True if authentication successful, False otherwise
+    
+    Business Logic: UNCHANGED
+    """
     url = f"http://{ip}/ISAPI/System/status"
     try:
         r = requests.get(
             url,
             auth=HTTPDigestAuth(username, password),
-            timeout=5
+            timeout=DEFAULT_AUTH_TIMEOUT
         )
         return r.status_code == 200
     except Exception:
         return False
+

@@ -9,8 +9,13 @@ from app.Models.channel import Channel
 from app.Models.channel_record_day import ChannelRecordDay
 from app.Models.channel_record_time_range import ChannelRecordTimeRange
 from app.features.RecordInfo.hikrecord import HikRecordService
-from app.features.deps import build_hik_auth,to_date
+from app.features.deps import build_hik_auth
+from app.utils.date_helpers import to_date
 from app.core.time_provider import TimeProvider
+from app.core.logger import setup_logger
+
+logger = setup_logger(__name__)
+
 
 async def auto_sync_all_devices():
     db: Session = SessionLocal()
@@ -30,21 +35,11 @@ async def auto_sync_all_devices():
                 db.commit()
             except Exception as e:
                 db.rollback()
-                print(f"[SYNC ERROR] Device {device.id}: {e}")
+                logger.error(f"[SYNC ERROR] Device {device.id}: {e}")
 
     finally:
         db.close()
 
-def normalize_to_date(value):
-    if value is None:
-        return None
-    if isinstance(value, date) and not isinstance(value, datetime):
-        return value
-    if isinstance(value, datetime):
-        return value.date()
-    if isinstance(value, str):
-        return datetime.strptime(value, "%Y-%m-%d").date()
-    raise ValueError(f"Invalid date value type: {type(value)}")
 
 def delete_records_before_date(db: Session, channel_id: int, before_date):
     subq = (
@@ -113,7 +108,7 @@ async def refresh_oldest_record_of_channel(
         return
 
     # 3. Chuyển new_oldest về datetime.date nếu cần
-    new_oldest_dt = normalize_to_date(new_oldest)
+    new_oldest_dt = to_date(new_oldest)
 
 
     # 4. Xóa dữ liệu cũ trước oldest mới

@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import Response
 from contextlib import asynccontextmanager
 import asyncio
 import os
@@ -13,8 +14,7 @@ from app.features.background.daily_refresh_oldest import daily_refresh_oldest
 from app.features.background.scheduler import start_scheduler, stop_scheduler
 from app.features.background.save_alarm import AlarmSupervisor
 from app.core.http_client import close_http_client
-from fastapi.staticfiles import StaticFiles
-from starlette.responses import Response
+
 
 class NoCacheStaticFiles(StaticFiles):
     async def get_response(self, path: str, scope):

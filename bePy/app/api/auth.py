@@ -3,8 +3,14 @@ from sqlalchemy.orm import Session
 
 from app.schemas.auth import RegisterDto, LoginDto, ChangePasswordDto
 from app.Models.user import User
-from app.api.deps import get_db,get_current_user,CurrentUser
+from app.api.deps import get_db, get_current_user, CurrentUser
 from app.core.security import create_jwt, hash_password, verify_password
+from app.core.constants import (
+    ERROR_MSG_USERNAME_EXISTS,
+    ERROR_MSG_INVALID_CREDENTIALS,
+    ERROR_MSG_USER_NOT_FOUND,
+    ERROR_MSG_OLD_PASSWORD_INCORRECT
+)
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
@@ -12,7 +18,7 @@ router = APIRouter(prefix="/api/auth", tags=["Auth"])
 @router.post("/register")
 def register(dto: RegisterDto, db: Session = Depends(get_db)):
     if db.query(User).filter(User.username == dto.username).first():
-        raise HTTPException(400, "Username exists")
+        raise HTTPException(400, ERROR_MSG_USERNAME_EXISTS)
 
     user = User(
         username=dto.username,
@@ -37,7 +43,7 @@ def login(dto: LoginDto, db: Session = Depends(get_db)):
     ).first()
 
     if not user or not verify_password(dto.password, user.password_hash):
-        raise HTTPException(401, "Invalid credentials")
+        raise HTTPException(401, ERROR_MSG_INVALID_CREDENTIALS)
 
     return {"token": create_jwt(user)}
 
@@ -54,12 +60,13 @@ def change_password(
     ).first()
 
     if not user:
-        raise HTTPException(404, "User not found")
+        raise HTTPException(404, ERROR_MSG_USER_NOT_FOUND)
 
     if not verify_password(dto.old_password, user.password_hash):
-        raise HTTPException(400, "Old password incorrect")
+        raise HTTPException(400, ERROR_MSG_OLD_PASSWORD_INCORRECT)
 
     user.password_hash = hash_password(dto.new_password)
     db.commit()
 
     return {"message": "Password updated"}
+

@@ -1,15 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db
-from app.Models.device import Device
+from app.db.session import get_db
 from app.features.GetDevicesDetail.HikDetailService import HikDetailService
 from app.features.GetDevicesDetail.WorkWithDb import (
     upsert_device_users,
     get_device_users_from_db
 )
 from app.features.deps import build_hik_auth
-
+from app.services.device_service import get_device_or_404
 
 router = APIRouter(
     prefix="/api/device/{id}/user",
@@ -21,14 +20,11 @@ router = APIRouter(
 async def sync_device_users(
     id: int,
     db: Session = Depends(get_db),
-    
 ):
     """
-    Fetch user list từ ISAPI và upsert vào DB
+    Fetch user list from device and upsert into database.
     """
-    device = db.get(Device,id)
-    if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
+    device = get_device_or_404(db, id)
 
     headers = build_hik_auth(device)
     hik = HikDetailService()
@@ -52,19 +48,18 @@ async def sync_device_users(
         "count": len(users)
     }
 
+
 @router.get("")
 def get_device_users(
     id: int,
     db: Session = Depends(get_db)
 ):
     """
-    Lấy danh sách user của device từ DB
+    Get device users from database.
     """
-
-    users = get_device_users_from_db(
+    return get_device_users_from_db(
         db=db,
         device_id=id
     )
 
-    return users
 

@@ -30,3 +30,4 @@ Cái live view bắt rtsp và decode == ffmpeg, ffmpeg-python lib chỉ là ffmp
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8000  --reload
 
 
+uv run uvicorn app.main:app --host 128.1.7.201 --port 8000  --reload

@@ -1,23 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List
-from app.db.session import get_db
-from app.Models.AlarmMessege import AlarmMessage
-from app.api.deps import CurrentUser, get_current_user
-from app.Models.user import User
-from fastapi import Query
-from datetime import datetime
 from sqlalchemy import and_, or_
-from app.schemas.alarmMessSche import AlarmPage,AlarmItem
+from datetime import datetime
+
+from app.db.session import get_db
+from app.api.deps import CurrentUser, get_current_user
+from app.Models.AlarmMessege import AlarmMessage
+from app.schemas.alarmMessSche import AlarmPage
+from app.core.constants import ERROR_MSG_ALARM_NOT_FOUND
 
 router = APIRouter(
     prefix="/api/user/alarm",
     tags=["Alarm"]
 )
-
-
-
-
 
 PAGE_SIZE = 25
 
@@ -27,8 +22,9 @@ def get_alarm_messages(
     cursor_time: datetime | None = None,
     cursor_id: int | None = None,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    user: CurrentUser = Depends(get_current_user),
 ):
+    
     query = (
         db.query(
             AlarmMessage.id,
@@ -36,7 +32,7 @@ def get_alarm_messages(
             AlarmMessage.message,
             AlarmMessage.created_at,
         )
-        .filter(AlarmMessage.user_id == current_user.superadmin_id)
+        .filter(AlarmMessage.user_id == user.superadmin_id)
         .order_by(
             AlarmMessage.created_at.desc(),
             AlarmMessage.id.desc(),
@@ -54,7 +50,7 @@ def get_alarm_messages(
             )
         )
 
-    # lấy dư 1 record để biết có còn trang sau không
+    # Fetch one extra record to check for 'has_more'
     rows = query.limit(PAGE_SIZE + 1).all()
 
     has_more = len(rows) > PAGE_SIZE
@@ -88,19 +84,22 @@ def get_alarm_messages(
 def delete_alarm_message(
     alarm_id: int,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user)
+    user: CurrentUser = Depends(get_current_user)
 ):
+    """
+    Delete a specific alarm message.
+    """
     alarm = (
         db.query(AlarmMessage)
         .filter(
             AlarmMessage.id == alarm_id,
-            AlarmMessage.user_id == current_user.superadmin_id
+            AlarmMessage.user_id == user.superadmin_id
         )
         .first()
     )
 
     if not alarm:
-        raise HTTPException(status_code=404, detail="Alarm not found")
+        raise HTTPException(status_code=404, detail=ERROR_MSG_ALARM_NOT_FOUND)
 
     db.delete(alarm)
     db.commit()
@@ -111,11 +110,14 @@ def delete_alarm_message(
 @router.delete("")
 def delete_all_alarm_messages(
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user)
+    user: CurrentUser = Depends(get_current_user)
 ):
-    deleted = (
+    """
+    Delete all alarm messages for the current user.
+    """
+    deleted_count = (
         db.query(AlarmMessage)
-        .filter(AlarmMessage.user_id == current_user.superadmin_id)
+        .filter(AlarmMessage.user_id == user.superadmin_id)
         .delete(synchronize_session=False)
     )
 
@@ -123,5 +125,6 @@ def delete_all_alarm_messages(
 
     return {
         "detail": "All alarms deleted",
-        "deleted_count": deleted
+        "deleted_count": deleted_count
     }
+

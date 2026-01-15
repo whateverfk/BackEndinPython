@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+import logging
+
 from app.db.session import get_db
 from app.Models.device import Device
 from app.Models.channel import Channel
@@ -14,7 +14,11 @@ from app.Models.channel_extensions import ChannelExtension
 from app.Models.channel_stream_config import ChannelStreamConfig
 from app.features.GetDevicesDetail.WorkWithDb import sync_channel_config
 from app.features.Schedule_Racord_Mode.work_with_db import get_channel_recording_mode_from_db, sync_channel_recording_mode
-import logging
+from app.services.device_service import get_device_or_404, get_channel_or_404
+from app.core.constants import ERROR_MSG_DEVICE_NOT_FOUND, ERROR_MSG_CHANNEL_NOT_FOUND
+from app.core.logger import setup_logger
+
+logger = setup_logger(__name__)
 router = APIRouter(
     prefix="/api/device/{device_id}/channel/{channel_id}/infor",
     tags=["Device_channel_info"]
@@ -27,24 +31,13 @@ async def get_channel_info(
     channel_id: int,
     db: Session = Depends(get_db),
 ):
-    channel = (
-        db.query(Channel)
-        .filter(
-            Channel.id == channel_id,
-            Channel.device_id == device_id
-        )
-        .first()
-    )
+    channel = get_channel_or_404(db, channel_id, device_id)
 
-    #  KHÔNG TỒN TẠI → 404 NGAY
-    if not channel:
-        raise HTTPException(status_code=404, detail="Channel not found")
+    # HANDLED BY get_channel_or_404
 
     #  CÓ CHANNEL NHƯNG CHƯA CÓ CONFIG → AUTO SYNC
     if not channel.stream_config or not channel.extension:
-        device = db.query(Device).filter(Device.id == device_id).first()
-        if not device:
-            raise HTTPException(404, "Device not found")
+        device = get_device_or_404(db, device_id)
 
         headers = build_hik_auth(device)
 
@@ -98,17 +91,7 @@ async def update_channel_info(
     data: ChannelUpdateSchema,
     db: Session = Depends(get_db),
 ):
-    channel = (
-        db.query(Channel)
-        .filter(
-            Channel.id == channel_id,
-            Channel.device_id == device_id
-        )
-        .first()
-    )
-
-    if not channel:
-        raise HTTPException(404, "Channel not found")
+    channel = get_channel_or_404(db, channel_id, device_id)
 
     # -------- BASIC INFO --------
     channel.name = data.channel_name
@@ -139,13 +122,7 @@ async def update_channel_info(
     db.refresh(channel)
 
     # -------- PUSH TO DEVICE --------
-    device = (
-    db.query(Device)
-    .filter(Device.id == device_id)
-    .first())
-
-    if not device:
-        raise HTTPException(404, "Device not found")
+    device = get_device_or_404(db, device_id)
 
 
     headers = build_hik_auth(device)  # auth hik / proxy
@@ -173,17 +150,7 @@ async def get_channel_capabilities(
     channel_id: int,
     db: Session = Depends(get_db)
 ):
-    channel = (
-        db.query(Channel)
-        .filter(
-            Channel.id == channel_id,
-            Channel.device_id == device_id
-        )
-        .first()
-    )
-
-    if not channel:
-        raise HTTPException(404, "Channel not found")
+    channel = get_channel_or_404(db, channel_id, device_id)
 
     device = channel.device
     headers = build_hik_auth(device)
@@ -203,69 +170,51 @@ async def sync_channel_from_device(
     channel_id: int,
     db: Session = Depends(get_db)
 ):
-    print("========== SYNC CHANNEL ==========")
-    print(f"device_id={device_id}, channel_id={channel_id}")
+    logger.info("========== SYNC CHANNEL ==========")
+    logger.info(f"device_id={device_id}, channel_id={channel_id}")
 
-    channel = (
-        db.query(Channel)
-        .filter(
-            Channel.id == channel_id,
-            Channel.device_id == device_id
-        )
-        .first()
-    )
-
-    if not channel:
-        print(" Channel not found in DB")
-        raise HTTPException(404, "Channel not found")
+    channel = get_channel_or_404(db, channel_id, device_id)
 
     device = channel.device
     headers = build_hik_auth(device)
 
-    print(f"Device IP: {device.ip_web}")
-    print(f"Channel No: {channel.channel_no}")
-    print(f"Connected type: {channel.connected_type}")
+    logger.info(f"Device IP: {device.ip_web}")
+    logger.info(f"Channel No: {channel.channel_no}")
+    logger.info(f"Connected type: {channel.connected_type}")
 
     hikservice = HikDetailService()
 
-    # =========================
     # 1. CHANNEL NAME
-    # =========================
-    print("▶ Sync channel name:", channel.name)
+    logger.info(f"▶ Sync channel name: {channel.name}")
 
-    # =========================
     # 2. MOTION DETECTION
-    # =========================
-    print("▶ Fetch motion detection ...")
+    logger.info("▶ Fetch motion detection ...")
     motion_enabled = await hikservice.fetch_motion_detection(
         device=device,
         channel=channel,
         headers=headers
     )
-    print("✔ Motion detection enabled:", motion_enabled)
+    logger.info(f"✔ Motion detection enabled: {motion_enabled}")
 
     if not channel.extension:
-        print("➕ Create ChannelExtension")
+        logger.info("➕ Create ChannelExtension")
         channel.extension = ChannelExtension(channel_id=channel.id)
 
     channel.extension.motion_detect_enabled = motion_enabled
 
-    # =========================
     # 3. STREAM CONFIG
-    # =========================
-    print(" Fetch stream config ...")
+    logger.info(" Fetch stream config ...")
     stream_data = await hikservice.fetch_stream_config(
         device=device,
         channel=channel,
         headers=headers
     )
 
-    print(" Stream config raw data:")
-    print(stream_data)
+    logger.info(f" Stream config data received: {bool(stream_data)}")
 
     if stream_data:
         if not channel.stream_config:
-            print(" Create ChannelStreamConfig")
+            logger.info(" Create ChannelStreamConfig")
             channel.stream_config = ChannelStreamConfig(
                 channel_id=channel.id
             )
@@ -281,27 +230,15 @@ async def sync_channel_from_device(
         cfg.vbr_upper_cap = stream_data.get("vbr_upper_cap")
         cfg.h265_plus = stream_data.get("h265_plus")
 
-        print("✔ Stream config mapped to DB:")
-        print({
-            "resolution_width": cfg.resolution_width,
-            "resolution_height": cfg.resolution_height,
-            "video_codec": cfg.video_codec,
-            "max_frame_rate": cfg.max_frame_rate,
-            "fixed_quality": cfg.fixed_quality,
-            "vbr_average_cap": cfg.vbr_average_cap,
-            "vbr_upper_cap"  : cfg.vbr_upper_cap,
-            "h265_plus" : cfg.h265_plus 
-        })
+        logger.info("✔ Stream config mapped to DB")
     else:
-        print("⚠ stream_data is EMPTY")
+        logger.warning("⚠ stream_data is EMPTY")
 
-    print("▶ Commit DB ...")
+    logger.info("▶ Commit DB ...")
     db.commit()
-    print("✔ DB committed")
+    logger.info("✔ DB committed")
 
-    # =========================
     # 4. RETURN FOR FRONTEND
-    # =========================
     result = {
         "channel_name": channel.name,
         "connected_type": channel.connected_type,
@@ -318,9 +255,8 @@ async def sync_channel_from_device(
 
     }
 
-    print("▶ Return to frontend:")
-    print(result)
-    print("========== SYNC DONE ==========")
+    logger.info("▶ Return to frontend")
+    logger.info("========== SYNC DONE ==========")
 
     return result
 
@@ -335,16 +271,7 @@ async def get_channel_recording_mode(
     # ===============================
     # 1. Validate channel thuộc device
     # ===============================
-    channel = db.query(Channel).filter(
-        Channel.id == channel_id,
-        Channel.device_id == device_id
-    ).first()
-
-    if not channel:
-        raise HTTPException(
-            status_code=404,
-            detail="Channel not found for this device"
-        )
+    channel = get_channel_or_404(db, channel_id, device_id)
 
     # ===============================
     # 2. Lấy recording mode từ DB
@@ -383,20 +310,8 @@ async def sync_recording_mode(
     # ===============================
     # 1. Load device + channel
     # ===============================
-    device = db.query(Device).filter(
-        Device.id == device_id
-    ).first()
-
-    if not device:
-        raise HTTPException(404, "Device not found")
-
-    channel = db.query(Channel).filter(
-        Channel.id == channel_id,
-        Channel.device_id == device_id
-    ).first()
-
-    if not channel:
-        raise HTTPException(404, "Channel not found")
+    device = get_device_or_404(db, device_id)
+    channel = get_channel_or_404(db, channel_id, device_id)
 
     # ===============================
     # 2. Build ISAPI auth header

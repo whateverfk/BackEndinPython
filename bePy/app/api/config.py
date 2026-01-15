@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
+from app.db.session import get_db
+from app.api.deps import get_current_user, CurrentUser
 from app.Models.monitor_setting import MonitorSetting
 from app.schemas.monitor_setting import MonitorSettingOut, MonitorSettingCreate
-from fastapi import HTTPException
-from app.api.deps import get_db, get_current_user, CurrentUser
 
 router = APIRouter(prefix="/api/config", tags=["Config"])
 
