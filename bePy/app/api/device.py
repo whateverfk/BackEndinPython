@@ -151,27 +151,34 @@ def update_device(
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
-    """Update device configuration"""
+    """Update device configuration (partial update allowed)"""
+
     device = get_device_or_404(db, id, user.superadmin_id)
-    
-    # Check if IP changed (requires re-initialization)
-    should_reinitialize = device.ip_web != dto.ip_web
-    
-    # Update device fields
-    device.ip_web = dto.ip_web
-    device.ip_nvr = dto.ip_nvr
-    device.username = dto.username
-    device.password = dto.password
-    device.brand = dto.brand
-    device.is_checked = dto.is_checked
-    
+
+    # Chỉ lấy những field frontend gửi lên
+    data = dto.model_dump(exclude_unset=True)
+
+    # Nếu không có gì để update → OK luôn
+    if not data:
+        return
+
+    # Check đổi IP web để init lại
+    should_reinitialize = (
+        "ip_web" in data and data["ip_web"] != device.ip_web
+    )
+
+    # Update từng field
+    for field, value in data.items():
+        setattr(device, field, value)
+
     db.commit()
-    
-    # Re-initialize if IP changed
+
+    # init lại data nếu đổi ip
     if should_reinitialize:
         background_tasks.add_task(trigger_device_init_data, device.id)
 
     return
+
 
 
 # =========================

@@ -220,13 +220,22 @@ async def send_alarm_to_n8n_webhook(
         print(f"[N8N WEBHOOK] Send failed: {ex}")
 
 
-async def save_alarm_message_async(user_id, device_id, message: str):
+async def save_alarm_message_async(
+    *,
+    user_id: int,
+    device_id: int,
+    alarm: dict,
+    message: str,
+):
     async with AsyncSessionLocal() as session:
         async with session.begin():
             session.add(
                 AlarmMessage(
                     user_id=user_id,
                     device_id=device_id,
+                    channel_id_in_device=alarm.get("channelID"),
+                    channel_name=alarm.get("channelName"),
+                    event=alarm.get("eventType"),
                     message=message,
                 )
             )

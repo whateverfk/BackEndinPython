@@ -7,19 +7,32 @@ class DeviceBase(BaseModel):
     username: Optional[str] = None
     password: Optional[str] = None
     brand: Optional[str] = None
-    is_checked: bool = True
+    is_checked: bool = None
 
 
 class DeviceCreate(DeviceBase):
-    pass
+    
+    ip_nvr: str
+    ip_web: str
+    username: str
+    password: str
+    brand: str
+    is_checked: bool = True
+
 
 
 class DeviceUpdate(DeviceBase):
     pass
 
 
-class DeviceOut(DeviceBase):
+class DeviceOut(BaseModel):
     id: int
+    ip_nvr: str
+    ip_web: str
+    username: str
+    brand: str
+    is_checked: bool
 
     class Config:
         from_attributes = True
+

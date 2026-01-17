@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Text, ForeignKey,Integer, Index
+from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Integer, Index
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
@@ -8,7 +8,7 @@ from app.db.base import Base
 class AlarmMessage(Base):
     __tablename__ = "alarm_messages"
 
-    id =  Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True)
 
     user_id = Column(
         String(36),
@@ -23,6 +23,10 @@ class AlarmMessage(Base):
         nullable=True,
         index=True
     )
+
+    channel_id_in_device = Column(String(32), nullable=True, index=True)
+    channel_name = Column(String(255), nullable=True)
+    event = Column(String(64), nullable=True, index=True)
 
     message = Column(Text, nullable=False)
 
