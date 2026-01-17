@@ -104,6 +104,7 @@ def check_hikvision_auth(ip: str, username: str, password: str) -> bool:
             auth=HTTPDigestAuth(username, password),
             timeout=DEFAULT_AUTH_TIMEOUT
         )
+        
         return r.status_code == 200
     except Exception:
         return False

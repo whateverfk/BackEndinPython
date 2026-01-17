@@ -25,7 +25,7 @@ def get_alarm_messages(
     cursor_time: datetime | None = None,
     cursor_id: int | None = None,
 
-    # 🔥 OPTIONAL FILTERS (future-proof)
+   
     device_id: int | None = Query(None),
     event: str | None = Query(None),
     channel_id_in_device: str | None = Query(None),

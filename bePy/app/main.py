@@ -40,15 +40,19 @@ if not HLS_DIR:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     supervisor = AlarmSupervisor()
-
+    #bg auto sync time
     sync_task = asyncio.create_task(sync_background_worker())
+    # Bắt alert steam
     asyncio.create_task(supervisor.run())
 
     # chạy sync ngay khi start
+    
+    # 2 cái này là cái scheduler nhưng active ngay 1 lần khi start/restart server BE 
     await auto_sync_all_devices()
+    
     await daily_refresh_oldest()
 
-    # scheduler
+    # scheduler để cập nhật data monitor mỗi /5p và cập nhật data monitor ngày cũ nhất mỗi 1h sáng 
     start_scheduler()
     print("AUTO SYNC (data) STARTED")
 
