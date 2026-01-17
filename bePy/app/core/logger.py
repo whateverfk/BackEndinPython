@@ -13,17 +13,9 @@ def setup_logger(
     level: int = logging.INFO,
     format_string: Optional[str] = None
 ) -> logging.Logger:
-    """
-    Create or retrieve a configured logger instance.
+  
     
-    Args:
-        name: Logger name (typically __name__ of the module)
-        level: Logging level (default: INFO)
-        format_string: Custom format string (optional)
     
-    Returns:
-        Configured logger instance
-    """
     logger = logging.getLogger(name)
     
     

@@ -202,7 +202,8 @@ def get_device(
 @router.get("/{id}/channels")
 def get_device_channels(
     id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     
     return db.query(Channel).filter(
@@ -216,7 +217,8 @@ def get_device_channels(
 )
 def get_channel_record_days_full(
     channel_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     days = (
         db.query(ChannelRecordDay)

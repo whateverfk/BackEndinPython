@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import select
-
+from app.api.deps import get_current_user,CurrentUser
 from app.db.session import get_db
 from app.Models.device import Device
 from app.Models.device_system_info import DeviceSystemInfo
@@ -27,6 +27,7 @@ router = APIRouter(
 async def get_device_system_info(
     id: int,
     db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     stmt = select(DeviceSystemInfo).where(
         DeviceSystemInfo.device_id == id
@@ -52,7 +53,8 @@ async def get_device_system_info(
 @router.post("/sync")
 async def sync_device_system_info(
     id: int,
-    db: Session = Depends(get_db)  # Corrected to Session
+    db: Session = Depends(get_db),  # Corrected to Session
+    user: CurrentUser = Depends(get_current_user),
 ):
     # 1. Lấy device
     device = get_device_or_404(db, id)
@@ -102,6 +104,7 @@ async def sync_device_system_info(
 async def sync_device_storage(
     id: int,
     db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     device = get_device_or_404(db, id)
     headers = build_hik_auth(device)
@@ -123,6 +126,7 @@ async def sync_device_storage(
 async def get_device_storage(
     id: int,
     db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     data = await get_device_storage_from_db(db, id)
 
@@ -143,6 +147,7 @@ async def get_device_storage(
 async def sync_device_onvif_users(
     id: int,
     db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     device = get_device_or_404(db, id)
 
@@ -164,6 +169,7 @@ async def sync_device_onvif_users(
 async def get_device_onvif_users(
     id: int,
     db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     data = await get_device_integration_users_from_db(db, id)
 

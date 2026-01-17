@@ -23,6 +23,7 @@ async def get_device_user_permissions(
     id: int,
     device_user_id: int,
     db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     """
     Get permissions for a specific device user.
@@ -64,6 +65,7 @@ async def sync_user_permission(
     id: int,
     device_user_id: int,
     db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     """
     Fetch and update permissions from device for a user.
@@ -98,6 +100,7 @@ async def update_device_user_permissions(
     device_user_id: int,
     payload: dict = Body(...),
     db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     """
     Update permissions for a device user on both the device and DB.

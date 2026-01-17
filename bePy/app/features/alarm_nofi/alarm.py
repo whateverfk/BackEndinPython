@@ -187,7 +187,7 @@ def build_alarm_message(alarm: dict) -> str:
 
 
 
-#N8N_WEBHOOK_URL = "http://n8n.srtech.com.vn/webhook-test/alarm"
+
 from dotenv import load_dotenv
 import os
 

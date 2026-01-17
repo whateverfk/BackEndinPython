@@ -30,6 +30,7 @@ async def get_channel_info(
     device_id: int,
     channel_id: int,
     db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     channel = get_channel_or_404(db, channel_id, device_id)
 
@@ -90,6 +91,7 @@ async def update_channel_info(
     channel_id: int,
     data: ChannelUpdateSchema,
     db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     channel = get_channel_or_404(db, channel_id, device_id)
 
@@ -148,7 +150,8 @@ async def update_channel_info(
 async def get_channel_capabilities(
     device_id: int,
     channel_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     channel = get_channel_or_404(db, channel_id, device_id)
 
@@ -168,7 +171,8 @@ async def get_channel_capabilities(
 async def sync_channel_from_device(
     device_id: int,
     channel_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     logger.info("========== SYNC CHANNEL ==========")
     logger.info(f"device_id={device_id}, channel_id={channel_id}")

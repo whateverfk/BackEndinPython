@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-
+from app.api.deps import get_current_user, CurrentUser
 from app.db.session import get_db
 from app.features.GetDevicesDetail.HikDetailService import HikDetailService
 from app.features.GetDevicesDetail.WorkWithDb import (
@@ -20,6 +20,7 @@ router = APIRouter(
 async def sync_device_users(
     id: int,
     db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     """
     Fetch user list from device and upsert into database.
@@ -52,7 +53,8 @@ async def sync_device_users(
 @router.get("")
 def get_device_users(
     id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     """
     Get device users from database.

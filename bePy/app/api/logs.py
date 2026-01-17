@@ -49,6 +49,7 @@ async def get_device_logs(
     device_id: int,
     body: DeviceLogRequest,
     db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     """
     Fetch device logs via Hikvision ISAPI

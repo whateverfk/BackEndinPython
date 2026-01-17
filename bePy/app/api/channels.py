@@ -22,7 +22,8 @@ router = APIRouter(
 async def sync_recording_mode_all_channels(
     device_id: int,
     db: Session = Depends(get_db),
-    user: CurrentUser = Depends(get_current_user)
+    user: CurrentUser = Depends(get_current_user),
+    
 ):
     """
     Sync recording mode for all channels of a device from ISAPI.
