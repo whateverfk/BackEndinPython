@@ -157,7 +157,6 @@ async def fetch_isapi_logs(
                 results.append({
                     "time": desc.findtext("ns:StartDateTime", namespaces=NS),
                     "majorType": major,
-                    #"minorType": minor,
                     "minorType": map_minor_display(minor),
                     "localId": desc.findtext("ns:localId", namespaces=NS),
                     "userName": desc.findtext("ns:userName", namespaces=NS),

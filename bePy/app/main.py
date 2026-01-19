@@ -41,19 +41,19 @@ if not HLS_DIR:
 async def lifespan(app: FastAPI):
     supervisor = AlarmSupervisor()
     #bg auto sync time
-    sync_task = asyncio.create_task(sync_background_worker())
+    #sync_task = asyncio.create_task(sync_background_worker())
     # Bắt alert steam
-    asyncio.create_task(supervisor.run())
+    #asyncio.create_task(supervisor.run())
 
     # chạy sync ngay khi start
     
     # 2 cái này là cái scheduler nhưng active ngay 1 lần khi start/restart server BE 
-    await auto_sync_all_devices()
+    #await auto_sync_all_devices()
     
-    await daily_refresh_oldest()
+    #await daily_refresh_oldest()
 
     # scheduler để cập nhật data monitor mỗi /5p và cập nhật data monitor ngày cũ nhất mỗi 1h sáng 
-    start_scheduler()
+    #start_scheduler()
     print("AUTO SYNC (data) STARTED")
 
     yield
@@ -62,11 +62,11 @@ async def lifespan(app: FastAPI):
     stop_scheduler()
     await close_http_client()
 
-    sync_task.cancel()
-    try:
-        await sync_task
-    except asyncio.CancelledError:
-        print("AUTO SYNC CANCELLED")
+    # sync_task.cancel()
+    # try:
+    #     await sync_task
+    # except asyncio.CancelledError:
+    #     print("AUTO SYNC CANCELLED")
 
 # =========================
 # APP

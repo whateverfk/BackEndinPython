@@ -25,6 +25,7 @@ class UserGlobalPermission(Base):
     playback = Column(Boolean, default=False)
     record = Column(Boolean, default=False)
     backup = Column(Boolean, default=False)
+    ptz_control =Column(Boolean, default=False)
 
     preview = Column(Boolean, default=False)
     voice_talk = Column(Boolean, default=False)

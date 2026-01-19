@@ -273,6 +273,7 @@ GLOBAL_PERMISSION_MAP = {
     "playBack": "playback",
     "record": "record",
     "backup": "backup",
+    "ptzControl":"ptz_control",
 
     # remote
     "preview": "preview",

@@ -19,7 +19,7 @@ export async function renderDeviceList(container) {
 
 async function loadDevices() {
     devicesCache = await apiFetch(`${API_URL}/api/devices`);
-    console.log = (devicesCache);
+    
     renderDevices();
 }
 

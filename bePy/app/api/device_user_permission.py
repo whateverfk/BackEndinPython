@@ -157,3 +157,75 @@ async def update_device_user_permissions(
     }
 
 
+@router.post("/syncall")
+async def sync_all_device_user_permissions(
+    id: int,
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Sync permissions for ALL users of a device from device to DB
+    """
+
+    device = get_device_or_404(db, id)
+
+    device_users = (
+        db.query(DeviceUser)
+        .filter(DeviceUser.device_id == id)
+        .all()
+    )
+
+    if not device_users:
+        return {
+            "success": True,
+            "message": "No device users found",
+            "total": 0,
+            "synced": 0,
+            "errors": []
+        }
+
+    headers = build_hik_auth(device)
+    hik = HikDetailService()
+
+    success_count = 0
+    errors = []
+
+    for device_user in device_users:
+        try:
+            permission_data = await hik.fetch_permission_for_1_user(
+                device=device,
+                headers=headers,
+                user_id=device_user.user_id
+            )
+
+            if not permission_data:
+                errors.append({
+                    "device_user_id": device_user.id,
+                    "user_id": device_user.user_id,
+                    "error": "FETCH_FAILED"
+                })
+                continue
+
+            save_permissions(
+                db=db,
+                device_user_id=device_user.id,
+                permission_data=permission_data
+            )
+
+            success_count += 1
+
+        except Exception as e:
+            errors.append({
+                "device_user_id": device_user.id,
+                "user_id": device_user.user_id,
+                "error": str(e)
+            })
+
+    return {
+        "success": True,
+        "device_id": id,
+        "total": len(device_users),
+        "synced": success_count,
+        "failed": len(errors),
+        "errors": errors
+    }

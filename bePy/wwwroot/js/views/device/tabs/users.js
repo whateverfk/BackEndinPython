@@ -248,8 +248,7 @@ window.openUserModal = async function (user) {
     const perm = await apiFetch(
         `${API_URL}/api/device/${currentDevice.id}/user/${user.id}/permissions`
     );
-    console.log("user id: " + user.id);
-    console.log(perm);
+    
 
     renderPermissionUI(perm);
 };
@@ -274,7 +273,7 @@ window.syncUserPermission = async function (userId) {
     const perm = await apiFetch(
         `${API_URL}/api/device/${currentDevice.id}/user/${userId}/permissions`
     );
-    console.log(perm);
+   
 
     renderPermissionUI(perm);
 };
@@ -477,8 +476,7 @@ window.savePermissions = async function () {
         permissions: modifiedPermissions
     };
     
-    console.log("=== MODIFIED PERMISSIONS ===");
-    console.log(JSON.stringify(result, null, 2));
+    
     
     // Disable button và hiển thị loading
     const saveBtn = event.target;

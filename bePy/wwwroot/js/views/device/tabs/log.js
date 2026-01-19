@@ -141,8 +141,7 @@ function bindLogSearch(device) {
         };
 
         //  DEBUG
-        console.log("[LOG SEARCH] device:", device.id);
-        console.log("[LOG SEARCH] payload:", payload);
+        
 
         result.innerHTML = `<span class="text-gray-500">Searching logs...</span>`;
 

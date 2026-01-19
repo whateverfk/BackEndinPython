@@ -28,6 +28,7 @@ def build_permission_response(db: Session, device_user_id: int) -> Dict[str, Any
             "playback": g.playback,
             "record": g.record,
             "backup": g.backup,
+            "ptz_control":g.ptz_control,
 
             "preview": g.preview,
             "voice_talk": g.voice_talk,

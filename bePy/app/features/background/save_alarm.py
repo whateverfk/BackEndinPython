@@ -1,6 +1,6 @@
 import asyncio
 from sqlalchemy import select
-from app.features.alarm_nofi.alarm import get_alarm, build_alarm_message, send_alarm_to_n8n_webhook
+from app.features.alarm_nofi.alarm import get_alarm, build_alarm_message, send_alarm_to_n8n_webhook,save_alarm_message_async
 from app.Models.device import Device
 from app.features.deps import build_hik_auth
 from app.db.session import AsyncSessionLocal
@@ -29,6 +29,12 @@ class AlarmSupervisor:
 
                     await send_alarm_to_n8n_webhook(
                         user_id=device.owner_superadmin_id,
+                        device_id=device.id,
+                        message=message,
+                    )
+                    await save_alarm_message_async(
+                        user_id=device.owner_superadmin_id,
+                        alarm= alarm,
                         device_id=device.id,
                         message=message,
                     )

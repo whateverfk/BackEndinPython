@@ -97,7 +97,7 @@ async function loadChannelForm(device, channel) {
     const info = await apiFetch(
         `${API_URL}/api/device/${device.id}/channel/${channel.id}/infor`
     );
-     console.log("infor TỪ db:", info );
+    
 
     // 2. Capabilities (cache theo channel)
     if (!capabilitiesCache[channel.id]) {
@@ -105,7 +105,7 @@ async function loadChannelForm(device, channel) {
             `${API_URL}/api/device/${device.id}/channel/${channel.id}/infor/capabilities`
         );
     }
-    console.log("Capbilities la:", capabilitiesCache[channel.id] );
+    
 
     form.innerHTML = renderChannelForm(info, capabilitiesCache[channel.id], device, channel);
     window.onH265PlusChange();
