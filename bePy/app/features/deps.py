@@ -4,6 +4,8 @@ import httpx
 import socket
 import requests
 from requests.auth import HTTPDigestAuth
+from app.core.device_crypto import decrypt_device_password
+
 
 from app.core.constants import (
     HIK_XML_NAMESPACE,
@@ -32,17 +34,11 @@ def xml_int(parent, tag):
 def build_hik_auth(device):
     """
     Build HTTP Basic Authentication header for Hikvision ISAPI.
-    
-    Args:
-        device: Device model instance with username and password
-    
-    Returns:
-        Dict with Authorization and Content-Type headers
-    
-    Business Logic: UNCHANGED - same encoding
     """
+    password = decrypt_device_password(device.password)
+
     auth = base64.b64encode(
-        f"{device.username}:{device.password}".encode()
+        f"{device.username}:{password}".encode()
     ).decode()
 
     return {

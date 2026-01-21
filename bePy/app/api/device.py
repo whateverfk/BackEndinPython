@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 
 from app.api.deps import get_db, get_current_user, CurrentUser
+from app.core.device_crypto import encrypt_device_password
 from app.Models.device import Device
 from app.Models.channel import Channel
 from app.Models.channel_record_time_range import ChannelRecordTimeRange
@@ -106,6 +107,8 @@ def get_active_devices_endpoint(
     return get_active_devices(db, user.superadmin_id)
 
 
+
+from app.core.device_crypto import encrypt_device_password
 # =========================
 # POST: /api/devices
 # =========================
@@ -124,7 +127,7 @@ def create_device(
         ip_web=dto.ip_web,
         ip_nvr=dto.ip_nvr,
         username=dto.username,
-        password=dto.password,
+        password=encrypt_device_password(dto.password),
         brand=dto.brand,
         is_checked=dto.is_checked,
         owner_superadmin_id=user.superadmin_id
@@ -169,7 +172,10 @@ def update_device(
 
     # Update từng field
     for field, value in data.items():
+        if field == "password":
+            value = encrypt_device_password(value)
         setattr(device, field, value)
+
 
     db.commit()
 

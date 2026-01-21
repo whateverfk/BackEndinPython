@@ -10,6 +10,9 @@ SECRET_KEY = "Cái này thì ghi gì cũng được"
 ASYNC_DATABASE_URL = "postgresql+asyncpg://......."
 N8N_WEBHOOK_URL = "....."
 HLS_DIR=D:/Hls
+N8N_WEBHOOK_URL = "URL wwebhook nao do"
+DEVICE_SECRET_KEY = "ram_dom_text are OK"
+
 ~
 HLS_DIR = Chỗ để lưu m3u8 + ts file tạm cho live view 
 

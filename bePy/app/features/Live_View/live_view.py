@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.http_client import get_http_client
 from app.features.deps import build_hik_auth
 from app.Models.user import User
+from app.core.device_crypto import decrypt_device_password
 from app.Models.device import Device
 from app.Models.channel import Channel
 import psutil
@@ -114,6 +115,7 @@ class LiveView:
         ip = device.ip_nvr or device.ip_web
         username = urllib.parse.quote(device.username)
         password = urllib.parse.quote(device.password)
+        password =decrypt_device_password(password)
         rtsp_url = f"rtsp://{username}:{password}@{ip}:{rtsp_port}/ISAPI/Streaming/channels/{channel.channel_no}"
 
         # Stream config
