@@ -487,6 +487,7 @@ class HikRecordService():
 
         db.add_all(channels_to_add)
         db.flush()  #  cần channel.id
+        db.commit()  
 
         # =========================
         # BATCH RECORD DAY + TIME RANGE

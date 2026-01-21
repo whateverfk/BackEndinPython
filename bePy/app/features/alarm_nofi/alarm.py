@@ -229,13 +229,15 @@ async def save_alarm_message_async(
 ):
     async with AsyncSessionLocal() as session:
         async with session.begin():
+            raw_event_type = alarm["eventType"]
+            event_type = EVENT_TYPE_LABEL_MAP.get(raw_event_type, raw_event_type)
             session.add(
                 AlarmMessage(
                     user_id=user_id,
                     device_id=device_id,
                     channel_id_in_device=alarm.get("channelID"),
                     channel_name=alarm.get("channelName"),
-                    event=alarm.get("eventType"),
+                    event=event_type,
                     message=message,
                 )
             )

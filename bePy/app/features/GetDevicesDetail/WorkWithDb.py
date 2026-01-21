@@ -207,7 +207,7 @@ def upsert_device_users(
     if new_items:
         db.add_all(new_items)
 
-    db.commit()
+    
 
 
 async def sync_device_users_from_isapi(
@@ -226,6 +226,7 @@ async def sync_device_users_from_isapi(
         device_id=device.id,
         users_data=users
     )
+    db.commit()
 
     return users
 

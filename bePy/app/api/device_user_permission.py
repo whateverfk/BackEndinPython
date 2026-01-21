@@ -7,18 +7,18 @@ from app.Models.device import Device
 from app.Models.device_user import DeviceUser
 from app.features.deps import build_hik_auth
 from app.features.GetDevicesDetail.HikDetailService import HikDetailService
-from app.features.GetDevicesDetail.WorkWithDb import save_permissions
+from app.features.GetDevicesDetail.WorkWithDb import save_permissions,sync_device_users_from_isapi
 from app.utils.response_builders import build_permission_response
 from app.services.device_service import get_device_or_404, get_device_user_or_404
 from app.core.constants import ERROR_MSG_LOW_PRIVILEGE, ERROR_MSG_INVALID_OPERATION
 
 router = APIRouter(
-    prefix="/api/device/{id}/user/{device_user_id}/permissions",
+    prefix="/api/device/{id}/user",
     tags=["Devices_user_info"]
 )
 
 
-@router.get("")
+@router.get("/{device_user_id}/permissions")
 async def get_device_user_permissions(
     id: int,
     device_user_id: int,
@@ -60,7 +60,7 @@ async def get_device_user_permissions(
     return build_permission_response(db, device_user_id)
 
 
-@router.post("/sync")
+@router.post("/{device_user_id}/permissions/sync")
 async def sync_user_permission(
     id: int,
     device_user_id: int,
@@ -94,7 +94,7 @@ async def sync_user_permission(
     return {"status": "success"}
 
 
-@router.put("")
+@router.put("/{device_user_id}/permissions")
 async def update_device_user_permissions(
     id: int,
     device_user_id: int,
@@ -163,12 +163,22 @@ async def sync_all_device_user_permissions(
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
-    """
-    Sync permissions for ALL users of a device from device to DB
-    """
-
     device = get_device_or_404(db, id)
+    headers = build_hik_auth(device)
 
+    # =========================
+    # STEP 1: SYNC DEVICE USERS
+    # =========================
+    users = await sync_device_users_from_isapi(
+        db=db,
+        device=device,
+        headers=headers
+    )
+
+
+    # =========================
+    # STEP 2: LOAD USERS FROM DB
+    # =========================
     device_users = (
         db.query(DeviceUser)
         .filter(DeviceUser.device_id == id)
@@ -178,15 +188,16 @@ async def sync_all_device_user_permissions(
     if not device_users:
         return {
             "success": True,
-            "message": "No device users found",
+            "message": "No device users found after sync",
             "total": 0,
             "synced": 0,
             "errors": []
         }
 
-    headers = build_hik_auth(device)
+    # =========================
+    # STEP 3: SYNC PERMISSIONS
+    # =========================
     hik = HikDetailService()
-
     success_count = 0
     errors = []
 
@@ -220,6 +231,8 @@ async def sync_all_device_user_permissions(
                 "user_id": device_user.user_id,
                 "error": str(e)
             })
+
+    db.commit()
 
     return {
         "success": True,

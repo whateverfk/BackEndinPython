@@ -65,8 +65,7 @@ class HikRecordingModeService:
             "timeline": timeline
         }
 
-        # 5 Final result
-        print(" Final result:", result)
+        
 
         return result
 

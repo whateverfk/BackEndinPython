@@ -265,6 +265,7 @@ async def sync_channel_from_device(
     return result
 
 
+## Mấy api này cho Schedule
 @router.get("/recording-mode")
 async def get_channel_recording_mode(
     device_id: int,
