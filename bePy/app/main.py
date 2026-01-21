@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI):
     await daily_refresh_oldest()
 
     # scheduler để cập nhật data monitor mỗi /5p và cập nhật data monitor ngày cũ nhất mỗi 1h sáng 
-    #start_scheduler()
+    start_scheduler()
     print("AUTO SYNC (data) STARTED")
 
     yield
@@ -62,11 +62,11 @@ async def lifespan(app: FastAPI):
     stop_scheduler()
     await close_http_client()
 
-    # sync_task.cancel()
-    # try:
-    #     await sync_task
-    # except asyncio.CancelledError:
-    #     print("AUTO SYNC CANCELLED")
+    sync_task.cancel()
+    try:
+        await sync_task
+    except asyncio.CancelledError:
+        print("AUTO SYNC CANCELLED")
 
 # =========================
 # APP
