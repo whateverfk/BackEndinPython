@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, CurrentUser
 from app.db.session import get_async_db
-from app.features.Live_View.live_view import LiveView
+from app.services.media_service import media_service
 from app.core.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -12,7 +12,7 @@ router = APIRouter(
     prefix="/api/device/{device_id}/channel/{channel_id}",
     tags=["Live"]
 )
-live_manager = LiveView()
+live_manager = media_service
 
 
 @router.get("/live")
