@@ -99,8 +99,8 @@ class MediaService:
         rtsp_port = await self.get_rtsp_port(device=device, headers=headers)
         ip = device.ip_nvr or device.ip_web
         username = urllib.parse.quote(device.username)
-        password = urllib.parse.quote(device.password)
-        password = decrypt_device_password(password)
+        password = decrypt_device_password(device.password)
+        password = urllib.parse.quote(password)
         rtsp_url = f"rtsp://{username}:{password}@{ip}:{rtsp_port}/ISAPI/Streaming/channels/{channel.channel_no}"
 
         cfg = channel.stream_config

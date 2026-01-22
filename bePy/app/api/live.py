@@ -59,5 +59,5 @@ async def heartbeat(
     channel_id: int,
     user: CurrentUser = Depends(get_current_user),
 ):
-    live_manager.heartbeat(device_id, channel_id, user.user_id)
+    live_manager.heartbeat( user.user_id)
     return {"status": "ok"}
