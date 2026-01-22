@@ -93,7 +93,7 @@ def check_hikvision_auth(ip: str, username: str, password: str) -> bool:
     
     Business Logic: UNCHANGED
     """
-    url = f"http://{ip}/ISAPI/System/status"
+    url = f"http://{ip}/ISAPI/System/time"
     try:
         r = requests.get(
             url,
