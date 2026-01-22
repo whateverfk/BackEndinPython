@@ -8,7 +8,7 @@ from app.Models.channel_stream_config import ChannelStreamConfig
 from app.Models.channel_extensions import ChannelExtension
 from app.core.http_client import get_http_client
 from app.features.GetDevicesDetail.Change_permission import create_user_permission_xml
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 class HikDetailService:
     def __init__(self):
@@ -750,7 +750,7 @@ class HikDetailService:
   
     async def put_permission(
     self,
-    db: Session,
+    db: AsyncSession,
     device,
     headers,
     payload: dict
@@ -761,7 +761,7 @@ class HikDetailService:
         if not device_id or not device_user_id:
             raise ValueError("payload must contain device_id and device_user_id")
 
-        xml_body = create_user_permission_xml(
+        xml_body = await create_user_permission_xml(
             db=db,
             device_id=device_id,
             device_user_id=device_user_id,

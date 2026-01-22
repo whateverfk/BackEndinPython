@@ -10,7 +10,8 @@ from app.schemas.record import (
 )
 from app.features.deps import build_hik_auth, to_date
 from app.core.time_provider import TimeProvider
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, delete
 from app.Models.device import Device    
 from app.Models.channel import Channel
 from app.Models.channel_record_day import ChannelRecordDay
@@ -319,7 +320,7 @@ class HikRecordService():
 
     async def sync_device_channels_data_core(
         self,
-        db: Session,
+        db: AsyncSession,
         device: Device
     ):
             print(f"Start syncing device {device.id} channels data...")
@@ -335,9 +336,10 @@ class HikRecordService():
             if not nvr_channels:
                 return
 
-            db_channels = db.query(Channel).filter(
-                Channel.device_id == device.id
-            ).all()
+            result = await db.execute(
+                select(Channel).where(Channel.device_id == device.id)
+            )
+            db_channels = result.scalars().all()
 
             db_map = {c.channel_no: c for c in db_channels}
             nvr_ids = {c["id"] for c in nvr_channels}
@@ -352,7 +354,7 @@ class HikRecordService():
                         is_active=True
                     )
                     db.add(channel)
-                    db.flush()
+                    await db.flush()
                 else:
                     channel = db_map[ch["id"]]
                     channel.name = ch["name"]
@@ -365,17 +367,20 @@ class HikRecordService():
                 if ch_no not in nvr_ids:
                     ch.is_active = False
 
-            db.flush()
+            await db.flush()
 
             # =========================
             # 2. SYNC RECORD DATA
             # =========================
 
             
-            active_channels = db.query(Channel).filter(
-                Channel.device_id == device.id,
-                Channel.is_active == True
-            ).all()
+            result = await db.execute(
+                select(Channel).where(
+                    Channel.device_id == device.id,
+                    Channel.is_active == True
+                )
+            )
+            active_channels = result.scalars().all()
 
             for channel in active_channels:
                 if channel.last_sync_at:
@@ -386,11 +391,12 @@ class HikRecordService():
                 print("Syncing channel", channel.channel_no, "from", sync_from)
 
                 #  (1) LOAD TRƯỚC record_day CỦA CHANNEL
+                result = await db.execute(
+                    select(ChannelRecordDay).where(ChannelRecordDay.channel_id == channel.id)
+                )
                 existing_days = {
                     d.record_date: d
-                    for d in db.query(ChannelRecordDay)
-                    .filter(ChannelRecordDay.channel_id == channel.id)
-                    .all()
+                    for d in result.scalars().all()
                 }
 
                 #  (2) LẤY STATUS RECORD
@@ -416,7 +422,7 @@ class HikRecordService():
                             has_record=has_record
                         )
                         db.add(record_day)
-                        db.flush()
+                        await db.flush()
                         existing_days[record_date] = record_day
                     else:
                         record_day.has_record = has_record
@@ -431,9 +437,11 @@ class HikRecordService():
                         )
                         segments = await hik_service.merge_time_ranges(segments)
 
-                        db.query(ChannelRecordTimeRange).filter(
-                            ChannelRecordTimeRange.record_day_id == record_day.id
-                        ).delete(synchronize_session=False)
+                        await db.execute(
+                            delete(ChannelRecordTimeRange).where(
+                                ChannelRecordTimeRange.record_day_id == record_day.id
+                            )
+                        )
 
                         for seg in segments:
                             db.add(ChannelRecordTimeRange(
@@ -442,13 +450,13 @@ class HikRecordService():
                                 end_time=seg.end_time
                             ))
 
-                channel.last_sync_at =  datetime.now().astimezone()
+                channel.last_sync_at =  datetime.now()
                 channel.latest_record_date = today
 
 
     async def device_channels_init_data(
         self,
-        db: Session,
+        db: AsyncSession,
         device: Device
     ):
         headers = build_hik_auth(device)
@@ -461,9 +469,9 @@ class HikRecordService():
         if not channels_data:
             raise Exception("No channels returned from device")
 
-        db.query(Channel).filter(
-            Channel.device_id == device.id
-        ).delete(synchronize_session=False)
+        await db.execute(
+            delete(Channel).where(Channel.device_id == device.id)
+        )
 
 
         # =========================
@@ -486,8 +494,8 @@ class HikRecordService():
             channel_map[ch["id"]] = channel
 
         db.add_all(channels_to_add)
-        db.flush()  #  cần channel.id
-        db.commit()  
+        await db.flush()  #  cần channel.id
+        await db.commit()  
 
         # =========================
         # BATCH RECORD DAY + TIME RANGE
@@ -555,10 +563,10 @@ class HikRecordService():
         # =========================
 
         db.add_all(all_record_days)
-        db.flush()  #  sinh record_day.id
+        await db.flush()  #  sinh record_day.id
 
         db.add_all(all_time_ranges)
-        db.flush()
+        await db.flush()
 
         print(
             f"Batch done: {len(channels_to_add)} channels | "

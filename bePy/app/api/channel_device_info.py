@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 
-from app.db.session import get_db
+from app.db.session import get_async_db as get_db
 from app.Models.device import Device
 from app.Models.channel import Channel
 from app.api.deps import get_current_user, CurrentUser
@@ -29,16 +29,16 @@ router = APIRouter(
 async def get_channel_info(
     device_id: int,
     channel_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
-    channel = get_channel_or_404(db, channel_id, device_id)
+    channel = await get_channel_or_404(db, channel_id, device_id, load_details=True)
 
     # HANDLED BY get_channel_or_404
 
     #  CÓ CHANNEL NHƯNG CHƯA CÓ CONFIG → AUTO SYNC
     if not channel.stream_config or not channel.extension:
-        device = get_device_or_404(db, device_id)
+        device = await get_device_or_404(db, device_id)
 
         headers = build_hik_auth(device)
 
@@ -49,8 +49,8 @@ async def get_channel_info(
             headers=headers,
         )
 
-        db.commit()
-        db.refresh(channel)
+        await db.commit()
+        await db.refresh(channel)
 
     #  RETURN
     return {
@@ -90,10 +90,10 @@ async def update_channel_info(
     device_id: int,
     channel_id: int,
     data: ChannelUpdateSchema,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
-    channel = get_channel_or_404(db, channel_id, device_id)
+    channel = await get_channel_or_404(db, channel_id, device_id, load_details=True)
 
     # -------- BASIC INFO --------
     channel.name = data.channel_name
@@ -120,11 +120,11 @@ async def update_channel_info(
 
     #  Commit DB trước
     
-    db.commit()
-    db.refresh(channel)
+    await db.commit()
+    await db.refresh(channel)
 
     # -------- PUSH TO DEVICE --------
-    device = get_device_or_404(db, device_id)
+    device = await get_device_or_404(db, device_id)
 
 
     headers = build_hik_auth(device)  # auth hik / proxy
@@ -150,10 +150,10 @@ async def update_channel_info(
 async def get_channel_capabilities(
     device_id: int,
     channel_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
-    channel = get_channel_or_404(db, channel_id, device_id)
+    channel = await get_channel_or_404(db, channel_id, device_id, load_device=True)
 
     device = channel.device
     headers = build_hik_auth(device)
@@ -171,13 +171,13 @@ async def get_channel_capabilities(
 async def sync_channel_from_device(
     device_id: int,
     channel_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
     logger.info("========== SYNC CHANNEL ==========")
     logger.info(f"device_id={device_id}, channel_id={channel_id}")
 
-    channel = get_channel_or_404(db, channel_id, device_id)
+    channel = await get_channel_or_404(db, channel_id, device_id, load_details=True, load_device=True)
 
     device = channel.device
     headers = build_hik_auth(device)
@@ -239,7 +239,7 @@ async def sync_channel_from_device(
         logger.warning("⚠ stream_data is EMPTY")
 
     logger.info("▶ Commit DB ...")
-    db.commit()
+    await db.commit()
     logger.info("✔ DB committed")
 
     # 4. RETURN FOR FRONTEND
@@ -270,19 +270,19 @@ async def sync_channel_from_device(
 async def get_channel_recording_mode(
     device_id: int,
     channel_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
     # ===============================
     # 1. Validate channel thuộc device
     # ===============================
-    channel = get_channel_or_404(db, channel_id, device_id)
+    channel = await get_channel_or_404(db, channel_id, device_id)
 
     # ===============================
     # 2. Lấy recording mode từ DB
     # ===============================
 
-    data = get_channel_recording_mode_from_db(
+    data = await get_channel_recording_mode_from_db(
         db=db,
         channel_id=channel_id
     )
@@ -309,14 +309,14 @@ async def get_channel_recording_mode(
 async def sync_recording_mode(
     device_id: int,
     channel_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
     # ===============================
     # 1. Load device + channel
     # ===============================
-    device = get_device_or_404(db, device_id)
-    channel = get_channel_or_404(db, channel_id, device_id)
+    device = await get_device_or_404(db, device_id)
+    channel = await get_channel_or_404(db, channel_id, device_id)
 
     # ===============================
     # 2. Build ISAPI auth header
@@ -341,6 +341,6 @@ async def sync_recording_mode(
     # ===============================
     return {
         "success": True,
-        "data": get_channel_recording_mode_from_db(db, channel_id)
+        "data": await get_channel_recording_mode_from_db(db, channel_id)
     }
 

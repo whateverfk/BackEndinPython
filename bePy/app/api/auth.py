@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.schemas.auth import RegisterDto, LoginDto, ChangePasswordDto
 from app.Models.user import User
-from app.api.deps import get_db, get_current_user, CurrentUser
+from app.api.deps import get_async_db, get_current_user, CurrentUser
 from app.core.security import create_jwt, hash_password, verify_password
 from app.core.constants import (
     ERROR_MSG_USERNAME_EXISTS,
@@ -16,8 +17,9 @@ router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
 
 @router.post("/register")
-def register(dto: RegisterDto, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.username == dto.username).first():
+async def register(dto: RegisterDto, db: AsyncSession = Depends(get_async_db)):
+    result = await db.execute(select(User).where(User.username == dto.username))
+    if result.scalars().first():
         raise HTTPException(400, ERROR_MSG_USERNAME_EXISTS)
 
     user = User(
@@ -29,18 +31,21 @@ def register(dto: RegisterDto, db: Session = Depends(get_db)):
 
    
     db.add(user)
-    db.commit()
-    db.refresh(user)
+    await db.commit()
+    await db.refresh(user)
 
     return {"token": create_jwt(user)}
 
 
 @router.post("/login")
-def login(dto: LoginDto, db: Session = Depends(get_db)):
-    user = db.query(User).filter(
-        User.username == dto.username,
-        User.is_active == True
-    ).first()
+async def login(dto: LoginDto, db: AsyncSession = Depends(get_async_db)):
+    result = await db.execute(
+        select(User).where(
+            User.username == dto.username,
+            User.is_active == True
+        )
+    )
+    user = result.scalars().first()
 
     if not user or not verify_password(dto.password, user.password_hash):
         raise HTTPException(401, ERROR_MSG_INVALID_CREDENTIALS)
@@ -49,15 +54,18 @@ def login(dto: LoginDto, db: Session = Depends(get_db)):
 
 
 @router.post("/change-password")
-def change_password(
+async def change_password(
     dto: ChangePasswordDto,
     current_user: CurrentUser = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
-    user = db.query(User).filter(
-        User.id == current_user.user_id,
-        User.is_active == True
-    ).first()
+    result = await db.execute(
+        select(User).where(
+            User.id == current_user.user_id,
+            User.is_active == True
+        )
+    )
+    user = result.scalars().first()
 
     if not user:
         raise HTTPException(404, ERROR_MSG_USER_NOT_FOUND)
@@ -66,7 +74,7 @@ def change_password(
         raise HTTPException(400, ERROR_MSG_OLD_PASSWORD_INCORRECT)
 
     user.password_hash = hash_password(dto.new_password)
-    db.commit()
+    await db.commit()
 
     return {"message": "Password updated"}
 

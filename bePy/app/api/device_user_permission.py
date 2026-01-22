@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
-from app.db.session import get_db
+from app.db.session import get_async_db as get_db
 from app.api.deps import get_current_user, CurrentUser
 from app.Models.device import Device
 from app.Models.device_user import DeviceUser
@@ -22,21 +23,23 @@ router = APIRouter(
 async def get_device_user_permissions(
     id: int,
     device_user_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
     """
     Get permissions for a specific device user.
     If permissions don't exist in DB, fetch from device.
     """
-    device_user = get_device_user_or_404(db, device_user_id, id)
+    device_user = await get_device_user_or_404(db, device_user_id, id, load_device=True)
     device = device_user.device
 
     # Check if we already have permissions in DB (checking just one global permission record as proxy)
     from app.Models.user_global_permissions import UserGlobalPermission
-    exists = db.query(UserGlobalPermission).filter(
-        UserGlobalPermission.device_user_id == device_user_id
-    ).first()
+    result = await db.execute(
+        select(UserGlobalPermission)
+        .where(UserGlobalPermission.device_user_id == device_user_id)
+    )
+    exists = result.scalars().first()
 
     if not exists:
         permission_service = HikDetailService()
@@ -51,27 +54,27 @@ async def get_device_user_permissions(
         if not permission_data:
             raise HTTPException(502, "Failed to fetch permission from device")
 
-        save_permissions(
+        await save_permissions(
             db=db,
             device_user_id=device_user_id,
             permission_data=permission_data
         )
 
-    return build_permission_response(db, device_user_id)
+    return await build_permission_response(db, device_user_id)
 
 
 @router.post("/{device_user_id}/permissions/sync")
 async def sync_user_permission(
     id: int,
     device_user_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
     """
     Fetch and update permissions from device for a user.
     """
-    device = get_device_or_404(db, id)
-    device_user = get_device_user_or_404(db, device_user_id, id)
+    device = await get_device_or_404(db, id)
+    device_user = await get_device_user_or_404(db, device_user_id, id, load_device=True)
 
     headers = build_hik_auth(device)
     hik = HikDetailService()
@@ -85,7 +88,7 @@ async def sync_user_permission(
     if not permission_data:
         raise HTTPException(502, "Cannot fetch permission from device")
 
-    save_permissions(
+    await save_permissions(
         db=db,
         device_user_id=device_user.id,
         permission_data=permission_data
@@ -99,14 +102,14 @@ async def update_device_user_permissions(
     id: int,
     device_user_id: int,
     payload: dict = Body(...),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
     """
     Update permissions for a device user on both the device and DB.
     """
-    device = get_device_or_404(db, id)
-    device_user = get_device_user_or_404(db, device_user_id, id)
+    device = await get_device_or_404(db, id)
+    device_user = await get_device_user_or_404(db, device_user_id, id, load_device=True)
 
     # Inject required IDs into payload for the service
     payload["device_id"] = id
@@ -131,7 +134,7 @@ async def update_device_user_permissions(
         )
 
         if permission_data:
-            save_permissions(
+            await save_permissions(
                 db=db,
                 device_user_id=device_user_id,
                 permission_data=permission_data
@@ -160,10 +163,10 @@ async def update_device_user_permissions(
 @router.post("/syncall")
 async def sync_all_device_user_permissions(
     id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
-    device = get_device_or_404(db, id)
+    device = await get_device_or_404(db, id)
     headers = build_hik_auth(device)
 
     # =========================
@@ -179,11 +182,13 @@ async def sync_all_device_user_permissions(
     # =========================
     # STEP 2: LOAD USERS FROM DB
     # =========================
-    device_users = (
-        db.query(DeviceUser)
-        .filter(DeviceUser.device_id == id)
-        .all()
+    # =========================
+    # STEP 2: LOAD USERS FROM DB
+    # =========================
+    result = await db.execute(
+        select(DeviceUser).where(DeviceUser.device_id == id)
     )
+    device_users = result.scalars().all()
 
     if not device_users:
         return {
@@ -217,7 +222,7 @@ async def sync_all_device_user_permissions(
                 })
                 continue
 
-            save_permissions(
+            await save_permissions(
                 db=db,
                 device_user_id=device_user.id,
                 permission_data=permission_data
@@ -232,7 +237,7 @@ async def sync_all_device_user_permissions(
                 "error": str(e)
             })
 
-    db.commit()
+    await db.commit()
 
     return {
         "success": True,

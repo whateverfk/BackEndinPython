@@ -1,10 +1,10 @@
 from sqlalchemy import select
 from app.Models.device_system_info import DeviceSystemInfo
-from app.db.session import get_db
+from app.db.session import get_async_db as get_db
 from app.features.GetDevicesDetail.HikDetailService import HikDetailService
 from app.Models.channel_extensions import ChannelExtension
 from app.Models.channel_stream_config import ChannelStreamConfig
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.Models.device_storage import DeviceStorage
 from app.Models.device_integration_users import DeviceIntegrationUser
 from app.Models.device_user import DeviceUser
@@ -13,11 +13,12 @@ from app.Models.user_global_permissions import UserGlobalPermission
 from app.Models.channel import Channel
 
 
-def saveSystemInfo(db: Session, system_info: dict):
-    obj = db.execute(
+async def saveSystemInfo(db: AsyncSession, system_info: dict):
+    result = await db.execute(
         select(DeviceSystemInfo)
         .where(DeviceSystemInfo.device_id == system_info["device_id"])
-    ).scalar_one_or_none()
+    )
+    obj = result.scalars().first()
 
     if obj:
         for k, v in system_info.items():
@@ -25,11 +26,11 @@ def saveSystemInfo(db: Session, system_info: dict):
     else:
         db.add(DeviceSystemInfo(**system_info))
 
-    db.commit()
+    await db.commit()
 
 
 async def sync_channel_config(
-    db: Session,
+    db: AsyncSession,
     device,
     channel,
     headers,
@@ -68,31 +69,32 @@ async def sync_channel_config(
 
     ext.motion_detect_enabled = motion_enabled
 
-    db.flush()
+    await db.flush()
 
 # -------------------------------
 # 1. Lấy thông tin từ DB
 # -------------------------------
-async def get_device_storage_from_db(db, device_id: int):
+async def get_device_storage_from_db(db: AsyncSession, device_id: int):
     """
     Lấy danh sách HDD của device từ DB.
     """
-    result = db.execute(select(DeviceStorage).where(DeviceStorage.device_id == device_id))
+    result = await db.execute(select(DeviceStorage).where(DeviceStorage.device_id == device_id))
     hdds = result.scalars().all()
     return hdds
 
 # -------------------------------
 # 2. Upsert thông tin HDD vào DB
 # -------------------------------
-def upsert_device_storage(
-    db: Session,
+async def upsert_device_storage(
+    db: AsyncSession,
     device_id: int,
     storage_list: list[dict]
 ):
-    existing = db.execute(
+    result = await db.execute(
         select(DeviceStorage)
         .where(DeviceStorage.device_id == device_id)
-    ).scalars().all()
+    )
+    existing = result.scalars().all()
 
     existing_map = {
         h.hdd_id: h for h in existing
@@ -126,30 +128,31 @@ def upsert_device_storage(
     if new_items:
         db.add_all(new_items)
 
-    db.commit()
+    await db.commit()
 
 
 
 async def get_device_integration_users_from_db(
-    db: Session,
+    db: AsyncSession,
     device_id: int
 ):
-    result =  db.execute(
+    result = await db.execute(
         select(DeviceIntegrationUser)
         .where(DeviceIntegrationUser.device_id == device_id)
         .order_by(DeviceIntegrationUser.user_id)
     )
     return result.scalars().all()
 
-def upsert_device_integration_users(
-    db: Session,
+async def upsert_device_integration_users(
+    db: AsyncSession,
     device_id: int,
     users: list[dict]
 ):
-    existing = db.execute(
+    result = await db.execute(
         select(DeviceIntegrationUser)
         .where(DeviceIntegrationUser.device_id == device_id)
-    ).scalars().all()
+    )
+    existing = result.scalars().all()
 
     existing_map = {u.user_id: u for u in existing}
     new_items = []
@@ -170,16 +173,15 @@ def upsert_device_integration_users(
     if new_items:
         db.add_all(new_items)
 
-    db.commit()
+    await db.commit()
 
-def upsert_device_users(
-    db: Session,
+async def upsert_device_users(
+    db: AsyncSession,
     device_id: int,
     users_data: list[dict]
 ):
-    existing = db.query(DeviceUser)\
-                 .filter(DeviceUser.device_id == device_id)\
-                 .all()
+    result = await db.execute(select(DeviceUser).where(DeviceUser.device_id == device_id))
+    existing = result.scalars().all()
 
     existing_map = {u.user_id: u for u in existing}
     incoming_ids = set()
@@ -211,7 +213,7 @@ def upsert_device_users(
 
 
 async def sync_device_users_from_isapi(
-    db: Session,
+    db: AsyncSession,
     device,
     headers
 ):
@@ -221,18 +223,18 @@ async def sync_device_users_from_isapi(
     if not users:
         return []
 
-    upsert_device_users(
+    await upsert_device_users(
         db=db,
         device_id=device.id,
         users_data=users
     )
-    db.commit()
+    await db.commit()
 
     return users
 
 
-def get_device_users_from_db(
-    db: Session,
+async def get_device_users_from_db(
+    db: AsyncSession,
     device_id: int,
     only_active: bool = True
 ):
@@ -240,14 +242,15 @@ def get_device_users_from_db(
     Lấy danh sách user của device từ DB
     """
 
-    query = db.query(DeviceUser).filter(
+    query = select(DeviceUser).where(
         DeviceUser.device_id == device_id
     )
 
     if only_active:
-        query = query.filter(DeviceUser.is_active == True)
+        query = query.where(DeviceUser.is_active == True)
 
-    users = query.order_by(DeviceUser.user_id.asc()).all()
+    result = await db.execute(query.order_by(DeviceUser.user_id.asc()))
+    users = result.scalars().all()
 
     return [
         {
@@ -285,11 +288,11 @@ GLOBAL_PERMISSION_MAP = {
 }
 
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 
-def save_permissions(
-    db: Session,
+async def save_permissions(
+    db: AsyncSession,
     device_user_id: int,
     permission_data: dict
 ):
@@ -297,15 +300,19 @@ def save_permissions(
         # ======================================================
         # 1. LẤY DEVICE_ID (CHỈ 1 QUERY)
         # ======================================================
-        device_id = db.execute(
+        result = await db.execute(
             select(DeviceUser.device_id)
             .where(DeviceUser.id == device_user_id)
-        ).scalar_one()
+        )
+        device_id = result.scalar_one()
 
         # ======================================================
         # 2. RESET CHANNEL PERMISSIONS (BULK DELETE)
         # ======================================================
-        db.execute(
+        # ======================================================
+        # 2. RESET CHANNEL PERMISSIONS (BULK DELETE)
+        # ======================================================
+        await db.execute(
             delete(UserChannelPermission)
             .where(UserChannelPermission.device_user_id == device_user_id)
         )
@@ -318,13 +325,14 @@ def save_permissions(
             if not global_perm:
                 continue
 
-            g = db.execute(
+            result = await db.execute(
                 select(UserGlobalPermission)
                 .where(
                     UserGlobalPermission.device_user_id == device_user_id,
                     UserGlobalPermission.scope == scope
                 )
-            ).scalar_one_or_none()
+            )
+            g = result.scalar_one_or_none()
 
             if not g:
                 g = UserGlobalPermission(
@@ -342,15 +350,19 @@ def save_permissions(
                 if xml_key in global_perm:
                     setattr(g, db_field, bool(global_perm[xml_key]))
 
-        db.flush()
+        await db.flush()
 
         # ======================================================
         # 4. CACHE CHANNEL (CHỈ 1 QUERY)
         # ======================================================
-        channels = db.execute(
+        # ======================================================
+        # 4. CACHE CHANNEL (CHỈ 1 QUERY)
+        # ======================================================
+        result = await db.execute(
             select(Channel)
             .where(Channel.device_id == device_id)
-        ).scalars().all()
+        )
+        channels = result.scalars().all()
 
         channel_map = {
             ch.channel_no: ch.id
@@ -387,10 +399,10 @@ def save_permissions(
         # 6. BULK INSERT CHANNEL PERMISSIONS
         # ======================================================
         if channel_permissions:
-            db.bulk_save_objects(channel_permissions)
+            db.add_all(channel_permissions)
 
-        db.commit()
+        await db.commit()
 
     except Exception:
-        db.rollback()
+        await db.rollback()
         raise

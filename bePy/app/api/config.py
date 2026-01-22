@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
-from app.db.session import get_db
+from app.db.session import get_async_db as get_db
 from app.api.deps import get_current_user, CurrentUser
 from app.Models.monitor_setting import MonitorSetting
 from app.schemas.monitor_setting import MonitorSettingOut, MonitorSettingCreate
@@ -14,13 +15,15 @@ router = APIRouter(prefix="/api/config", tags=["Config"])
 # GET: api/sync/setting
 # =========================
 @router.get("", response_model=MonitorSettingOut)
-def get_monitor_setting(
-    db: Session = Depends(get_db),
+async def get_monitor_setting(
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
-    setting = db.query(MonitorSetting).filter(
-        MonitorSetting.owner_superadmin_id == user.superadmin_id
-    ).first()
+    result = await db.execute(
+        select(MonitorSetting)
+        .where(MonitorSetting.owner_superadmin_id == user.superadmin_id)
+    )
+    setting = result.scalars().first()
 
     if not setting:
         # trả default nếu chưa có
@@ -31,8 +34,8 @@ def get_monitor_setting(
             owner_superadmin_id=user.superadmin_id
         )
         db.add(setting)
-        db.commit()
-        db.refresh(setting)
+        await db.commit()
+        await db.refresh(setting)
 
     return setting
 
@@ -41,9 +44,9 @@ def get_monitor_setting(
 # =========================
 
 @router.post("", response_model=MonitorSettingOut)
-def upsert_monitor_setting(
+async def upsert_monitor_setting(
     dto: MonitorSettingCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
     if dto.start_day > dto.end_day:
@@ -52,9 +55,11 @@ def upsert_monitor_setting(
             detail="start_day <= end_day pls "
         )
 
-    setting = db.query(MonitorSetting).filter(
-        MonitorSetting.owner_superadmin_id == user.superadmin_id
-    ).first()
+    result = await db.execute(
+        select(MonitorSetting)
+        .where(MonitorSetting.owner_superadmin_id == user.superadmin_id)
+    )
+    setting = result.scalars().first()
 
     if setting:
         setting.start_day = dto.start_day
@@ -69,6 +74,6 @@ def upsert_monitor_setting(
         )
         db.add(setting)
 
-    db.commit()
-    db.refresh(setting)
+    await db.commit()
+    await db.refresh(setting)
     return setting

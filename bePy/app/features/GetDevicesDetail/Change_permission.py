@@ -1,15 +1,15 @@
 
 from app.Models.channel import Channel
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from xml.etree.ElementTree import Element, SubElement, tostring
 from xml.dom import minidom
-from sqlalchemy.orm import Session
 from app.Models.device_user import DeviceUser
 
 
 # Trong file service hoặc utils
 
-def get_channel_map_from_device(db: Session, device_id: int) -> dict:
+async def get_channel_map_from_device(db: AsyncSession, device_id: int) -> dict:
     """
     Lấy danh sách channel từ device và tạo map: channel.id -> (channel_no - 1) / 100
     
@@ -21,9 +21,10 @@ def get_channel_map_from_device(db: Session, device_id: int) -> dict:
         dict: {channel_id: calculated_value}
         Ví dụ: {1: 10, 2: 20, 3: 10} với channel_no tương ứng là 1001, 2001, 1001
     """
-    channels = db.query(Channel).filter(
+    result = await db.execute(select(Channel).filter(
         Channel.device_id == device_id
-    ).all()
+    ))
+    channels = result.scalars().all()
     
     channel_map = {}
     for ch in channels:
@@ -144,8 +145,8 @@ def create_ptz_channel_permission_list_xml(
     return list_elem
 
 
-def create_user_permission_xml(
-    db: Session,
+async def create_user_permission_xml(
+    db: AsyncSession,
     device_id: int,
     device_user_id: int,
     payload: dict  # Payload từ frontend
@@ -173,15 +174,16 @@ def create_user_permission_xml(
         str: XML string 
     """
     # Lấy thông tin device_user
-    device_user = db.query(DeviceUser).filter(
+    result = await db.execute(select(DeviceUser).filter(
         DeviceUser.id == device_user_id
-    ).first()
+    ))
+    device_user = result.scalars().first()
     
     if not device_user:
         raise ValueError(f"DeviceUser {device_user_id} not found")
     
     # Lấy channel map
-    channel_map = get_channel_map_from_device(db, device_id)
+    channel_map = await get_channel_map_from_device(db, device_id)
     
     # Lấy permissions từ payload
     permissions = payload.get("permissions", {})

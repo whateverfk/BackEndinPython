@@ -1,5 +1,5 @@
 from sqlalchemy import select, delete
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.Models.channel_recording_mode import ChannelRecordingMode
 from app.Models.channel_recoding_mode_time_line import ChannelRecordingModeTimeline
 from app.features.Schedule_Racord_Mode.HikRecordingModeService import HikRecordingModeService
@@ -25,8 +25,8 @@ DAY_REVERSE_MAP = {
     6: "Sunday",
 }
 
-def upsert_channel_recording_mode(
-    db: Session,
+async def upsert_channel_recording_mode(
+    db: AsyncSession,
     data: dict
 ):
     """
@@ -51,10 +51,11 @@ def upsert_channel_recording_mode(
     # ==================================
     # 1. UPSERT CHANNEL RECORDING MODE
     # ==================================
-    mode_obj = db.execute(
+    result = await db.execute(
         select(ChannelRecordingMode)
         .where(ChannelRecordingMode.channel_id == channel_id)
-    ).scalar_one_or_none()
+    )
+    mode_obj = result.scalars().first()
 
     if not mode_obj:
         mode_obj = ChannelRecordingMode(
@@ -65,12 +66,12 @@ def upsert_channel_recording_mode(
 
     mode_obj.default_mode = RecordingMode(data["default_mode"])
 
-    db.flush()
+    await db.flush()
 
     # ==================================
     # 2. RESET TIMELINE (BY CHANNEL)
     # ==================================
-    db.execute(
+    await db.execute(
         delete(ChannelRecordingModeTimeline)
         .where(ChannelRecordingModeTimeline.channel_id == channel_id)
     )
@@ -96,12 +97,12 @@ def upsert_channel_recording_mode(
         )
 
     if timelines:
-        db.bulk_save_objects(timelines)
+        db.add_all(timelines)
 
-    db.commit()
+    await db.commit()
 
 async def sync_channel_recording_mode(
-        db: Session,
+        db: AsyncSession,
         device,
         channel,
         headers
@@ -117,21 +118,22 @@ async def sync_channel_recording_mode(
         if not data:
             return None
 
-        upsert_channel_recording_mode(db, data)
+        await upsert_channel_recording_mode(db, data)
 
         return data
 
-def get_channel_recording_mode_from_db(
-    db: Session,
+async def get_channel_recording_mode_from_db(
+    db: AsyncSession,
     channel_id: int
 ):
     # ===============================
     # 1. LẤY DEFAULT MODE
     # ===============================
-    mode = db.execute(
+    result = await db.execute(
         select(ChannelRecordingMode)
         .where(ChannelRecordingMode.channel_id == channel_id)
-    ).scalar_one_or_none()
+    )
+    mode = result.scalars().first()
 
     if not mode:
         return None
@@ -139,14 +141,18 @@ def get_channel_recording_mode_from_db(
     # ===============================
     # 2. LẤY TIMELINE THEO CHANNEL
     # ===============================
-    timelines = db.execute(
+    # ===============================
+    # 2. LẤY TIMELINE THEO CHANNEL
+    # ===============================
+    result = await db.execute(
         select(ChannelRecordingModeTimeline)
         .where(ChannelRecordingModeTimeline.channel_id == channel_id)
         .order_by(
             ChannelRecordingModeTimeline.day_of_week,
             ChannelRecordingModeTimeline.start_time
         )
-    ).scalars().all()
+    )
+    timelines = result.scalars().all()
 
     # ===============================
     # 3. MAP RA FORMAT FRONTEND

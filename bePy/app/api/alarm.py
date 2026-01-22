@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import and_, or_, select, delete
 from datetime import datetime
 
-from app.db.session import get_db
+from app.db.session import get_async_db as get_db
 from app.Models.device import Device
 from app.api.deps import CurrentUser, get_current_user
 from app.Models.AlarmMessege import AlarmMessage
@@ -22,18 +22,19 @@ PAGE_SIZE = 25
 # GET ALARMS (CURSOR PAGINATION)
 # =========================
 @router.get("")
-def get_alarm_messages(
+@router.get("")
+async def get_alarm_messages(
     cursor_time: datetime | None = None,
     cursor_id: int | None = None,
    
     device_id: int | None = Query(None),
     event: str | None = Query(None),
     channel_id_in_device: str | None = Query(None),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
     query = (
-        db.query(
+        select(
             AlarmMessage.id,
             AlarmMessage.device_id,
             AlarmMessage.event,
@@ -44,17 +45,17 @@ def get_alarm_messages(
             Device.ip_web,  # Thêm ip_web từ Device
         )
         .outerjoin(Device, AlarmMessage.device_id == Device.id)  # Join với Device
-        .filter(AlarmMessage.user_id == user.superadmin_id)
+        .where(AlarmMessage.user_id == user.superadmin_id)
     )
     # =========================
     # FILTERS
     # =========================
     if device_id is not None:
-        query = query.filter(AlarmMessage.device_id == device_id)
+        query = query.where(AlarmMessage.device_id == device_id)
     if event is not None:
-        query = query.filter(AlarmMessage.event == event)
+        query = query.where(AlarmMessage.event == event)
     if channel_id_in_device is not None:
-        query = query.filter(
+        query = query.where(
             AlarmMessage.channel_id_in_device == channel_id_in_device
         )
     # =========================
@@ -65,7 +66,7 @@ def get_alarm_messages(
         AlarmMessage.id.desc(),
     )
     if cursor_time and cursor_id:
-        query = query.filter(
+        query = query.where(
             or_(
                 AlarmMessage.created_at < cursor_time,
                 and_(
@@ -74,7 +75,8 @@ def get_alarm_messages(
                 ),
             )
         )
-    rows = query.limit(PAGE_SIZE + 1).all()
+    result = await db.execute(query.limit(PAGE_SIZE + 1))
+    rows = result.all()
     has_more = len(rows) > PAGE_SIZE
     items = rows[:PAGE_SIZE]
     next_cursor_time = None
@@ -106,25 +108,26 @@ def get_alarm_messages(
 # DELETE ONE ALARM
 # =========================
 @router.delete("/{alarm_id}")
-def delete_alarm_message(
+@router.delete("/{alarm_id}")
+async def delete_alarm_message(
     alarm_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
-    alarm = (
-        db.query(AlarmMessage)
-        .filter(
+    result = await db.execute(
+        select(AlarmMessage)
+        .where(
             AlarmMessage.id == alarm_id,
             AlarmMessage.user_id == user.superadmin_id
         )
-        .first()
     )
+    alarm = result.scalars().first()
 
     if not alarm:
         raise HTTPException(status_code=404, detail=ERROR_MSG_ALARM_NOT_FOUND)
 
-    db.delete(alarm)
-    db.commit()
+    await db.delete(alarm)
+    await db.commit()
 
     return {"detail": "Alarm deleted successfully"}
 
@@ -133,17 +136,22 @@ def delete_alarm_message(
 # DELETE ALL ALARMS
 # =========================
 @router.delete("")
-def delete_all_alarm_messages(
-    db: Session = Depends(get_db),
+@router.delete("")
+async def delete_all_alarm_messages(
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
-    deleted_count = (
-        db.query(AlarmMessage)
-        .filter(AlarmMessage.user_id == user.superadmin_id)
-        .delete(synchronize_session=False)
-    )
+    # For sync session, default delete() returns count.
+    # For async session, we execute delete() statement.
+    # To get count, we might need a separate count query or check rowcount if supported (DBAPI dependent).
+    # Since existing logic returns count, we should try to preserve it.
+    
+    # Simple approach: delete. rowcount might be available in result.
+    stmt = delete(AlarmMessage).where(AlarmMessage.user_id == user.superadmin_id)
+    result = await db.execute(stmt)
+    deleted_count = result.rowcount if hasattr(result, 'rowcount') else 0
 
-    db.commit()
+    await db.commit()
 
     return {
         "detail": "All alarms deleted",

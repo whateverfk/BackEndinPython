@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, delete
 from datetime import datetime, timedelta, timezone
-
-from app.api.deps import get_db, get_current_user, CurrentUser
+from app.api.deps import  get_current_user, CurrentUser
+from app.db.session import get_async_db as get_db
 from app.Models.sync_log import SyncLog
 from app.schemas.sync_log import SyncLogOut
 from app.schemas.log_search import DeviceLogRequest
@@ -21,34 +22,36 @@ router = APIRouter(
 # GET: api/logs
 # =========================
 @router.get("", response_model=list[SyncLogOut])
-def get_logs(
-    db: Session = Depends(get_db),
+async def get_logs(
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
-    cleanup_old_logs(db)
-    logs = (
-        db.query(SyncLog)
-        .filter(SyncLog.owner_superadmin_id == user.superadmin_id)
+    await cleanup_old_logs(db)
+    result = await db.execute(
+        select(SyncLog)
+        .where(SyncLog.owner_superadmin_id == user.superadmin_id)
         .order_by(SyncLog.sync_time.desc())
         .limit(200)
-        .all()
     )
+    logs = result.scalars().all()
 
     return logs
 
-def cleanup_old_logs(db: Session):
-    cutoff = datetime.now().astimezone() - timedelta(days=7)
+async def cleanup_old_logs(db: AsyncSession):
+    cutoff = datetime.now() - timedelta(days=7)
 
-    db.query(SyncLog).filter(
-        SyncLog.sync_time < cutoff
-    ).delete(synchronize_session=False)
-    db.commit()
+    await db.execute(
+        delete(SyncLog).where(
+            SyncLog.sync_time < cutoff
+        )
+    )
+    await db.commit()
 
 @router.post("/device/{device_id}")
 async def get_device_logs(
     device_id: int,
     body: DeviceLogRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
     """
@@ -56,7 +59,7 @@ async def get_device_logs(
     """
 
     # ---- get device ----
-    device = get_device_or_404(db, device_id)
+    device = await get_device_or_404(db, device_id)
 
     # ---- build auth headers ----
     try:

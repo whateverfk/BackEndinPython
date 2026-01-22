@@ -6,7 +6,6 @@ from contextlib import asynccontextmanager
 import asyncio
 import os
 from dotenv import load_dotenv
-
 from app.routers import api_router
 from app.features.sync.auto_sync import sync_background_worker
 from app.features.background.update_data_record import auto_sync_all_devices

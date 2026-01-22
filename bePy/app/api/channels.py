@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_db
+from app.db.session import get_async_db as get_db
 from app.Models.device import Device
 from app.Models.channel import Channel
 from app.api.deps import get_current_user, CurrentUser
@@ -21,15 +21,15 @@ router = APIRouter(
 @router.post("/recording-mode/sync")
 async def sync_recording_mode_all_channels(
     device_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
     
 ):
     """
     Sync recording mode for all channels of a device from ISAPI.
     """
-    device = get_device_or_404(db, device_id)
-    channels = get_device_channels(db, device_id)
+    device = await get_device_or_404(db, device_id)
+    channels = await get_device_channels(db, device_id)
 
     if not channels:
         raise HTTPException(404, "No channels found")

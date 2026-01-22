@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user, CurrentUser
-from app.db.session import get_db
+from app.db.session import get_async_db as get_db
 from app.features.GetDevicesDetail.HikDetailService import HikDetailService
 from app.features.GetDevicesDetail.WorkWithDb import (
     upsert_device_users,
@@ -19,13 +19,13 @@ router = APIRouter(
 @router.post("/sync")
 async def sync_device_users(
     id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
     """
     Fetch user list from device and upsert into database.
     """
-    device = get_device_or_404(db, id)
+    device = await get_device_or_404(db, id)
 
     headers = build_hik_auth(device)
     hik = HikDetailService()
@@ -38,7 +38,7 @@ async def sync_device_users(
             detail="Cannot fetch users from device"
         )
 
-    upsert_device_users(
+    await upsert_device_users(
         db=db,
         device_id=device.id,
         users_data=users
@@ -51,15 +51,15 @@ async def sync_device_users(
 
 
 @router.get("")
-def get_device_users(
+async def get_device_users(
     id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
     """
     Get device users from database.
     """
-    return get_device_users_from_db(
+    return await get_device_users_from_db(
         db=db,
         device_id=id
     )

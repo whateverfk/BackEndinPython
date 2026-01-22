@@ -1,4 +1,5 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from app.Models.device import Device
 from app.Models.sync_log import SyncLog
 from app.features.resolver import StrategyResolver
@@ -29,22 +30,26 @@ class SyncEngine:
         self.time = TimeProvider()
         self.resolver = StrategyResolver()
 
-    async def sync_by_superadmin(self, db: Session, superadmin_id):
+    async def sync_by_superadmin(self, db: AsyncSession, superadmin_id):
         # Nếu superadmin_id là UUID object, chuyển sang string
         if isinstance(superadmin_id, uuid.UUID):
             superadmin_id = str(superadmin_id)
 
-        devices = db.query(Device).filter(
-            Device.owner_superadmin_id == superadmin_id,
-            Device.is_checked == True
-        ).all()
+        result = await db.execute(
+            select(Device)
+            .where(
+                Device.owner_superadmin_id == superadmin_id,
+                Device.is_checked == True
+            )
+        )
+        devices = result.scalars().all()
 
         for d in devices:
             await self._sync_one(db, d, superadmin_id)
 
-        db.commit()
+        await db.commit()
 
-    async def _sync_one(self, db: Session, device, superadmin_id):
+    async def _sync_one(self, db: AsyncSession, device, superadmin_id):
         ok = await ping_ip(device.ip_nvr)
         if not ok:
             db.add(SyncLog(

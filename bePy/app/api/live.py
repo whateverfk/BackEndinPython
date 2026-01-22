@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, CurrentUser
-from app.db.session import get_db
+from app.db.session import get_async_db
 from app.features.Live_View.live_view import LiveView
 from app.core.logger import setup_logger
 
@@ -20,7 +20,7 @@ async def start_live(
     device_id: int,
     channel_id: int, 
     user: CurrentUser = Depends(get_current_user),          # user_id từ token 
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Start live HLS cho channel, trả về URL index.m3u8
@@ -40,7 +40,7 @@ async def stop_live(
     device_id: int,
     channel_id: int,
     user: CurrentUser = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Release live stream, loai bo ffmpeg nếu không còn user nào xem

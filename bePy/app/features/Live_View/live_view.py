@@ -3,17 +3,21 @@ import xml.etree.ElementTree as ET
 import urllib.parse
 import threading
 import subprocess
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from app.core.http_client import get_http_client
 from app.features.deps import build_hik_auth
 from app.Models.user import User
 from app.core.device_crypto import decrypt_device_password
 from app.Models.device import Device
 from app.Models.channel import Channel
+from app.core.logger import app_logger
 import psutil
 import shutil
 import threading
 import time
+import asyncio
 import os
 from dotenv import load_dotenv
 
@@ -92,19 +96,25 @@ class LiveView:
     # =========================
     async def build_ffmpeg_hls_process(
         self,
-        db: Session,
+        db: AsyncSession,
         device_id: int,
         channel_id: int,
     ):
-        device = db.query(Device).filter(Device.id == device_id).first()
+        result = await db.execute(select(Device).where(Device.id == device_id))
+        device = result.scalars().first()
         if not device:
             raise Exception("Device not found")
 
-        channel = db.query(Channel).filter(
-            Channel.id == channel_id,
-            Channel.device_id == device.id,
-            Channel.is_active == True
-        ).first()
+        result = await db.execute(
+            select(Channel).where(
+                Channel.id == channel_id,
+                Channel.device_id == device.id,
+                Channel.is_active == True
+            ).options(
+                selectinload(Channel.stream_config)
+            )
+        )
+        channel = result.scalars().first()
         if not channel:
             raise Exception("Channel not found")
 
@@ -164,13 +174,16 @@ class LiveView:
 
         return stream, rtsp_url, channel.channel_no,ip
 
-    def is_hls_ready(self, m3u8_path: str) -> bool:
+    async def is_hls_ready(self, m3u8_path: str) -> bool:
         if not os.path.exists(m3u8_path):
             return False
 
         try:
-            with open(m3u8_path, "r", encoding="utf-8") as f:
-                content = f.read()
+            def read_file():
+                with open(m3u8_path, "r", encoding="utf-8") as f:
+                    return f.read()
+            
+            content = await asyncio.to_thread(read_file)
             return "#EXTINF" in content
         except Exception:
             return False
@@ -179,20 +192,24 @@ class LiveView:
     # =========================
     # Lấy STREAM Rồi decode các thứ
     # =========================
-    async def acquire_channel_stream(self, db, device_id: int, channel_id: int, user_id: int) -> dict:
+    async def acquire_channel_stream(self, db: AsyncSession, device_id: int, channel_id: int, user_id: int) -> dict:
         """
         Bắt đầu stream cho user. Nếu stream đang chạy, chỉ tăng refcount/user set.
         """
         # Xây RTSP URL
-        print("aubot to FFmpeg")
-        device = db.query(Device).filter(Device.id == device_id).first()
+        app_logger.info("About to start FFmpeg process")
+        result = await db.execute(select(Device).where(Device.id == device_id))
+        device = result.scalars().first()
         if not device:
             raise Exception("Device not found")
 
-        channel = db.query(Channel).filter(
-            Channel.id == channel_id,
-            Channel.device_id == device.id,
-        ).first()
+        result = await db.execute(
+            select(Channel).where(
+                Channel.id == channel_id,
+                Channel.device_id == device.id,
+            )
+        )
+        channel = result.scalars().first()
         if not channel:
             raise Exception("Channel not found")
 
@@ -201,18 +218,23 @@ class LiveView:
         password = urllib.parse.quote(device.password)
         rtsp_port = await self.get_rtsp_port(device, build_hik_auth(device))
         rtsp_url = f"rtsp://{username}:{password}@{ip}:{rtsp_port}/ISAPI/Streaming/channels/{channel.channel_no}"
-        print(f"rtsp {rtsp_url}")
+        
+        # Log masked URL
+        masked_rtsp_url = f"rtsp://{username}:******@{ip}:{rtsp_port}/ISAPI/Streaming/channels/{channel.channel_no}"
+        app_logger.info(f"RTSP URL: {masked_rtsp_url}")
+
         info = self.running_streams.get(rtsp_url)
-        print(f"infor {info}")
+        app_logger.info(f"Stream info found: {bool(info)}")
+        
         if info:
             # Nếu user chưa có trong set, thêm vào
             if user_id not in info["users"]:
                 info["users"].add(user_id)
                 info["refcount"] += 1
-                print(f"[ACQUIRE] User {user_id} joined stream {rtsp_url}, refcount = {info['refcount']}")
+                app_logger.info(f"[ACQUIRE] User {user_id} joined stream {masked_rtsp_url}, refcount = {info['refcount']}")
         else:
             # Tạo process FFmpeg
-            print("fk error in build_ffmpeg_hls_process ")
+            app_logger.info("Initializing new FFmpeg process")
             safe_ip = ip.replace(":", "_")
             hls_dir = os.path.join(self.HLS_ROOT, safe_ip, f"channel_{channel.channel_no}")
 
@@ -220,8 +242,9 @@ class LiveView:
                 shutil.rmtree(hls_dir)
 
             os.makedirs(hls_dir, exist_ok=True)
-            stream, rtsp_url, channel_no ,ip= await self.build_ffmpeg_hls_process(db, device_id, channel_id)
-            print("fk error in complie ")
+            stream, _, channel_no, ip = await self.build_ffmpeg_hls_process(db, device_id, channel_id)
+            
+            app_logger.info("Compiling FFmpeg stream")
             cmd = stream.compile()
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -233,43 +256,49 @@ class LiveView:
                  user_id: time.time()
         }
             }
-            print(f"[ACQUIRE] FFmpeg started for {rtsp_url}, user {user_id}, refcount = 1")
+            app_logger.info(f"[ACQUIRE] FFmpeg started for {masked_rtsp_url}, user {user_id}, refcount = 1")
 
             # Log FFmpeg output
             def log_ffmpeg(p):
                 for line in p.stderr:
-                    print("[FFMPEG]", line.decode(errors="ignore"))
+                    # Avoid logging every single frame line to reduce noise, or log debug
+                    # app_logger.debug(f"[FFMPEG] {line.decode(errors='ignore').strip()}")
+                    pass 
 
             threading.Thread(target=log_ffmpeg, args=(proc,), daemon=True).start()
             m3u8_path = self.build_hls_output_path(ip, channel_no)
             for _ in range(20):  # ~10s
-                if self.is_hls_ready(m3u8_path):
+                if await self.is_hls_ready(m3u8_path):
                     break
-                time.sleep(0.5)
+                await asyncio.sleep(0.5)
             else:
                 raise Exception("HLS not ready")
 
-            time.sleep(0.5)
+            await asyncio.sleep(0.5)
 
         hls_url = self.build_hls_url(ip, channel.channel_no)
         return {"hls_url": hls_url}
 
-    async def release_channel_stream(self, db, device_id: int, channel_id: int, user_id: int, delay: int = 4):
+    async def release_channel_stream(self, db: AsyncSession, device_id: int, channel_id: int, user_id: int, delay: int = 4):
 
         """
         Giảm refcount stream cho user. Terminate FFmpeg nếu không còn user nào xem.
         """
-        device = db.query(Device).filter(Device.id == device_id).first()
+        result = await db.execute(select(Device).where(Device.id == device_id))
+        device = result.scalars().first()
         if not device:
-            print("Device not found")
+            app_logger.warning("Device not found")
             return
 
-        channel = db.query(Channel).filter(
-            Channel.id == channel_id,
-            Channel.device_id == device.id,
-        ).first()
+        result = await db.execute(
+            select(Channel).where(
+                Channel.id == channel_id,
+                Channel.device_id == device.id,
+            )
+        )
+        channel = result.scalars().first()
         if not channel:
-            print("Channel not found")
+            app_logger.warning("Channel not found")
             return
 
         ip = device.ip_nvr or device.ip_web
@@ -280,15 +309,15 @@ class LiveView:
 
         info = self.running_streams.get(rtsp_url)
         if not info:
-            print(f"[RELEASE] Stream {rtsp_url} chưa chạy hoặc đã release")
+            app_logger.info(f"[RELEASE] Stream not found or already released")
             return
 
         if user_id in info["users"]:
             info["users"].remove(user_id)
             info["refcount"] -= 1
-            print(f"[RELEASE] User {user_id} left stream {rtsp_url}, refcount = {info['refcount']}")
+            app_logger.info(f"[RELEASE] User {user_id} left stream, refcount = {info['refcount']}")
         else:
-            print(f"[RELEASE] User {user_id} không có trong stream {rtsp_url}")
+            app_logger.info(f"[RELEASE] User {user_id} not in stream")
             return
 
         if info["refcount"] <= 0:
@@ -297,15 +326,15 @@ class LiveView:
                 current = self.running_streams.get(rtsp_url)
                 if current and current["refcount"] <= 0:
                     proc = current["proc"]
-                    print(f"[TERMINATE] Killing FFmpeg for {rtsp_url}")
+                    app_logger.info(f"[TERMINATE] Killing FFmpeg")
                     proc.terminate()
                     try:
                         proc.wait(timeout=5)
                     except subprocess.TimeoutExpired:
                         proc.kill()
-                        print(f"[TERMINATE] FFmpeg killed for {rtsp_url}")
+                        app_logger.info(f"[TERMINATE] FFmpeg killed")
                     del self.running_streams[rtsp_url]
-                    print(f"[TERMINATE] FFmpeg terminated for {rtsp_url} after {delay}s delay")
+                    app_logger.info(f"[TERMINATE] FFmpeg terminated after {delay}s delay")
 
             t = threading.Timer(delay, terminate_stream)
             t.start()
@@ -318,41 +347,38 @@ class LiveView:
 
     def start_cleanup_loop(self, timeout=12):
         def loop():
-            print("[CLEANUP] cleanup loop started, timeout =", timeout)
+            app_logger.info(f"[CLEANUP] cleanup loop started, timeout ={timeout}")
             while True:
                 now = time.time()
                 
                 for rtsp_url, info in list(self.running_streams.items()):
-                    print(f"[CLEANUP] checking stream {rtsp_url}")
-                    print(f"  users      = {info['users']}")
-                    print(f"  last_seen  = {info['last_seen']}")
-                    print(f"  refcount   = {info['refcount']}")
-
+                    # app_logger.debug(f"[CLEANUP] checking stream {rtsp_url}")
+                    # app_logger.debug(f"  users      = {info['users']}")
+                    
                     dead_users = []
                     for uid, ts in info["last_seen"].items():
                         delta = now - ts
-                        print(f"    user {uid}: last_seen {delta:.1f}s ago")
                         if delta > timeout:
                             dead_users.append(uid)
 
                     for uid in dead_users:
-                        print(f"[CLEANUP] user {uid} TIMEOUT → remove")
+                        app_logger.info(f"[CLEANUP] user {uid} TIMEOUT -> remove")
                         info["users"].discard(uid)
                         info["last_seen"].pop(uid, None)
                         info["refcount"] -= 1
 
                     if info["refcount"] <= 0:
-                        print(f"[CLEANUP] refcount <= 0 → kill ffmpeg {rtsp_url}")
+                        app_logger.info(f"[CLEANUP] refcount <= 0 -> kill ffmpeg")
                         proc = info["proc"]
                         proc.terminate()
                         try:
                             proc.wait(timeout=5)
                         except subprocess.TimeoutExpired:
                             proc.kill()
-                            print("[CLEANUP] ffmpeg force killed")
+                            app_logger.info("[CLEANUP] ffmpeg force killed")
 
                         del self.running_streams[rtsp_url]
-                        print("[CLEANUP] stream removed")
+                        app_logger.info("[CLEANUP] stream removed")
 
                 time.sleep(5)
 

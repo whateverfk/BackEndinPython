@@ -1,11 +1,12 @@
 
 from typing import Dict, Any, List
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from app.Models.user_global_permissions import UserGlobalPermission
 from app.Models.user_channel_permissions import UserChannelPermission
 
 
-def build_permission_response(db: Session, device_user_id: int) -> Dict[str, Any]:
+async def build_permission_response(db: AsyncSession, device_user_id: int) -> Dict[str, Any]:
     
     result = {
         "local": {"global": {}, "channels": {}},
@@ -13,9 +14,11 @@ def build_permission_response(db: Session, device_user_id: int) -> Dict[str, Any
     }
 
     # 1. GLOBAL PERMISSIONS
-    globals_query = db.query(UserGlobalPermission).filter(
-        UserGlobalPermission.device_user_id == device_user_id
-    ).all()
+    stmt_result = await db.execute(
+        select(UserGlobalPermission)
+        .where(UserGlobalPermission.device_user_id == device_user_id)
+    )
+    globals_query = stmt_result.scalars().all()
 
     for g in globals_query:
         result[g.scope]["global"] = {
@@ -38,10 +41,14 @@ def build_permission_response(db: Session, device_user_id: int) -> Dict[str, Any
         }
 
     # 2. CHANNEL PERMISSIONS
-    channels_query = db.query(UserChannelPermission).filter(
-        UserChannelPermission.device_user_id == device_user_id,
-        UserChannelPermission.enabled == True
-    ).all()
+    stmt_result = await db.execute(
+        select(UserChannelPermission)
+        .where(
+            UserChannelPermission.device_user_id == device_user_id,
+            UserChannelPermission.enabled == True
+        )
+    )
+    channels_query = stmt_result.scalars().all()
     
     for ch in channels_query:
         scope = ch.scope          # local | remote

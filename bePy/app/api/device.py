@@ -1,9 +1,11 @@
 from datetime import datetime, timedelta, date
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
+from sqlalchemy import func, select, delete
 
-from app.api.deps import get_db, get_current_user, CurrentUser
+from app.api.deps import get_current_user, CurrentUser
+from app.db.session import get_async_db as get_db
 from app.core.device_crypto import encrypt_device_password
 from app.Models.device import Device
 from app.Models.channel import Channel
@@ -85,12 +87,12 @@ def test_device_connection(
 # GET: /api/devices
 # =========================
 @router.get("", response_model=list[DeviceOut])
-def get_devices(
-    db: Session = Depends(get_db),
+async def get_devices(
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
     """Get all devices for current user"""
-    return get_all_devices(db, user.superadmin_id)
+    return await get_all_devices(db, user.superadmin_id)
 
 
 
@@ -99,12 +101,12 @@ def get_devices(
 # GET: /api/ active devices
 # =========================
 @router.get("/active", response_model=list[DeviceOut])
-def get_active_devices_endpoint(
-    db: Session = Depends(get_db),
+async def get_active_devices_endpoint(
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
     """Get active (checked) devices for current user"""
-    return get_active_devices(db, user.superadmin_id)
+    return await get_active_devices(db, user.superadmin_id)
 
 
 
@@ -113,14 +115,14 @@ from app.core.device_crypto import encrypt_device_password
 # POST: /api/devices
 # =========================
 @router.post("", response_model=DeviceOut, status_code=status.HTTP_201_CREATED)
-def create_device(
+async def create_device(
     dto: DeviceCreate,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
     """Create a new device"""
-    if device_exists(db, dto.ip_web, user.superadmin_id):
+    if await device_exists(db, dto.ip_web, user.superadmin_id):
         raise HTTPException(status_code=409, detail=ERROR_MSG_DEVICE_EXISTS)
 
     device = Device(
@@ -134,8 +136,8 @@ def create_device(
     )
 
     db.add(device)
-    db.commit()
-    db.refresh(device)
+    await db.commit()
+    await db.refresh(device)
     
     # Trigger background initialization
     background_tasks.add_task(trigger_device_init_data, device.id)
@@ -147,16 +149,16 @@ def create_device(
 # PUT: /api/devices/{id}
 # =========================
 @router.put("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def update_device(
+async def update_device(
     id: int,
     dto: DeviceUpdate,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
     """Update device configuration (partial update allowed)"""
 
-    device = get_device_or_404(db, id, user.superadmin_id)
+    device = await get_device_or_404(db, id, user.superadmin_id)
 
     # Chỉ lấy những field frontend gửi lên
     data = dto.model_dump(exclude_unset=True)
@@ -177,7 +179,7 @@ def update_device(
         setattr(device, field, value)
 
 
-    db.commit()
+    await db.commit()
 
     # init lại data nếu đổi ip
     if should_reinitialize:
@@ -191,54 +193,55 @@ def update_device(
 # DELETE: /api/devices/{id}
 # =========================
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_device(
+async def delete_device(
     id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
     """Delete a device"""
-    device = get_device_or_404(db, id, user.superadmin_id)
+    device = await get_device_or_404(db, id, user.superadmin_id)
     
-    db.delete(device)
-    db.commit()
+    await db.delete(device)
+    await db.commit()
     return
 
 @router.get("/{id}", response_model=DeviceOut)
-def get_device(
+async def get_device(
     id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
     """Get a single device by ID"""
-    return get_device_or_404(db, id, user.superadmin_id)
+    return await get_device_or_404(db, id, user.superadmin_id)
 
 @router.get("/{id}/channels")
-def get_device_channels(
+async def get_device_channels(
     id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
     
-    return db.query(Channel).filter(
-        Channel.device_id == id
-    ).all()
+    result = await db.execute(
+        select(Channel).where(Channel.device_id == id)
+    )
+    return result.scalars().all()
 
 
 @router.get(
     "/channels/{channel_id}/record_days_full",
     response_model=list[ChannelRecordDayOut]
 )
-def get_channel_record_days_full(
+async def get_channel_record_days_full(
     channel_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
-    days = (
-        db.query(ChannelRecordDay)
-        .filter(ChannelRecordDay.channel_id == channel_id)
+    result = await db.execute(
+        select(ChannelRecordDay)
+        .where(ChannelRecordDay.channel_id == channel_id)
         .order_by(ChannelRecordDay.record_date.desc())
-        .all()
     )
+    days = result.scalars().all()
 
     return days
 
@@ -246,10 +249,10 @@ def get_channel_record_days_full(
 @router.post("/{id}/get_channels_record_info")
 async def update_channels_record_info(
     id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
-    device = get_device_or_404(db, id, user.superadmin_id)
+    device = await get_device_or_404(db, id, user.superadmin_id)
     hikservice = HikRecordService()
 
     try:
@@ -260,7 +263,7 @@ async def update_channels_record_info(
         return {"message": "Channels record info updated successfully"}
 
     except Exception as e:
-        db.rollback()
+        await db.rollback()
         logger.error(f"[SYNC ERROR] Device {id}: {e}")
         raise HTTPException(
             status_code=500,
@@ -269,10 +272,10 @@ async def update_channels_record_info(
 
 
 @router.get("/{id}/channels/month_data/{date_str}")
-def get_all_channels_data_in_month(
+async def get_all_channels_data_in_month(
     id: int,
     date_str: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
     """ trả về channel với record day - time range tại tháng tương ứng.
@@ -281,7 +284,7 @@ def get_all_channels_data_in_month(
             [ { channel: {id,name,channel_no,oldest_record_date,latest_record_date},
               record_days: [ {record_date, has_record,
                 time_ranges: [{start_time,end_time}, ...] } ] }, ... ] """
-    device = get_device_or_404(db, id, user.superadmin_id)
+    device = await get_device_or_404(db, id, user.superadmin_id)
 
     try:
         parsed_date = datetime.strptime(date_str, "%Y-%m")
@@ -298,35 +301,38 @@ def get_all_channels_data_in_month(
     else:
         last_day = date(year, month + 1, 1) - timedelta(days=1)
 
-    channels = db.query(Channel).filter(
+    result = await db.execute(select(Channel).where(
         Channel.device_id == device.id
-    ).all()
+    ))
+    channels = result.scalars().all()
 
-    oldest_record_date_query = db.query(func.min(Channel.oldest_record_date).label('oldest_record_date')
-    ).filter(
-        Channel.device_id == device.id
-    ).scalar()
+    oldest_record_date_query = await db.execute(
+        select(func.min(Channel.oldest_record_date).label('oldest_record_date'))
+        .where(Channel.device_id == device.id)
+    )
+    oldest_record_date = oldest_record_date_query.scalar()
 
     # Extract month and year from the oldest record date if available
     oldest_record_month = None
-    if oldest_record_date_query:
-        oldest_record_month = oldest_record_date_query.strftime("%Y-%m")
+    if oldest_record_date:
+        oldest_record_month = oldest_record_date.strftime("%Y-%m")
 
 
     result = []
 
     for ch in channels:
-        days = (
-            db.query(ChannelRecordDay)
+        query = (
+            select(ChannelRecordDay)
             .options(joinedload(ChannelRecordDay.time_ranges))
-            .filter(
+            .where(
                 ChannelRecordDay.channel_id == ch.id,
                 ChannelRecordDay.record_date >= first_day,
                 ChannelRecordDay.record_date <= last_day
             )
             .order_by(ChannelRecordDay.record_date.desc())
-            .all()
         )
+        days_result = await db.execute(query)
+        days = days_result.scalars().unique().all()
 
         rd_list = []
         for rd in days:
@@ -367,10 +373,10 @@ def get_all_channels_data_in_month(
 @router.post("/{id}/channelsdata/sync")
 async def sync_device_channels_data(
     id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
-    device = get_device_or_404(db, id, user.superadmin_id)
+    device = await get_device_or_404(db, id, user.superadmin_id)
 
     hikservice = HikRecordService()
     await hikservice.sync_device_channels_data_core(
@@ -378,6 +384,6 @@ async def sync_device_channels_data(
         device=device
     )
 
-    db.commit()
+    await db.commit()
 
     return {"message": "Synced"}

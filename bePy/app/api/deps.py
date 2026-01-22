@@ -1,11 +1,10 @@
-from sqlalchemy.orm import Session
-from typing import Optional
-from uuid import UUID
 from fastapi import Header, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.Models.user import User
 from app.core.security import decode_jwt
-from app.db.session import get_db
+from app.db.session import get_async_db
 from app.core.constants import (
     JWT_CLAIM_NAME_ID,
     JWT_CLAIM_ROLE,
@@ -28,9 +27,9 @@ class CurrentUser:
         self.superadmin_id: str | None = payload.get(JWT_CLAIM_SUPERADMIN_ID)
 
 
-def get_current_user(
+async def get_current_user(
     authorization: str | None = Header(None),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ) -> CurrentUser:
     
     if not authorization or not authorization.startswith("Bearer "):
@@ -39,10 +38,13 @@ def get_current_user(
     token = authorization.split(" ")[1]
     payload = decode_jwt(token)
 
-    user = db.query(User).filter(
-        User.id == payload[JWT_CLAIM_NAME_ID],
-        User.is_active == True
-    ).first()
+    result = await db.execute(
+        select(User).where(
+            User.id == payload[JWT_CLAIM_NAME_ID],
+            User.is_active == True
+        )
+    )
+    user = result.scalars().first()
 
     if not user:
         raise HTTPException(401, ERROR_MSG_USER_NOT_FOUND)

@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
-from app.api.deps import get_db, get_current_user, CurrentUser
+from app.db.session import get_async_db as get_db
+from app.api.deps import  get_current_user, CurrentUser
 from app.features.sync.engine import SyncEngine
 from app.Models.sync_setting import SyncSetting
 from app.schemas.sync_setting import SyncSettingOut
@@ -12,7 +14,7 @@ router = APIRouter(prefix="/api/sync", tags=["Sync"])
 
 @router.post("/now")
 async def sync_now(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
     engine = SyncEngine()
@@ -23,13 +25,15 @@ async def sync_now(
 # GET: api/sync/setting
 # =========================
 @router.get("/setting", response_model=SyncSettingOut)
-def get_setting(
-    db: Session = Depends(get_db),
+async def get_setting(
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
-    setting = db.query(SyncSetting).filter(
-        SyncSetting.owner_superadmin_id == user.superadmin_id
-    ).first()
+    result = await db.execute(
+        select(SyncSetting)
+        .where(SyncSetting.owner_superadmin_id == user.superadmin_id)
+    )
+    setting = result.scalars().first()
 
     if not setting:
         return SyncSettingOut(
@@ -44,14 +48,16 @@ def get_setting(
 # POST: api/sync/setting
 # =========================
 @router.post("/setting")
-def update_setting(
+async def update_setting(
     dto: SyncSettingUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user)
 ):
-    setting = db.query(SyncSetting).filter(
-        SyncSetting.owner_superadmin_id == user.superadmin_id
-    ).first()
+    result = await db.execute(
+        select(SyncSetting)
+        .where(SyncSetting.owner_superadmin_id == user.superadmin_id)
+    )
+    setting = result.scalars().first()
 
     if not setting:
         setting = SyncSetting(
@@ -64,6 +70,6 @@ def update_setting(
         setting.is_enabled = dto.is_enabled
         setting.interval_minutes = dto.interval_minutes
 
-    db.commit()
+    await db.commit()
     
     return {"message": "Saved"}

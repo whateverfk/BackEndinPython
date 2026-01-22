@@ -1,4 +1,6 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from typing import Optional
 
 from app.Models.device import Device
@@ -7,20 +9,21 @@ from app.Models.device_user import DeviceUser
 from app.core.exceptions import DeviceNotFoundError, ChannelNotFoundError, UserNotFoundError
 
 
-def get_device_or_404(
-    db: Session,
+async def get_device_or_404(
+    db: AsyncSession,
     device_id: int,
     owner_superadmin_id: Optional[str] = None
 ) -> Device:
     """
     Get device by ID, optionally filtered by owner superadmin.
     """
-    query = db.query(Device).filter(Device.id == device_id)
+    query = select(Device).where(Device.id == device_id)
     
     if owner_superadmin_id is not None:
-        query = query.filter(Device.owner_superadmin_id == owner_superadmin_id)
+        query = query.where(Device.owner_superadmin_id == owner_superadmin_id)
     
-    device = query.first()
+    result = await db.execute(query)
+    device = result.scalars().first()
     
     if not device:
         raise DeviceNotFoundError()
@@ -28,20 +31,32 @@ def get_device_or_404(
     return device
 
 
-def get_channel_or_404(
-    db: Session,
+async def get_channel_or_404(
+    db: AsyncSession,
     channel_id: int,
-    device_id: Optional[int] = None
+    device_id: Optional[int] = None,
+    load_details: bool = False,
+    load_device: bool = False,
 ) -> Channel:
     """
     Get channel by ID, optionally filtered by device.
     """
-    query = db.query(Channel).filter(Channel.id == channel_id)
+    query = select(Channel).where(Channel.id == channel_id)
     
     if device_id is not None:
-        query = query.filter(Channel.device_id == device_id)
+        query = query.where(Channel.device_id == device_id)
+
+    if load_details:
+        query = query.options(
+            selectinload(Channel.extension),
+            selectinload(Channel.stream_config)
+        )
+
+    if load_device:
+        query = query.options(selectinload(Channel.device))
     
-    channel = query.first()
+    result = await db.execute(query)
+    channel = result.scalars().first()
     
     if not channel:
         raise ChannelNotFoundError()
@@ -49,20 +64,25 @@ def get_channel_or_404(
     return channel
 
 
-def get_device_user_or_404(
-    db: Session,
+async def get_device_user_or_404(
+    db: AsyncSession,
     device_user_id: int,
-    device_id: Optional[int] = None
+    device_id: Optional[int] = None,
+    load_device: bool = False
 ) -> DeviceUser:
     """
     Get device user by ID, optionally filtered by device.
     """
-    query = db.query(DeviceUser).filter(DeviceUser.id == device_user_id)
+    query = select(DeviceUser).where(DeviceUser.id == device_user_id)
     
     if device_id is not None:
-        query = query.filter(DeviceUser.device_id == device_id)
+        query = query.where(DeviceUser.device_id == device_id)
         
-    user = query.first()
+    if load_device:
+        query = query.options(selectinload(DeviceUser.device))
+        
+    result = await db.execute(query)
+    user = result.scalars().first()
     
     if not user:
         raise UserNotFoundError()
@@ -70,45 +90,49 @@ def get_device_user_or_404(
     return user
 
 
-def get_active_devices(db: Session, owner_superadmin_id: str) -> list[Device]:
+async def get_active_devices(db: AsyncSession, owner_superadmin_id: str) -> list[Device]:
     """
     Get all active (checked) devices for a superadmin.
     """
-    return db.query(Device).filter(
+    result = await db.execute(select(Device).where(
         Device.owner_superadmin_id == owner_superadmin_id,
         Device.is_checked == True
-    ).all()
+    ))
+    return result.scalars().all()
 
 
-def get_all_devices(db: Session, owner_superadmin_id: str) -> list[Device]:
+async def get_all_devices(db: AsyncSession, owner_superadmin_id: str) -> list[Device]:
     """
     Get all devices for a superadmin.
     """
-    return db.query(Device).filter(
+    result = await db.execute(select(Device).where(
         Device.owner_superadmin_id == owner_superadmin_id
-    ).all()
+    ))
+    return result.scalars().all()
 
 
-def get_device_channels(db: Session, device_id: int) -> list[Channel]:
+async def get_device_channels(db: AsyncSession, device_id: int) -> list[Channel]:
     """
     Get all channels for a device.
     """
-    return db.query(Channel).filter(
+    result = await db.execute(select(Channel).where(
         Channel.device_id == device_id
-    ).all()
+    ))
+    return result.scalars().all()
 
 
-def device_exists(
-    db: Session,
+async def device_exists(
+    db: AsyncSession,
     ip_web: str,
     owner_superadmin_id: str
 ) -> bool:
     """
     Check if a device with given IP already exists for a superadmin.
     """
-    exists = db.query(Device).filter(
+    result = await db.execute(select(Device).where(
         Device.ip_web == ip_web,
         Device.owner_superadmin_id == owner_superadmin_id
-    ).first()
+    ))
+    exists = result.scalars().first()
     
     return exists is not None
