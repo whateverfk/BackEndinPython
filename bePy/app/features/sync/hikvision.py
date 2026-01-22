@@ -5,6 +5,7 @@ from datetime import datetime
 from app.features.sync.base import SyncStrategy
 from app.schemas.sync import SyncResult
 from app.core.http_client import get_http_client
+from app.features.deps import build_hik_auth
 
 class HikvisionSync(SyncStrategy):
     def __init__(self):
@@ -22,14 +23,9 @@ class HikvisionSync(SyncStrategy):
 
         url = f"http://{device.ip_web}/ISAPI/System/time"
 
-        auth = base64.b64encode(
-            f"{device.username}:{device.password}".encode()
-        ).decode()
+        
 
-        headers = {
-            "Authorization": f"Basic {auth}",
-            "Content-Type": "application/xml"
-        }
+        headers = build_hik_auth(device=device)
 
         try:
             

@@ -9,18 +9,6 @@ from ping3 import ping
 import uuid
 
 
-async def ping_ip(ip: str, timeout: int = 2) -> bool:
-    try:
-        # ping() là sync → đưa vào thread
-        delay = await asyncio.to_thread(
-            ping,
-            ip,
-            timeout=timeout,
-            unit="ms"
-        )
-        return delay is not None
-    except Exception:
-        return False
 
 
 
@@ -50,18 +38,6 @@ class SyncEngine:
         await db.commit()
 
     async def _sync_one(self, db: AsyncSession, device, superadmin_id):
-        ok = await ping_ip(device.ip_nvr)
-        if not ok:
-            db.add(SyncLog(
-                device_id=device.id,
-                ip=device.ip_nvr,
-                is_success=False,
-                sync_time=self.time.now(),
-                message=f"IP:{device.ip_web} - Ping failed",
-                owner_superadmin_id=superadmin_id
-            ))
-            print(f"IP:{device.ip_web} - Ping failed")
-            return
 
         try:
             strategy = self.resolver.sync_resolve(device.brand)

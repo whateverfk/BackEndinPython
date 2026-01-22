@@ -1,10 +1,10 @@
 import asyncio
-from sqlalchemy.orm import Session
-from app.db.session import SessionLocal
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, delete
+from app.db.session import AsyncSessionLocal
 from app.Models.device import Device
 from app.features.RecordInfo.hikrecord import HikRecordService
 from datetime import datetime, date
-from sqlalchemy.orm import Session
 from app.Models.channel import Channel
 from app.Models.channel_record_day import ChannelRecordDay
 from app.Models.channel_record_time_range import ChannelRecordTimeRange
@@ -18,51 +18,57 @@ logger = setup_logger(__name__)
 
 
 async def auto_sync_all_devices():
-    db: Session = SessionLocal()
-    
+    async with AsyncSessionLocal() as db:
+        try:
+            result = await db.execute(
+                select(Device).where(Device.is_checked == True)
+            )
+            devices = result.scalars().all()
+            
+            record_service = HikRecordService()
+            for device in devices:
+                try:
+                    await record_service.sync_device_channels_data_core(
+                        db=db,
+                        device=device
+                    )
+                    await db.commit()
+                except Exception as e:
+                    await db.rollback()
+                    logger.error(f"[SYNC ERROR] Device {device.id}: {e}")
 
-    try:
-        devices = db.query(Device).filter(
-            Device.is_checked == True
-        ).all()
-        record_service = HikRecordService()
-        for device in devices:
-            try:
-                await record_service.sync_device_channels_data_core(
-                    db=db,
-                    device=device
-                )
-                db.commit()
-            except Exception as e:
-                db.rollback()
-                logger.error(f"[SYNC ERROR] Device {device.id}: {e}")
-
-    finally:
-        db.close()
+        except Exception as e:
+            logger.error(f"[SYNC ERROR] Global: {e}")
 
 
-def delete_records_before_date(db: Session, channel_id: int, before_date):
+async def delete_records_before_date(db: AsyncSession, channel_id: int, before_date):
     subq = (
-        db.query(ChannelRecordDay.id)
-        .filter(
+        select(ChannelRecordDay.id)
+        .where(
             ChannelRecordDay.channel_id == channel_id,
             ChannelRecordDay.record_date < before_date
         )
-        .subquery()
+        .scalar_subquery()
     )
 
-    db.query(ChannelRecordTimeRange).filter(
-        ChannelRecordTimeRange.record_day_id.in_(subq)
-    ).delete(synchronize_session=False)
+    await db.execute(
+        delete(ChannelRecordTimeRange)
+        .where(
+            ChannelRecordTimeRange.record_day_id.in_(subq)
+        )
+    )
 
-    db.query(ChannelRecordDay).filter(
-        ChannelRecordDay.channel_id == channel_id,
-        ChannelRecordDay.record_date < before_date
-    ).delete(synchronize_session=False)
+    await db.execute(
+        delete(ChannelRecordDay)
+        .where(
+            ChannelRecordDay.channel_id == channel_id,
+            ChannelRecordDay.record_date < before_date
+        )
+    )
 
 
 async def refresh_oldest_record_of_channel(
-    db: Session,
+    db: AsyncSession,
     device,
     channel: Channel,
     headers: dict
@@ -104,7 +110,7 @@ async def refresh_oldest_record_of_channel(
     if not new_oldest:
         print(f"Channel {channel.channel_no} không tìm thấy oldest record mới, đặt oldest_record_date = None")
         channel.oldest_record_date = None
-        db.flush()
+        await db.flush()
         return
 
     # 3. Chuyển new_oldest về datetime.date nếu cần
@@ -112,10 +118,10 @@ async def refresh_oldest_record_of_channel(
 
 
     # 4. Xóa dữ liệu cũ trước oldest mới
-    delete_records_before_date(db, channel.id, new_oldest_dt)
+    await delete_records_before_date(db, channel.id, new_oldest_dt)
 
 
-    db.flush()
+    await db.flush()
 
     # 5. Cập nhật oldest_record_date
     channel.oldest_record_date = new_oldest_dt
@@ -130,10 +136,13 @@ async def refresh_oldest_record_of_channel(
     segments = await hik_service.merge_time_ranges(segments)
 
     # Tạo ChannelRecordDay mới nếu chưa có
-    record_day = db.query(ChannelRecordDay).filter_by(
-        channel_id=channel.id,
-        record_date=new_oldest_dt
-    ).first()
+    result = await db.execute(
+        select(ChannelRecordDay).where(
+            ChannelRecordDay.channel_id == channel.id,
+            ChannelRecordDay.record_date == new_oldest_dt
+        )
+    )
+    record_day = result.scalars().first()
 
     if not record_day:
         record_day = ChannelRecordDay(
@@ -142,13 +151,15 @@ async def refresh_oldest_record_of_channel(
             has_record=True
         )
         db.add(record_day)
-        db.flush()
+        await db.flush()
 
     # Xóa các segment cũ của record_day (nếu có)
-    db.query(ChannelRecordTimeRange).filter(
-        ChannelRecordTimeRange.record_day_id == record_day.id
-    ).delete(synchronize_session=False)
-    db.flush()
+    await db.execute(
+        delete(ChannelRecordTimeRange).where(
+            ChannelRecordTimeRange.record_day_id == record_day.id
+        )
+    )
+    await db.flush()
 
     # Thêm lại segment mới
     for seg in segments:
@@ -158,15 +169,17 @@ async def refresh_oldest_record_of_channel(
             end_time=seg.end_time
         ))
 
-    db.flush()
+    await db.flush()
     print(f"Channel {channel.channel_no} oldest_record_date đã cập nhật: {new_oldest_dt}, {len(segments)} segments mới")
 
 
-async def refresh_device_oldest_records(db: Session, device):
+async def refresh_device_oldest_records(db: AsyncSession, device):
     """
     Refresh oldest_record_date cho tất cả channel của device
     """
     headers = build_hik_auth(device)
-    channels = db.query(Channel).filter(Channel.device_id == device.id).all()
+    result = await db.execute(select(Channel).where(Channel.device_id == device.id))
+    channels = result.scalars().all()
+    
     for ch in channels:
         await refresh_oldest_record_of_channel(db, device, ch, headers)
