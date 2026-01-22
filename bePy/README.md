@@ -11,6 +11,7 @@ HLS_DIR=D:/Hls
 N8N_WEBHOOK_URL = "URL wwebhook nao do"
 DEVICE_SECRET_KEY = "ram_dom_text_are_OK"
 HLS_DIR = Chỗ để lưu m3u8 + ts file tạm cho live view 
+ALLOWED_ORIGINS = "*"
 ~
 Thay url domain để Fetch API tại file config.js
 
