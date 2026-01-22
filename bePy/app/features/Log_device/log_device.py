@@ -2,6 +2,9 @@ import uuid
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from app.core.http_client import get_http_client
+from app.core.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 MINOR_DISPLAY_MAP = {
     # Alarm
@@ -177,5 +180,5 @@ async def fetch_isapi_logs(
         }
 
     except Exception as ex:
-        print(f"[ISAPI][LOG_SEARCH] Error fetching logs: {ex}")
+        logger.error(f"[ISAPI][LOG_SEARCH] Error fetching logs: {ex}")
         return None

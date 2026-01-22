@@ -83,7 +83,7 @@ async def refresh_oldest_record_of_channel(
     hik_service = HikRecordService()
 
     if not channel.oldest_record_date:
-        print(f"Channel {channel.channel_no} chưa có oldest_record_date, bỏ qua")
+        logger.info(f"Channel {channel.channel_no} chưa có oldest_record_date, bỏ qua")
         return
 
     oldest_date = to_date(channel.oldest_record_date)
@@ -100,15 +100,15 @@ async def refresh_oldest_record_of_channel(
     )
 
     if status and status[0]["has_record"]:
-        print(f"Channel {channel.channel_no} oldest_record_date {oldest_date} vẫn còn record")
+        logger.info(f"Channel {channel.channel_no} oldest_record_date {oldest_date} vẫn còn record")
         return  # Không cần làm gì cả
 
-    print(f"Channel {channel.channel_no} oldest_record_date {oldest_date} đã mất record, tìm oldest mới...")
+    logger.info(f"Channel {channel.channel_no} oldest_record_date {oldest_date} đã mất record, tìm oldest mới...")
 
     # 2. Lấy oldest mới từ device
     new_oldest = await hik_service.oldest_record_date(device, channel.channel_no, headers)
     if not new_oldest:
-        print(f"Channel {channel.channel_no} không tìm thấy oldest record mới, đặt oldest_record_date = None")
+        logger.info(f"Channel {channel.channel_no} không tìm thấy oldest record mới, đặt oldest_record_date = None")
         channel.oldest_record_date = None
         await db.flush()
         return
@@ -170,7 +170,7 @@ async def refresh_oldest_record_of_channel(
         ))
 
     await db.flush()
-    print(f"Channel {channel.channel_no} oldest_record_date đã cập nhật: {new_oldest_dt}, {len(segments)} segments mới")
+    logger.info(f"Channel {channel.channel_no} oldest_record_date đã cập nhật: {new_oldest_dt}, {len(segments)} segments mới")
 
 
 async def refresh_device_oldest_records(db: AsyncSession, device):

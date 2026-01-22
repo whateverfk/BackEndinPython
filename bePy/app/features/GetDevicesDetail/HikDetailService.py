@@ -10,6 +10,10 @@ from app.core.http_client import get_http_client
 from app.features.GetDevicesDetail.Change_permission import create_user_permission_xml
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.logger import setup_logger
+
+logger = setup_logger(__name__)
+
 class HikDetailService:
     def __init__(self):
         self.client = get_http_client()
@@ -49,7 +53,7 @@ class HikDetailService:
         base_url = f"http://{device.ip_web}"
         url = f"{base_url}/ISAPI/System/deviceInfo"
 
-        print(f"Requesting URL: {repr(url)}")
+        logger.info(f"Requesting URL: {url}")
 
         try:
             
@@ -79,11 +83,11 @@ class HikDetailService:
                     "mac_address": mac_address
                 }
 
-                print("System info fetched:", system_info)
+                logger.info(f"System info fetched: {system_info}")
                 return system_info
 
         except Exception as ex:
-            print(f"Error fetching system info from {url}: {ex}")
+            logger.error(f"Error fetching system info from {url}: {ex}")
             return None
 
     async def fetch_stream_config(self, device, channel, headers):
@@ -305,9 +309,9 @@ class HikDetailService:
             </Video>
         </StreamingChannel>
         """
-            print("paload xml:" + payload)
+            # logger.info("paload xml:" + payload)
             resp = await self.client.put(url, content=payload, headers=headers)
-            print(resp)
+            # logger.info(resp)
             resp.raise_for_status()
 
     
@@ -349,39 +353,33 @@ class HikDetailService:
         </Video>
     </StreamingChannel>
     """
-        print("paload xml:" + payload)
+        # logger.info("paload xml:" + payload)
         resp = await self.client.put(url, content=payload, headers=headers)
-        print(resp)
+        # logger.info(resp)
         resp.raise_for_status()
 
 
 
     async def push_channel_config_to_device(self, device, channel, headers):
-        print(" PUSH START",
-            "device=", device.id,
-            "channel=", channel.channel_no,
-            "type=", channel.connected_type)
+        logger.info(f"PUSH START device={device.id} channel={channel.channel_no} type={channel.connected_type}")
 
-        print(" NAME")
         if channel.connected_type == "local":
             await self.put_channel_name_local(device, channel, channel.name, headers)
         else:
             await self.put_channel_name_proxy(device, channel, channel.name, headers)
 
-        print(" STREAM")
         if channel.stream_config:
             if channel.connected_type == "local":
                 await self.put_stream_config_local(device, channel, channel.stream_config, headers)
                 
             else:
                 await self.put_stream_config_proxy(device, channel, channel.stream_config, headers)
-        print(" MOTION")
+        
         await self.put_motion_detection(
             device, channel, channel.extension.motion_detect_enabled, headers
         )
-        print(" MOTION OK")
 
-        print(" PUSH DONE")
+        logger.info("PUSH DONE")
 
     def hik_find(self,parent, tag):
         return parent.find(f"hik:{tag}", HIK_NS)
@@ -410,7 +408,7 @@ class HikDetailService:
         video = self.hik_find(root, "Video")
 
         if video is None:
-            print("⚠ Video node not found in XML")
+            logger.warning("Video node not found in XML")
             return {
                 "resolutions": [],
                 "video_codec": [],
@@ -446,7 +444,7 @@ class HikDetailService:
         # -------- Codec --------
         codec_node = self.hik_find(video, "videoCodecType")
         if codec_node is None:
-            print(" videoCodecType node missing")
+            # logger.warning(" videoCodecType node missing")
             video_codecs = []
         else:
             video_codecs = codec_node.attrib.get("opt", "").split(",") or [codec_node.text]
@@ -455,7 +453,7 @@ class HikDetailService:
         fixed_q_node = self.hik_find(video, "fixedQuality")
 
         if fixed_q_node is None:
-            print(" fixedQuality node missing")
+            # logger.warning(" fixedQuality node missing")
             fixed_quality = {
                 "options": [],
                 "current": None,
@@ -529,7 +527,7 @@ class HikDetailService:
         base_url = f"http://{device.ip_web}"
         url = f"{base_url}/ISAPI/ContentMgmt/Storage"
 
-        print(f" from storage: {repr(url)}")
+        # logger.info(f" from storage: {url}")
 
         try:
             
@@ -559,7 +557,7 @@ class HikDetailService:
                 return storage_list
 
         except Exception as ex:
-            print(f"Error fetching storage info from {url}: {ex}")
+            logger.error(f"Error fetching storage info from {url}: {ex}")
             return []
 
 
@@ -591,7 +589,7 @@ class HikDetailService:
             return users
 
         except Exception as ex:
-            print(f"[ONVIF][User] Error: {ex}")
+            logger.error(f"[ONVIF][User] Error: {ex}")
             return []
 
 
@@ -630,7 +628,7 @@ class HikDetailService:
                 return users
 
         except Exception as ex:
-            print(f"[ISAPI][USERS] Error fetching users from {url}: {ex}")
+            logger.error(f"[ISAPI][USERS] Error fetching users from {url}: {ex}")
             return []
 
     def xml_bool(self,el, tag, ns):
@@ -733,7 +731,7 @@ class HikDetailService:
             return result
 
         except Exception as ex:
-            print(f"[ISAPI][USER_PERMISSION] Error fetching from {url}: {ex}")
+            logger.error(f"[ISAPI][USER_PERMISSION] Error fetching from {url}: {ex}")
             return None
 
     def parse_hik_response_status(self,xml_text: str) -> dict:

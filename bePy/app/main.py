@@ -13,6 +13,9 @@ from app.features.background.daily_refresh_oldest import daily_refresh_oldest
 from app.features.background.scheduler import start_scheduler, stop_scheduler
 from app.features.background.save_alarm import AlarmSupervisor
 from app.core.http_client import close_http_client
+from app.core.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 class NoCacheStaticFiles(StaticFiles):
@@ -53,7 +56,7 @@ async def lifespan(app: FastAPI):
 
     # scheduler để cập nhật data monitor mỗi /5p và cập nhật data monitor ngày cũ nhất mỗi 1h sáng 
     start_scheduler()
-    print("AUTO SYNC (data) STARTED")
+    logger.info("AUTO SYNC (data) STARTED")
 
     yield
 
@@ -65,7 +68,7 @@ async def lifespan(app: FastAPI):
     try:
         await sync_task
     except asyncio.CancelledError:
-        print("AUTO SYNC CANCELLED")
+        logger.info("AUTO SYNC CANCELLED")
 
 # =========================
 # APP

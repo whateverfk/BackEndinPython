@@ -4,8 +4,6 @@ from app.Models.device import Device
 from app.Models.sync_log import SyncLog
 from app.features.resolver import StrategyResolver
 from app.core.time_provider import TimeProvider
-import asyncio
-from ping3 import ping
 import uuid
 
 

@@ -3,6 +3,9 @@ from app.core.http_client import get_http_client
 from app.Models.AlarmMessege import AlarmMessage
 from app.Models.channel import Channel
 from app.db.session import AsyncSessionLocal, SessionLocal
+from app.core.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 
@@ -155,7 +158,7 @@ async def get_alarm(device, headers):
                 except ET.ParseError:
                     continue
                 except Exception as ex:
-                    print(f"[ALERT_STREAM] Error: {ex}")
+                    logger.error(f"[ALERT_STREAM] Error: {ex}")
 # =========================
 # MESSAGE BUILDER
 # =========================
@@ -217,7 +220,7 @@ async def send_alarm_to_n8n_webhook(
         resp.raise_for_status()
 
     except Exception as ex:
-        print(f"[N8N WEBHOOK] Send failed: {ex}")
+        logger.error(f"[N8N WEBHOOK] Send failed: {ex}")
 
 
 async def save_alarm_message_async(
